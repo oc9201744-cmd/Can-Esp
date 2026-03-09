@@ -1,27 +1,45 @@
-name: Build
+name: Build Blackshark Tweak
 
 on:
   push:
-    branches:
-      - "**"
+    branches: [ "main" ]
   pull_request:
-  workflow_dispatch:
+    branches: [ "main" ]
+  workflow_dispatch: # Manuel tetikleme için
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
         with:
-          python-version: "3.x"
+          submodules: recursive
 
-      - name: Install PlatformIO
-        run: pip install --upgrade platformio
+      - name: Install Theos
+        run: |
+          sudo git clone --recursive https://github.com/theos/theos.git /var/theos
+          sudo chown -R $(id -u):$(id -g) /var/theos
 
-      - name: Build project
-        run: pio run
+      - name: Setup iOS SDK
+        run: |
+          # Theos için 14.5 veya 16.5 gibi bir SDK indirin
+          git clone https://github.com/theos/sdks.git /tmp/sdks
+          cp -r /tmp/sdks/iPhoneOS14.5.sdk /var/theos/sdks/
+
+      - name: Setup Environment Variables
+        run: |
+          echo "THEOS=/var/theos" >> $GITHUB_ENV
+          echo "THEOS_DEVICE_IP=127.0.0.1" >> $GITHUB_ENV
+
+      - name: Build Tweak
+        run: |
+          # Makefile'daki değişkenleri kullanarak derleme yap
+          make clean package FINALPACKAGE=1 FOR_RELEASE=1
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Blackshark-DEB
+          path: packages/*.deb
