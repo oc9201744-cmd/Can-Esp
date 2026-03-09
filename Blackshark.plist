@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- NON-JAILBREAK BUILD -->
+    <!-- Bu plist dosyası non-JB build'de kullanılmaz. -->
+    <!-- MobileSubstrate filter'ı kaldırıldı. -->
+    <!-- Dylib IPA içine insert_dylib ile enjekte edilmelidir. -->
+    <!-- Desteklenen bundle ID'ler: -->
+    <!-- com.rekoo.pubgm / com.pubg.imobile / vn.vng.pubgmobile / com.pubg.krmobile / com.tencent.ig -->
+</dict>
+</plist>
