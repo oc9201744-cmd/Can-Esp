@@ -1,31 +1,55 @@
-name: Blackshark Build
+name: Blackshark Tweak Build
 
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: macos-latest
+
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Install Theos & SDK
+      - name: Install Theos, SDK & ldid
         run: |
+          # 1. Theos Kurulumu
           sudo git clone --recursive https://github.com/theos/theos.git /var/theos
+          
+          # 2. SDK Kurulumu
           git clone https://github.com/theos/sdks.git /tmp/sdks
           sudo mv /tmp/sdks/iPhoneOS14.5.sdk /var/theos/sdks/
+          
+          # 3. İmzama Aracı (ldid) Kurulumu
+          brew install ldid
+          
+          # 4. İzinler ve Ortam Değişkenleri
           sudo chown -R $(id -u):$(id -g) /var/theos
           echo "THEOS=/var/theos" >> $GITHUB_ENV
 
-      - name: Build
+      - name: Fix Framework Structure & Headers
         run: |
-          # Eğer JRMemory.framework ana dizindeyse sorun çıkmayacaktır
-          make package FINALPACKAGE=1
+          # Klasör yapısını ve include yollarını otomatik düzeltir
+          mkdir -p JRMemory.framework/Headers
+          if [ -f "JRMemory.framework/MemScan.h" ]; then
+            mv JRMemory.framework/MemScan.h JRMemory.framework/Headers/
+          fi
+          sed -i '' 's|#include "JRMemory.framework/Headers/MemScan.h"|#import <JRMemory/MemScan.h>|g' Dolphins/Module/菜单.mm
+          chmod +x JRMemory.framework/JRMemory || true
+
+      - name: Build Blackshark Package
+        run: |
+          # Theos araçlarını PATH'e ekle ve derle
+          export PATH=$THEOS/bin:$PATH
+          make clean package FINALPACKAGE=1 FOR_RELEASE=1
 
       - name: Upload Artifact (V4)
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Blackshark-Tweak
+          name: Blackshark-Tweak-Final
           path: packages/*.deb
