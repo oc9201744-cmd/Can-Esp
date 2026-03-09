@@ -1,18 +1,12 @@
-name: Blackshark Tweak Build
+name: Blackshark Build
 
-on:
-  push:
-    branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
-  workflow_dispatch: # Manuel tetikleme butonu
+on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
     runs-on: macos-latest
-
     steps:
-      - name: Checkout Repository
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -25,28 +19,13 @@ jobs:
           sudo chown -R $(id -u):$(id -g) /var/theos
           echo "THEOS=/var/theos" >> $GITHUB_ENV
 
-      - name: Setup JRMemory Framework (Auto-Fix)
+      - name: Build
         run: |
-          # 1. Eksik framework'ü zip olarak indiriyoruz
-          curl -L "https://github.com/pax-v/SDKs/raw/master/JRMemory.framework.zip" -o JRMemory.framework.zip
-          
-          # 2. Zipten çıkarıyoruz (Artık dosya değil gerçek bir klasör olacak)
-          unzip -o JRMemory.framework.zip
-          rm JRMemory.framework.zip
-          
-          # 3. Kodun içindeki o gıcık "include" yolunu otomatik düzeltiyoruz
-          # Tırnaklı yolu, framework standartı olan < > işaretine çevirir
-          sed -i '' 's|#include "JRMemory.framework/Headers/MemScan.h"|#import <JRMemory/MemScan.h>|g' Dolphins/Module/菜单.mm
-
-      - name: Build Blackshark Package
-        run: |
-          # Makefile'daki ayarları kullanarak derle
-          make clean package FINALPACKAGE=1 FOR_RELEASE=1
+          # Eğer JRMemory.framework ana dizindeyse sorun çıkmayacaktır
+          make package FINALPACKAGE=1
 
       - name: Upload Artifact (V4)
-        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Blackshark-Tweak-Package
+          name: Blackshark-Tweak
           path: packages/*.deb
-          if-no-files-found: error
