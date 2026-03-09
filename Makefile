@@ -1,27 +1,38 @@
-export THEOS=/var/theos
-ARCHS = arm64
-# arm64e gerekiyorsa ekle
+export THEOS = /var/theos
+ARCHS = arm64 arm64e
 DEBUG = 0
 FINALPACKAGE = 1
 FOR_RELEASE = 1
-# THEOS_PACKAGE_SCHEME = rootless  <-- JB-specific, non-JB için kaldırıldı
 
 include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = Blackshark
 
+# Framework Tanımlamaları
+# JRMemory'yi EXTRA_FRAMEWORKS'e ekledik
 Blackshark_FRAMEWORKS = IOKit UIKit Foundation Security QuartzCore CoreGraphics CoreText AVFoundation Accelerate GLKit SystemConfiguration GameController
+Blackshark_EXTRA_FRAMEWORKS = JRMemory
 
-# substrate kaldırıldı → libdobby.a kullanılıyor
-Blackshark_LDFLAGS = -L$(THEOS_PROJECT_DIR)/Dolphins/lib -ldobby -lc++
+# Path Tanımlamaları (-F framework yolu, -L library yolu için)
+Blackshark_CFLAGS = -fno-lto -fobjc-arc -Wno-deprecated-declarations -Wno-unused-variable -Wno-unused-value -fvisibility=hidden -Wc++11-narrowing -Wno-narrowing -Wundefined-bool-conversion -Wreturn-stack-address -Wno-error=format-security -fpermissive -fexceptions -w -s -Werror -Wall -F$(THEOS_PROJECT_DIR)
 
-# tweak.mk'nin substrate'i otomatik linklemesini engelle
+Blackshark_CCFLAGS = -fno-lto -std=c++17 -fno-rtti -fno-exceptions -DNDEBUG -fvisibility=hidden -Wc++11-narrowing -Wno-narrowing -Wundefined-bool-conversion -Wreturn-stack-address -Wno-error=format-security -fpermissive -fexceptions -w -s -Werror -Wall -F$(THEOS_PROJECT_DIR)
+
+# LDFLAGS: Dobby kütüphanesini ve JRMemory framework yolunu bağlar
+Blackshark_LDFLAGS = -L$(THEOS_PROJECT_DIR)/Dolphins/lib -ldobby -lc++ -F$(THEOS_PROJECT_DIR)
+
+# Substrate'i devre dışı bırak (Dobby kullanıldığı için)
 Blackshark_USE_SUBSTRATE = 0
 
-Blackshark_CCFLAGS = -fno-lto -std=c++17 -fno-rtti -fno-exceptions -DNDEBUG -fvisibility=hidden -Wc++11-narrowing -Wno-narrowing -Wundefined-bool-conversion -Wreturn-stack-address -Wno-error=format-security -fvisibility=hidden -fpermissive -fexceptions -w -s -Wno-error=format-security -fvisibility=hidden -Werror -fpermissive -Wall -fexceptions
-
-Blackshark_CFLAGS = -fno-lto -fobjc-arc -Wno-deprecated-declarations -Wno-unused-variable -Wno-unused-value -fvisibility=hidden -Wc++11-narrowing -Wno-narrowing -Wundefined-bool-conversion -Wreturn-stack-address -Wno-error=format-security -fvisibility=hidden -fpermissive -fexceptions -w -s -Wno-error=format-security -fvisibility=hidden -Werror -fpermissive -Wall -fexceptions
-
-Blackshark_FILES = Dolphins/Dolphins.mm $(wildcard Dolphins/View/*.m) $(wildcard Dolphins/Module/*.mm) $(wildcard Dolphins/utils/*.mm) $(wildcard Dolphins/utils/*.cpp) $(wildcard Dolphins/View/*.mm) $(wildcard Dolphins/View/CustomView/*.mm) $(wildcard Dolphins/imgui/*.cpp) $(wildcard Dolphins/imgui/*.mm)
+# Dosya Listesi
+Blackshark_FILES = Dolphins/Dolphins.mm \
+                   $(wildcard Dolphins/View/*.m) \
+                   $(wildcard Dolphins/Module/*.mm) \
+                   $(wildcard Dolphins/utils/*.mm) \
+                   $(wildcard Dolphins/utils/*.cpp) \
+                   $(wildcard Dolphins/View/*.mm) \
+                   $(wildcard Dolphins/View/CustomView/*.mm) \
+                   $(wildcard Dolphins/imgui/*.cpp) \
+                   $(wildcard Dolphins/imgui/*.mm)
 
 include $(THEOS_MAKE_PATH)/tweak.mk
