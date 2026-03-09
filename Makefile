@@ -1,5 +1,6 @@
 export THEOS = /var/theos
-ARCHS = arm64 arm64e
+# arm64e'yi kaldırıyoruz çünkü kütüphanelerin desteklemiyor
+ARCHS = arm64
 DEBUG = 0
 FINALPACKAGE = 1
 FOR_RELEASE = 1
@@ -8,20 +9,17 @@ include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = Blackshark
 
-# Framework Tanımlamaları
-# JRMemory'yi EXTRA_FRAMEWORKS'e ekledik
+# Framework ve Linker Ayarları
 Blackshark_FRAMEWORKS = IOKit UIKit Foundation Security QuartzCore CoreGraphics CoreText AVFoundation Accelerate GLKit SystemConfiguration GameController
 Blackshark_EXTRA_FRAMEWORKS = JRMemory
 
-# Path Tanımlamaları (-F framework yolu, -L library yolu için)
-Blackshark_CFLAGS = -fno-lto -fobjc-arc -Wno-deprecated-declarations -Wno-unused-variable -Wno-unused-value -fvisibility=hidden -Wc++11-narrowing -Wno-narrowing -Wundefined-bool-conversion -Wreturn-stack-address -Wno-error=format-security -fpermissive -fexceptions -w -s -Werror -Wall -F$(THEOS_PROJECT_DIR)
+# Path Ayarları
+Blackshark_CFLAGS = -fno-lto -fobjc-arc -Wno-deprecated-declarations -fvisibility=hidden -fpermissive -fexceptions -w -F$(THEOS_PROJECT_DIR)
+Blackshark_CCFLAGS = -fno-lto -std=c++17 -fno-rtti -fno-exceptions -DNDEBUG -fvisibility=hidden -fpermissive -fexceptions -w -F$(THEOS_PROJECT_DIR)
 
-Blackshark_CCFLAGS = -fno-lto -std=c++17 -fno-rtti -fno-exceptions -DNDEBUG -fvisibility=hidden -Wc++11-narrowing -Wno-narrowing -Wundefined-bool-conversion -Wreturn-stack-address -Wno-error=format-security -fpermissive -fexceptions -w -s -Werror -Wall -F$(THEOS_PROJECT_DIR)
-
-# LDFLAGS: Dobby kütüphanesini ve JRMemory framework yolunu bağlar
+# LDFLAGS - Kütüphane yollarını netleştiriyoruz
 Blackshark_LDFLAGS = -L$(THEOS_PROJECT_DIR)/Dolphins/lib -ldobby -lc++ -F$(THEOS_PROJECT_DIR)
 
-# Substrate'i devre dışı bırak (Dobby kullanıldığı için)
 Blackshark_USE_SUBSTRATE = 0
 
 # Dosya Listesi
