@@ -1,11 +1,11 @@
-name: Build Blackshark Tweak
+name: Blackshark Tweak Build
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "master" ]
   pull_request:
-    branches: [ "main" ]
-  workflow_dispatch: # Manuel tetikleme için
+    branches: [ "main", "master" ]
+  workflow_dispatch: # Manuel tetikleme butonu
 
 jobs:
   build:
@@ -17,29 +17,36 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install Theos
+      - name: Install Theos & SDK
         run: |
           sudo git clone --recursive https://github.com/theos/theos.git /var/theos
-          sudo chown -R $(id -u):$(id -g) /var/theos
-
-      - name: Setup iOS SDK
-        run: |
-          # Theos için 14.5 veya 16.5 gibi bir SDK indirin
           git clone https://github.com/theos/sdks.git /tmp/sdks
-          cp -r /tmp/sdks/iPhoneOS14.5.sdk /var/theos/sdks/
-
-      - name: Setup Environment Variables
-        run: |
+          sudo mv /tmp/sdks/iPhoneOS14.5.sdk /var/theos/sdks/
+          sudo chown -R $(id -u):$(id -g) /var/theos
           echo "THEOS=/var/theos" >> $GITHUB_ENV
-          echo "THEOS_DEVICE_IP=127.0.0.1" >> $GITHUB_ENV
 
-      - name: Build Tweak
+      - name: Setup JRMemory Framework (Auto-Fix)
         run: |
-          # Makefile'daki değişkenleri kullanarak derleme yap
+          # 1. Eksik framework'ü zip olarak indiriyoruz
+          curl -L "https://github.com/pax-v/SDKs/raw/master/JRMemory.framework.zip" -o JRMemory.framework.zip
+          
+          # 2. Zipten çıkarıyoruz (Artık dosya değil gerçek bir klasör olacak)
+          unzip -o JRMemory.framework.zip
+          rm JRMemory.framework.zip
+          
+          # 3. Kodun içindeki o gıcık "include" yolunu otomatik düzeltiyoruz
+          # Tırnaklı yolu, framework standartı olan < > işaretine çevirir
+          sed -i '' 's|#include "JRMemory.framework/Headers/MemScan.h"|#import <JRMemory/MemScan.h>|g' Dolphins/Module/菜单.mm
+
+      - name: Build Blackshark Package
+        run: |
+          # Makefile'daki ayarları kullanarak derle
           make clean package FINALPACKAGE=1 FOR_RELEASE=1
 
-      - name: Upload Artifact
+      - name: Upload Artifact (V4)
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Blackshark-DEB
+          name: Blackshark-Tweak-Package
           path: packages/*.deb
+          if-no-files-found: error
