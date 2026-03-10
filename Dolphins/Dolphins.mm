@@ -249,12 +249,12 @@ void *readStaticData(void *) {
                     tmpPlayerData.team = team;
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
-                    // Bot tespiti: once class adina bak (guvenilir), sonra offset
-                    if (isAIByClassName) {
-                        tmpPlayerData.robot = 1;
-                    } else {
-                        tmpPlayerData.robot = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::RobotOffset);
-                    }
+                    // Bot tespiti: SADECE class adina gore - RobotOffset guncel degil
+                    // isAIByClassName = true  → bot (yesil)
+                    // isAIByClassName = false → gercek oyuncu (kirmizi)
+                    tmpPlayerData.robot = isAIByClassName ? 1 : 0;
+
+
                     
                     tmpPlayerData.status = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::StatusOffset);
                     
