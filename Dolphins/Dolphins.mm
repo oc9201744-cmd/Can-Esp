@@ -220,9 +220,10 @@ void *readStaticData(void *) {
                     StaticPlayerData tmpPlayerData;
                     //对象指针地址
 
-                    // Dusman HP kontrolu
-                    float enemyHp = memoryTools.readFloat(objectAddr + PubgOffset::ObjectParam::HpOffset);
-                    if (enemyHp <= 0.0f) continue;
+                    // Oldu mu kontrolu - IsDead (1 byte bool)
+                    bool isDead = false;
+                    memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::DeadOffset, 1, &isDead);
+                    if (isDead) continue;
 
 
 
@@ -360,7 +361,7 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 playerData.team = staticPlayerData.team;
                 //血量
                 playerData.hp = memoryTools.readFloat(staticPlayerData.addr + PubgOffset::ObjectParam::HpOffset);
-                if (playerData.hp <= 0.0f) continue; // Oldu, frame'den kaldir
+                // Baygın oyuncular hp=0 olabilir, IsDead kontrolü readStaticData'da yapılıyor
                                if (playerData.hp > 100) playerData.hp = 100;
                 //取敌人动作
              //   NSLog(@"****： %id",statusName);
