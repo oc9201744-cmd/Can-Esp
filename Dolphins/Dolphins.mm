@@ -205,20 +205,12 @@ void *readStaticData(void *) {
                 
                 string className = getClassName(memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::ClassIdOffset));
                 //人
-                // Bot class name tespiti - class adindan kesin ayirt
-                bool isAIByClassName = (
-                    strstr(className.c_str(), "_PlayerPawn_TPlanAI_C") != 0 ||
-                    strstr(className.c_str(), "FakePlayer_AIPawn")     != 0 ||
-                    strstr(className.c_str(), "AIPawn")                != 0 ||
-                    strstr(className.c_str(), "TPlanAI")               != 0 ||
-                    strstr(className.c_str(), "AICharacter")           != 0
-                );
+                //人
                 bool isPlayer = (
-                    strstr(className.c_str(), "PlayerPawn")          != 0 ||
-                    strstr(className.c_str(), "PlayerCharacter")      != 0 ||
-                    strstr(className.c_str(), "PlayerControllertSl")  != 0 ||
-                    strstr(className.c_str(), "CharacterModelTaget")  != 0 ||
-                    isAIByClassName
+                    strstr(className.c_str(), "PlayerPawn")         != 0 ||
+                    strstr(className.c_str(), "PlayerCharacter")    != 0 ||
+                    strstr(className.c_str(), "PlayerControllertSl")!= 0 ||
+                    strstr(className.c_str(), "CharacterModelTaget")!= 0
                 );
                 if (isPlayer && moduleControl.mainSwitch.playerStatus) {
                     //队伍ID
@@ -249,12 +241,12 @@ void *readStaticData(void *) {
                     tmpPlayerData.team = team;
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
-                    // Bot tespiti: SADECE class adina gore - RobotOffset guncel degil
-                    // IsBot = bool (1 byte) - readInt 4 byte okur, yanlis deger gelir
-                    // readMemory ile 1 byte oku
+                    // IsBot offset - bool (1 byte)
                     bool isBot = false;
                     memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::RobotOffset, 1, &isBot);
                     tmpPlayerData.robot = isBot ? 1 : 0;
+
+
 
                     
                     tmpPlayerData.status = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::StatusOffset);
