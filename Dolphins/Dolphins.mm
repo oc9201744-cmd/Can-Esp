@@ -228,12 +228,12 @@ void *readStaticData(void *) {
                     StaticPlayerData tmpPlayerData;
                     //对象指针地址
 
-                    // Dusman HP kontrolu - objectAddr olmali, readFloat olmali
+                    // IsDead = bool (1 byte), HP ile birlikte kontrol
+                    bool isDead = false;
+                    memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::DeadOffset, 1, &isDead);
+                    if (isDead) continue;
                     float enemyHp = memoryTools.readFloat(objectAddr + PubgOffset::ObjectParam::HpOffset);
-                    if (enemyHp <= 0.0f) continue; // Oldu, kutuyu kaldir
-
-
-
+                    if (enemyHp <= 0.0f) continue;
 
 
                     // HP yukarida kontrol edildi
@@ -250,10 +250,11 @@ void *readStaticData(void *) {
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
                     // Bot tespiti: SADECE class adina gore - RobotOffset guncel degil
-                    // isAIByClassName = true  → bot (yesil)
-                    // isAIByClassName = false → gercek oyuncu (kirmizi)
-                    tmpPlayerData.robot = isAIByClassName ? 1 : 0;
-
+                    // IsBot = bool (1 byte) - readInt 4 byte okur, yanlis deger gelir
+                    // readMemory ile 1 byte oku
+                    bool isBot = false;
+                    memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::RobotOffset, 1, &isBot);
+                    tmpPlayerData.robot = isBot ? 1 : 0;
 
                     
                     tmpPlayerData.status = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::StatusOffset);
