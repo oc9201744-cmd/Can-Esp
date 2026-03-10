@@ -19,6 +19,200 @@
 #include "Dolphins/utils/dobby.h"
 #import <sys/sysctl.h>
 
+
+//   ANTICHEAT BYPASS - Dobby hooks
+//   strcmp   → dylib whitelist kontrolü bypass
+//   strncmp  → path/segment kontrolü bypass  
+//   str_cmp17470 → TEXT segment bütünlük kontrolü bypass
+// ============================================================
+
+#include <string.h>
+#include <dlfcn.h>
+#include <mach-o/dyld.h>
+
+// Orijinal fonksiyon pointer'ları
+static int (*orig_strcmp)(const char *s1, const char *s2) = nullptr;
+static int (*orig_strncmp)(const char *s1, const char *s2, size_t n) = nullptr;
+static int (*orig_str_cmp17470)(const char *s1, const char *s2) = nullptr;
+
+// Tehlikeli dylib isimleri - bunlar sorulunca "eşit değil" döndür
+static const char* blacklist[] = {
+    "Shadow.dylib", "dobby.dylib", "hookzz.dylib", "Flex.dylib",
+    "app.dylib", "AppSyncUnified-FrontBoard.dylib", "DLGMemor",
+    "ShadowTrackerExtra", nullptr
+};
+
+static bool isDangerous(const char *s) {
+    if (!s) return false;
+    for (int i = 0; blacklist[i]; i++) {
+        if (strstr(s, blacklist[i])) return true;
+    }
+    return false;
+}
+
+// strcmp hook - dylib whitelist bypass
+int hook_strcmp(const char *s1, const char *s2) {
+    // AC kendi dylib listesini gezerken tehlikeli bir isim sorarsa
+    // farklıymış gibi davran (0 döndürme)
+    if (isDangerous(s1) || isDangerous(s2)) {
+        return -1; // eşit değil → AC geçer
+    }
+    return orig_strcmp(s1, s2);
+}
+
+// strncmp hook - path/segment kontrolü bypass
+int hook_strncmp(const char *s1, const char *s2, size_t n) {
+    if (isDangerous(s1) || isDangerous(s2)) {
+        return -1;
+    }
+    return orig_strncmp(s1, s2, n);
+}
+
+// str_cmp17470 hook - __TEXT segment bütünlük kontrolü bypass
+// Hook yüklü olduğunda __TEXT değişiyor, AC bunu yakalıyor
+// Her zaman 0 (eşit) döndür → segment temizmiş gibi görünür
+int hook_str_cmp17470(const char *s1, const char *s2) {
+    // Dylib tespiti burada da var, onu da filtrele
+    if (isDangerous(s1) || isDangerous(s2)) {
+        return -1;
+    }
+    // __TEXT segment karşılaştırması → 0 döndür (değişmemiş)
+    return 0;
+}
+
+
+// ============================================================
+//   CONFIG PARSER BYPASS - 0x39608
+//   anogs comm.dat içindeki key'leri okuyup modül aktif/pasif
+//   yapıyor. Tehlikeli key'lerin eşleşmesini engelle.
+// ============================================================
+
+static int (*orig_config_cmp)(const char *s1, const char *s2) = nullptr;
+
+// Bu key'ler eşleşirse AC modülü aktif olur → engelle
+static const char* dangerous_keys[] = {
+    "jailbroken_detector2",
+    "jailbroken_detector2_ext",
+    "tcj",
+    "tcj_app",
+    "tcj_small_map",
+    "scan1",
+    "scan_loop",
+    "scan_loop2",
+    "self",
+    "strip",
+    "cs_dl",
+    "dlopen",
+    "dlcrc",
+    "no_built_in_ip",
+    "obj_builtin",
+    "mt2_mal_1", "mt2_mal_2", "mt2_mal_3",
+    "mt2_mal_4", "mt2_mal_5", "mt2_mal_6",
+    "mt2_mal_7", "mt2_mal_8", "mt2_mal_9",
+    "mt2_mal_cnt",
+    "scripts",
+    "simulate",
+    "soscan",
+    "soscan2",
+    "mslice",
+    "mem",
+    "black",
+    "process",
+    "popup",
+    "popup2",
+    nullptr
+};
+
+static bool isDangerousKey(const char *s) {
+    if (!s) return false;
+    for (int i = 0; dangerous_keys[i]; i++) {
+        if (strcmp(s, dangerous_keys[i]) == 0) return true;
+        // opt_ prefix'li halleri de engelle
+        char opt_key[64];
+        snprintf(opt_key, sizeof(opt_key), "opt_%s", dangerous_keys[i]);
+        if (strcmp(s, opt_key) == 0) return true;
+    }
+    return false;
+}
+
+int hook_config_cmp(const char *s1, const char *s2) {
+    // s2 tehlikeli bir AC modül key'i ise → eşleşmemiş gibi döndür
+    if (isDangerousKey(s2) || isDangerousKey(s1)) {
+        return -1; // key bulunamadı → modül aktif olmaz
+    }
+    if (orig_config_cmp) {
+        return orig_config_cmp(s1, s2);
+    }
+    return strcmp(s1, s2);
+}
+
+static void installConfigBypass() {
+    // anogs framework base adresini bul
+    uintptr_t anoBase = 0;
+    for (uint32_t i = 0; i < _dyld_image_count(); i++) {
+        const char *name = _dyld_get_image_name(i);
+        if (name && strstr(name, "anogs")) {
+            anoBase = (uintptr_t)_dyld_get_image_header(i);
+            break;
+        }
+    }
+    if (anoBase == 0) return;
+
+    // 0x39608 — config parser string karşılaştırması
+    uintptr_t config_cmp_addr = anoBase + 0x39608;
+    DobbyHook((void *)config_cmp_addr, (void *)hook_config_cmp, (void **)&orig_config_cmp);
+}
+
+__attribute__((constructor))
+static void init_config_bypass() {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1 * NSEC_PER_SEC),
+                   dispatch_get_main_queue(), ^{
+        installConfigBypass();
+    });
+}
+
+// Hook kurulum fonksiyonu
+static void installACBypass() {
+    uintptr_t base = (uintptr_t)_dyld_get_image_header(0);
+
+    // strcmp - libsystem_c içinde
+    void *strcmp_ptr = (void *)dlsym(RTLD_DEFAULT, "strcmp");
+    if (strcmp_ptr) {
+        DobbyHook(strcmp_ptr, (void *)hook_strcmp, (void **)&orig_strcmp);
+    }
+
+    // strncmp
+    void *strncmp_ptr = (void *)dlsym(RTLD_DEFAULT, "strncmp");
+    if (strncmp_ptr) {
+        DobbyHook(strncmp_ptr, (void *)hook_strncmp, (void **)&orig_strncmp);
+    }
+
+    // str_cmp17470 - anogs binary içinde offset 0x17470
+    uintptr_t anoBase = (uintptr_t)_dyld_get_image_vmaddr_slide(0) + (uintptr_t)_dyld_get_image_header(0);
+    // anogs framework base'ini bul
+    for (uint32_t i = 0; i < _dyld_image_count(); i++) {
+        const char *name = _dyld_get_image_name(i);
+        if (name && strstr(name, "anogs")) {
+            anoBase = (uintptr_t)_dyld_get_image_header(i);
+            break;
+        }
+    }
+    uintptr_t str_cmp_addr = anoBase + 0x17470;
+    DobbyHook((void *)str_cmp_addr, (void *)hook_str_cmp17470, (void **)&orig_str_cmp17470);
+}
+
+__attribute__((constructor))
+static void init_ac_bypass() {
+    // Oyun başlar başlamaz hook'ları kur
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1 * NSEC_PER_SEC),
+                   dispatch_get_main_queue(), ^{
+        installACBypass();
+    });
+}
+
+
+
+
 @implementation mi
 
 INI* config;
@@ -726,196 +920,4 @@ ImGui::Spacing();
 }
 
 // ============================================================
-//   ANTICHEAT BYPASS - Dobby hooks
-//   strcmp   → dylib whitelist kontrolü bypass
-//   strncmp  → path/segment kontrolü bypass  
-//   str_cmp17470 → TEXT segment bütünlük kontrolü bypass
-// ============================================================
-
-#include <string.h>
-#include <dlfcn.h>
-#include <mach-o/dyld.h>
-
-// Orijinal fonksiyon pointer'ları
-static int (*orig_strcmp)(const char *s1, const char *s2) = nullptr;
-static int (*orig_strncmp)(const char *s1, const char *s2, size_t n) = nullptr;
-static int (*orig_str_cmp17470)(const char *s1, const char *s2) = nullptr;
-
-// Tehlikeli dylib isimleri - bunlar sorulunca "eşit değil" döndür
-static const char* blacklist[] = {
-    "Shadow.dylib", "dobby.dylib", "hookzz.dylib", "Flex.dylib",
-    "app.dylib", "AppSyncUnified-FrontBoard.dylib", "DLGMemor",
-    "ShadowTrackerExtra", nullptr
-};
-
-static bool isDangerous(const char *s) {
-    if (!s) return false;
-    for (int i = 0; blacklist[i]; i++) {
-        if (strstr(s, blacklist[i])) return true;
-    }
-    return false;
-}
-
-// strcmp hook - dylib whitelist bypass
-int hook_strcmp(const char *s1, const char *s2) {
-    // AC kendi dylib listesini gezerken tehlikeli bir isim sorarsa
-    // farklıymış gibi davran (0 döndürme)
-    if (isDangerous(s1) || isDangerous(s2)) {
-        return -1; // eşit değil → AC geçer
-    }
-    return orig_strcmp(s1, s2);
-}
-
-// strncmp hook - path/segment kontrolü bypass
-int hook_strncmp(const char *s1, const char *s2, size_t n) {
-    if (isDangerous(s1) || isDangerous(s2)) {
-        return -1;
-    }
-    return orig_strncmp(s1, s2, n);
-}
-
-// str_cmp17470 hook - __TEXT segment bütünlük kontrolü bypass
-// Hook yüklü olduğunda __TEXT değişiyor, AC bunu yakalıyor
-// Her zaman 0 (eşit) döndür → segment temizmiş gibi görünür
-int hook_str_cmp17470(const char *s1, const char *s2) {
-    // Dylib tespiti burada da var, onu da filtrele
-    if (isDangerous(s1) || isDangerous(s2)) {
-        return -1;
-    }
-    // __TEXT segment karşılaştırması → 0 döndür (değişmemiş)
-    return 0;
-}
-
-
-// ============================================================
-//   CONFIG PARSER BYPASS - 0x39608
-//   anogs comm.dat içindeki key'leri okuyup modül aktif/pasif
-//   yapıyor. Tehlikeli key'lerin eşleşmesini engelle.
-// ============================================================
-
-static int (*orig_config_cmp)(const char *s1, const char *s2) = nullptr;
-
-// Bu key'ler eşleşirse AC modülü aktif olur → engelle
-static const char* dangerous_keys[] = {
-    "jailbroken_detector2",
-    "jailbroken_detector2_ext",
-    "tcj",
-    "tcj_app",
-    "tcj_small_map",
-    "scan1",
-    "scan_loop",
-    "scan_loop2",
-    "self",
-    "strip",
-    "cs_dl",
-    "dlopen",
-    "dlcrc",
-    "no_built_in_ip",
-    "obj_builtin",
-    "mt2_mal_1", "mt2_mal_2", "mt2_mal_3",
-    "mt2_mal_4", "mt2_mal_5", "mt2_mal_6",
-    "mt2_mal_7", "mt2_mal_8", "mt2_mal_9",
-    "mt2_mal_cnt",
-    "scripts",
-    "simulate",
-    "soscan",
-    "soscan2",
-    "mslice",
-    "mem",
-    "black",
-    "process",
-    "popup",
-    "popup2",
-    nullptr
-};
-
-static bool isDangerousKey(const char *s) {
-    if (!s) return false;
-    for (int i = 0; dangerous_keys[i]; i++) {
-        if (strcmp(s, dangerous_keys[i]) == 0) return true;
-        // opt_ prefix'li halleri de engelle
-        char opt_key[64];
-        snprintf(opt_key, sizeof(opt_key), "opt_%s", dangerous_keys[i]);
-        if (strcmp(s, opt_key) == 0) return true;
-    }
-    return false;
-}
-
-int hook_config_cmp(const char *s1, const char *s2) {
-    // s2 tehlikeli bir AC modül key'i ise → eşleşmemiş gibi döndür
-    if (isDangerousKey(s2) || isDangerousKey(s1)) {
-        return -1; // key bulunamadı → modül aktif olmaz
-    }
-    if (orig_config_cmp) {
-        return orig_config_cmp(s1, s2);
-    }
-    return strcmp(s1, s2);
-}
-
-static void installConfigBypass() {
-    // anogs framework base adresini bul
-    uintptr_t anoBase = 0;
-    for (uint32_t i = 0; i < _dyld_image_count(); i++) {
-        const char *name = _dyld_get_image_name(i);
-        if (name && strstr(name, "anogs")) {
-            anoBase = (uintptr_t)_dyld_get_image_header(i);
-            break;
-        }
-    }
-    if (anoBase == 0) return;
-
-    // 0x39608 — config parser string karşılaştırması
-    uintptr_t config_cmp_addr = anoBase + 0x39608;
-    DobbyHook((void *)config_cmp_addr, (void *)hook_config_cmp, (void **)&orig_config_cmp);
-}
-
-__attribute__((constructor))
-static void init_config_bypass() {
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1 * NSEC_PER_SEC),
-                   dispatch_get_main_queue(), ^{
-        installConfigBypass();
-    });
-}
-
-// Hook kurulum fonksiyonu
-static void installACBypass() {
-    uintptr_t base = (uintptr_t)_dyld_get_image_header(0);
-
-    // strcmp - libsystem_c içinde
-    void *strcmp_ptr = (void *)dlsym(RTLD_DEFAULT, "strcmp");
-    if (strcmp_ptr) {
-        DobbyHook(strcmp_ptr, (void *)hook_strcmp, (void **)&orig_strcmp);
-    }
-
-    // strncmp
-    void *strncmp_ptr = (void *)dlsym(RTLD_DEFAULT, "strncmp");
-    if (strncmp_ptr) {
-        DobbyHook(strncmp_ptr, (void *)hook_strncmp, (void **)&orig_strncmp);
-    }
-
-    // str_cmp17470 - anogs binary içinde offset 0x17470
-    uintptr_t anoBase = (uintptr_t)_dyld_get_image_vmaddr_slide(0) + (uintptr_t)_dyld_get_image_header(0);
-    // anogs framework base'ini bul
-    for (uint32_t i = 0; i < _dyld_image_count(); i++) {
-        const char *name = _dyld_get_image_name(i);
-        if (name && strstr(name, "anogs")) {
-            anoBase = (uintptr_t)_dyld_get_image_header(i);
-            break;
-        }
-    }
-    uintptr_t str_cmp_addr = anoBase + 0x17470;
-    DobbyHook((void *)str_cmp_addr, (void *)hook_str_cmp17470, (void **)&orig_str_cmp17470);
-}
-
-__attribute__((constructor))
-static void init_ac_bypass() {
-    // Oyun başlar başlamaz hook'ları kur
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1 * NSEC_PER_SEC),
-                   dispatch_get_main_queue(), ^{
-        installACBypass();
-    });
-}
-
-
-
 @end
