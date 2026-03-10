@@ -228,12 +228,12 @@ void *readStaticData(void *) {
                     StaticPlayerData tmpPlayerData;
                     //对象指针地址
 
-                    // IsDead = bool (1 byte), HP ile birlikte kontrol
-                    bool isDead = false;
-                    memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::DeadOffset, 1, &isDead);
-                    if (isDead) continue;
+                    // Dusman HP kontrolu
                     float enemyHp = memoryTools.readFloat(objectAddr + PubgOffset::ObjectParam::HpOffset);
                     if (enemyHp <= 0.0f) continue;
+
+
+
 
 
                     // HP yukarida kontrol edildi
