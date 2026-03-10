@@ -93,12 +93,10 @@ static void install_ac_bypass(void) {
     }
 }
 
-__attribute__((constructor))
+// AC BYPASS DISABLED FOR CRASH TEST
+// __attribute__((constructor))
 static void ac_bypass_init(void) {
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC),
-                   dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        install_ac_bypass();
-    });
+    // disabled
 }
 
 @implementation mi
