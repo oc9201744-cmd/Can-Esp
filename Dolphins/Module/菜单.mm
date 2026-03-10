@@ -21,25 +21,11 @@
 #import <sys/sysctl.h>
 
 // ============================================================
-//   ANTICHEAT BYPASS — Non-JB Dobby hooks
+//   ANTICHEAT BYPASS — sadece anogs offset hooks
 // ============================================================
 
-static int (*orig_strcmp)(const char*, const char*)   = nullptr;
-static int (*orig_strncmp)(const char*, const char*, size_t) = nullptr;
 static int (*orig_str_cmp17470)(const char*, const char*) = nullptr;
 static int (*orig_config_cmp)(const char*, const char*)   = nullptr;
-
-static bool isDangerousLib(const char *s) {
-    if (!s) return false;
-    const char *list[] = {
-        "Shadow", "dobby", "hookzz", "Flex",
-        "app.dylib", "AppSyncUnified-FrontBoard",
-        "DLGMemor", "ShadowTrackerExtra", nullptr
-    };
-    for (int i = 0; list[i]; i++)
-        if (strstr(s, list[i])) return true;
-    return false;
-}
 
 static bool isDangerousKey(const char *s) {
     if (!s) return false;
@@ -55,30 +41,15 @@ static bool isDangerousKey(const char *s) {
     return false;
 }
 
-static int hook_strcmp(const char *s1, const char *s2) {
-    if (isDangerousLib(s1) || isDangerousLib(s2)) return -1;
-    return orig_strcmp ? orig_strcmp(s1, s2) : strcmp(s1, s2);
-}
-static int hook_strncmp(const char *s1, const char *s2, size_t n) {
-    if (isDangerousLib(s1) || isDangerousLib(s2)) return -1;
-    return orig_strncmp ? orig_strncmp(s1, s2, n) : strncmp(s1, s2, n);
-}
 static int hook_str_cmp17470(const char *s1, const char *s2) {
-    return 0; // TEXT segment "değişmedi"
+    return 0;
 }
 static int hook_config_cmp(const char *s1, const char *s2) {
     if (isDangerousKey(s1) || isDangerousKey(s2)) return -1;
-    return orig_config_cmp ? orig_config_cmp(s1, s2) : strcmp(s1, s2);
+    return orig_config_cmp ? orig_config_cmp(s1, s2) : 0;
 }
 
 static void install_ac_bypass(void) {
-    // strcmp / strncmp
-    void *sc = dlsym(RTLD_DEFAULT, "strcmp");
-    void *snc = dlsym(RTLD_DEFAULT, "strncmp");
-    if (sc)  DobbyHook(sc,  (void*)hook_strcmp,  (void**)&orig_strcmp);
-    if (snc) DobbyHook(snc, (void*)hook_strncmp, (void**)&orig_strncmp);
-
-    // anogs offset hooks
     uintptr_t anoBase = 0;
     for (uint32_t i = 0; i < _dyld_image_count(); i++) {
         const char *name = _dyld_get_image_name(i);
@@ -87,16 +58,17 @@ static void install_ac_bypass(void) {
             break;
         }
     }
-    if (anoBase) {
-        DobbyHook((void*)(anoBase + 0x17470), (void*)hook_str_cmp17470, (void**)&orig_str_cmp17470);
-        DobbyHook((void*)(anoBase + 0x39608), (void*)hook_config_cmp,   (void**)&orig_config_cmp);
-    }
+    if (anoBase == 0) return;
+    DobbyHook((void*)(anoBase + 0x17470), (void*)hook_str_cmp17470, (void**)&orig_str_cmp17470);
+    DobbyHook((void*)(anoBase + 0x39608), (void*)hook_config_cmp,   (void**)&orig_config_cmp);
 }
 
-// AC BYPASS DISABLED FOR CRASH TEST
-// __attribute__((constructor))
+__attribute__((constructor))
 static void ac_bypass_init(void) {
-    // disabled
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC),
+                   dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        install_ac_bypass();
+    });
 }
 
 @implementation mi
