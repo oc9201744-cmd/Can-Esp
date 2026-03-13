@@ -7,7 +7,7 @@ int PlayerControllerOffset[3] = {0x38, 0x78, 0x30};
 
 namespace PlayerControllerParam {
 
-int SelfOffset = 0x28D0; // v3.6 için güncellendi (Eski: 0x28e0)
+int SelfOffset = 0x28D0;
 int MouseOffset = 0x4e0;
 int CameraManagerOffset = 0x548;
 int AngleOffset = 0x558;
@@ -35,53 +35,55 @@ int ClassIdOffset = 0x18;
 int ClassNameOffset = 0xC;
 
 namespace PlayerFunction {
-int AddControllerYawInputOffset = 0x890;
-int AddControllerRollInputOffset = 0x888;
-int AddControllerPitchInputOffset = 0x898;
+int AddControllerYawInputOffset   = 0x890;
+int AddControllerRollInputOffset  = 0x898;
+int AddControllerPitchInputOffset = 0x888;
 }
 
-// --- v3.6 GÜNCEL BÖLÜM ---
-int StatusOffset = 0x065C;       // Eski: 0x1018 (Yeni: Health/Can)
-int StatusOffset_State = 0x2B78; // EKSİKTİ, EKLENDİ (Yeni: Durum)
-int HpOffset = 0x065C;           // Eski: 0xe28
-int HpmaxOffset = 0xE64;         // Eski: 0xe2c
-int DeadOffset = 0xE7C;          // Eski: 0xe44
-// -------------------------
-
+int StatusOffset = 0x065C; // Health (Can)
+int StatusOffset_State = 0x2B78; // HealthStatus (Durum)
 int TeamOffset = 0x998;
 int NameOffset = 0x960;
-int RobotOffset = 0xA40;         // Eski: 0xa49
+int RobotOffset = 0xA40;
+int HpOffset = 0xE60;
+int HpmaxOffset = 0xE64;
+int DeadOffset = 0xE7C;
 
-int VehicleCommonComponentOffset = 0xC00; // Eski: 0xbf0
-int VehicleHPOffset = 0x354;              // Eski: 0x344
-int VehicleHPMaxOffset = 0x350;           // Eski: 0x340
-int VehicleFuelOffset = 0x43C;            // Eski: 0x424
-int VehicleFuelMaxOffset = 0x438;         // Eski: 0x420
+int VehicleCommonComponentOffset = 0xC00;
+int VehicleHPOffset = 0x354;
+int VehicleHPMaxOffset = 0x350;
+int VehicleFuelOffset = 0x43C;
+int VehicleFuelMaxOffset = 0x438;
 
-int MoveCoordOffset = 0x158;     // Eski: 0x110 (Kayma sorununun ana sebebi)
+int MoveCoordOffset = 0x110;
 int MeshOffset = 0x510;
-int boneCountOffset = 0x0840;    // Eski: 0x8d0
+int boneCountOffset = 0x0840;
 
 namespace MeshParam {
 int HumanOffset = 0x210;
-int BonesOffset = 0x02B8;        // Eski: 0x988 (İskelet bozukluğunun sebebi)
+int BonesOffset = 0x02B8;
 }
 
-int OpenFireOffset = 0x1800;     // Eski: 0x1788
-int OpenTheSightOffset = 0x3D48; // Eski: 0x10e1
+int OpenFireOffset = 0x1800;
+int OpenTheSightOffset = 0x3D48;
 
-// Silah ofsetleri v3.6 yapısına göre güncellendi
-int WeaponOneOffset = 0x1990;    // WeaponManagerComponent (Genel yapı)
+// 4.3: silah 2 adimda okunuyor
+// adim 1: character + WeaponManagerComponentOffset -> UCharacterWeaponManagerComponent*
+// adim 2: weaponMgr  + WeaponOneOffset             -> ASTExtraWeapon* (CurrentWeaponSimulate)
+int WeaponManagerComponentOffset = 0x25B8;
+int WeaponOneOffset = 0x05D8;
 
 namespace WeaponParam {
+
 int MasterOffset = 0x110;
-int ShootModeOffset = 0x1089;
-int WeaponAttrOffset = 0x12c0;
+int ShootModeOffset = 0x10D9;
+int WeaponAttrOffset = 0x1360;
 
 namespace WeaponAttrParam {
 int BulletSpeedOffset = 0x560;
 int RecoilOffset = 0xcf0;
 }
+
 }
 
 int GoodsListOffset = 0x940;
@@ -93,8 +95,8 @@ int DataBase = 0x38;
 int CoordOffset = 0x208;
 
 namespace CoordParam {
-int HeightOffset = 0x1dc;
-int CoordOffset = 0x158;         // Eski: 0x1c8 (MoveCoord ile aynı olmalı)
+int HeightOffset = 0x1EC;
+int CoordOffset = 0x158;
 }
 
 }
