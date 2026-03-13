@@ -494,7 +494,8 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 
                 
                 //取对手手持武器
-                uintptr_t weaponAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::WeaponOneOffset);
+                uintptr_t weaponMgrAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::WeaponManagerComponentOffset);
+                uintptr_t weaponAddr = memoryTools.readPtr(weaponMgrAddr + PubgOffset::ObjectParam::WeaponOneOffset);
                 if (weaponAddr == 0) {
                     playerData.weaponName = "FIST";
                 } else {
@@ -634,7 +635,8 @@ void *silenceAimbot(void *) {
         usleep(16666);
         if (moduleControl.systemStatus == TransmissionNormal && moduleControl.mainSwitch.aimbotStatus/* && softWareData.loginStatus*/) {
             //武器指针
-            uintptr_t weaponAddr = memoryTools.readPtr(staticData.selfAddr + PubgOffset::ObjectParam::WeaponOneOffset);
+            uintptr_t weaponMgrAddr = memoryTools.readPtr(staticData.selfAddr + PubgOffset::ObjectParam::WeaponManagerComponentOffset);
+            uintptr_t weaponAddr = memoryTools.readPtr(weaponMgrAddr + PubgOffset::ObjectParam::WeaponOneOffset);
             //自瞄开关
             bool enabledAimbot = false;
             //判断自瞄启动模式
