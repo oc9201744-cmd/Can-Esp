@@ -7,7 +7,7 @@ int PlayerControllerOffset[3] = {0x38, 0x78, 0x30};
 
 namespace PlayerControllerParam {
 
-int SelfOffset = 0x28D0;
+int SelfOffset = 0x28e0;
 int MouseOffset = 0x4e0;
 int CameraManagerOffset = 0x548;
 int AngleOffset = 0x558;
@@ -40,44 +40,39 @@ int AddControllerRollInputOffset  = 0x898;
 int AddControllerPitchInputOffset = 0x888;
 }
 
-int StatusOffset = 0x065C; // Health (Can)
-int StatusOffset_State = 0x2B78; // HealthStatus (Durum)
+int StatusOffset = 0x1810;
 int TeamOffset = 0x998;
 int NameOffset = 0x960;
-int RobotOffset = 0xA40;
-int HpOffset = 0xE60;
-int HpmaxOffset = 0xE64;
-int DeadOffset = 0xE7C;
+int RobotOffset = 0xa40;
+int HpOffset = 0xe60;
+int HpmaxOffset = 0xe64;
+int DeadOffset = 0xe7c;
 
-int VehicleCommonComponentOffset = 0xC00;
-int VehicleHPOffset = 0x354;
-int VehicleHPMaxOffset = 0x350;
-int VehicleFuelOffset = 0x43C;
-int VehicleFuelMaxOffset = 0x438;
+int VehicleCommonComponentOffset = 0xbf0;
+int VehicleHPOffset = 0x344;
+int VehicleHPMaxOffset = 0x340;
+int VehicleFuelOffset = 0x424;
+int VehicleFuelMaxOffset = 0x420;
 
 int MoveCoordOffset = 0x110;
 int MeshOffset = 0x510;
-int boneCountOffset = 0x0840;
+int boneCountOffset = 0x8d0;
 
 namespace MeshParam {
 int HumanOffset = 0x210;
-int BonesOffset = 0x02B8;
+int BonesOffset = 0x988;
 }
 
 int OpenFireOffset = 0x1800;
-int OpenTheSightOffset = 0x3D48;
+int OpenTheSightOffset = 0x10e1;
 
-// 4.3: silah 2 adimda okunuyor
-// adim 1: character + WeaponManagerComponentOffset -> UCharacterWeaponManagerComponent*
-// adim 2: weaponMgr  + WeaponOneOffset             -> ASTExtraWeapon* (CurrentWeaponSimulate)
-int WeaponManagerComponentOffset = 0x25B8;
-int WeaponOneOffset = 0x05D8;
+int WeaponOneOffset = 0x2a30 + 0x20;
 
 namespace WeaponParam {
 
 int MasterOffset = 0x110;
-int ShootModeOffset = 0x10D9;
-int WeaponAttrOffset = 0x1360;
+int ShootModeOffset = 0x1089;
+int WeaponAttrOffset = 0x12c0;
 
 namespace WeaponAttrParam {
 int BulletSpeedOffset = 0x560;
@@ -95,8 +90,8 @@ int DataBase = 0x38;
 int CoordOffset = 0x208;
 
 namespace CoordParam {
-int HeightOffset = 0x1EC;
-int CoordOffset = 0x158;
+int HeightOffset = 0x1dc;
+int CoordOffset = 0x1c8;
 }
 
 }
