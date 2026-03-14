@@ -16,7 +16,60 @@
 #import <mach-o/dyld.h>
 #include <stdint.h>
 #include "Dolphins/utils/dobby.h"
+#include <string.h>
+#include <dlfcn.h>
 #import <sys/sysctl.h>
+
+// ============================================================
+//   ANTICHEAT BYPASS — sadece anogs offset hooks
+// ============================================================
+
+static int (*orig_str_cmp17470)(const char*, const char*) = nullptr;
+static int (*orig_config_cmp)(const char*, const char*)   = nullptr;
+
+static bool isDangerousKey(const char *s) {
+    if (!s) return false;
+    const char *list[] = {
+        "jailbroken_detector2", "tcj", "scan1", "scan_loop",
+        "self", "strip", "cs_dl", "dlopen", "dlcrc",
+        "no_built_in_ip", "obj_builtin", "mt2_mal",
+        "scripts", "simulate", "soscan", "mslice",
+        "mem", "black", "process", "popup", nullptr
+    };
+    for (int i = 0; list[i]; i++)
+        if (strstr(s, list[i])) return true;
+    return false;
+}
+
+static int hook_str_cmp17470(const char *s1, const char *s2) {
+    return 0;
+}
+static int hook_config_cmp(const char *s1, const char *s2) {
+    if (isDangerousKey(s1) || isDangerousKey(s2)) return -1;
+    return orig_config_cmp ? orig_config_cmp(s1, s2) : 0;
+}
+
+static void install_ac_bypass(void) {
+    uintptr_t anoBase = 0;
+    for (uint32_t i = 0; i < _dyld_image_count(); i++) {
+        const char *name = _dyld_get_image_name(i);
+        if (name && strstr(name, "anogs")) {
+            anoBase = (uintptr_t)_dyld_get_image_header(i);
+            break;
+        }
+    }
+    if (anoBase == 0) return;
+    DobbyHook((void*)(anoBase + 0x17470), (void*)hook_str_cmp17470, (void**)&orig_str_cmp17470);
+    DobbyHook((void*)(anoBase + 0x39608), (void*)hook_config_cmp,   (void**)&orig_config_cmp);
+}
+
+__attribute__((constructor))
+static void ac_bypass_init(void) {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC),
+                   dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        install_ac_bypass();
+    });
+}
 
 @implementation mi
 
