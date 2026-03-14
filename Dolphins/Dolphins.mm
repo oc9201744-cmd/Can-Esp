@@ -169,7 +169,7 @@ void *readStaticData(void *) {
             staticData.gwlordAddr = gWorld();
             staticData.gnameAddr = gName();
             //角色控制器
-            staticData.playerController = memoryTools.readPtr(memoryTools.readPtr(memoryTools.readPtr(staticData.gwlordAddr + PubgOffset::PlayerControllerOffset[0]) + PubgOffset::PlayerControllerOffset[1]) + PubgOffset::PlayerControllerOffset[2]);
+            staticData.playerController = memoryTools.readPtr(memoryTools.readPtr(memoryTools.readPtr(memoryTools.readPtr(staticData.gwlordAddr + PubgOffset::PlayerControllerOffset[0]) + PubgOffset::PlayerControllerOffset[1]) + 0x0) + PubgOffset::PlayerControllerOffset[2]);
             //掩体判断
             LineOfSightTo = (bool (*)(void *, void *, ImVec3, bool)) (memoryTools.readPtr(memoryTools.readPtr(staticData.playerController + 0x0) + PubgOffset::PlayerControllerParam::ControllerFunction::LineOfSightToOffset));//0x780
             //自己指针
