@@ -3,7 +3,7 @@
 
 namespace PubgOffset {
 
-int PlayerControllerOffset[3] = {0x470, 0x48, 0x30};
+int PlayerControllerOffset[3] = {0x38, 0x78, 0x30};
 
 namespace PlayerControllerParam {
 
@@ -25,8 +25,8 @@ int LineOfSightToOffset = 0x7B0;
 int ULevelOffset = 0x30;
 
 namespace ULevelParam {
-int ObjectArrayOffset = 0x28;
-int ObjectCountOffset = 0x30;
+int ObjectArrayOffset = 0xA0;
+int ObjectCountOffset = 0xA8;
 }
 
 namespace ObjectParam {
@@ -54,12 +54,12 @@ int VehicleHPMaxOffset = 0x340;
 int VehicleFuelOffset = 0x424;
 int VehicleFuelMaxOffset = 0x420;
 
-int MoveCoordOffset = 0x518;
+int MoveCoordOffset = 0x110;
 int MeshOffset = 0x510;
 int boneCountOffset = 0x8d0;
 
 namespace MeshParam {
-int HumanOffset = 0xc40;
+int HumanOffset = 0x210;
 int BonesOffset = 0x988;
 }
 
@@ -90,8 +90,8 @@ int DataBase = 0x490;
 int CoordOffset = 0x208;
 
 namespace CoordParam {
-int HeightOffset = 0x1ec;
-int CoordOffset = 0x1e4;
+int HeightOffset = 0x1dc;
+int CoordOffset = 0x1c8;
 }
 
 }
