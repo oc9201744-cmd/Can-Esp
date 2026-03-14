@@ -42,7 +42,7 @@ int AddControllerPitchInputOffset = 0x898;
 
 int StatusOffset = 0x1018;
 int TeamOffset = 0x998;
-int NameOffset = 0x23b0;
+int NameOffset = 0x4d0;
 int RobotOffset = 0x650;
 int HpOffset = 0xe60;
 int HpmaxOffset = 0xe64;
@@ -64,7 +64,7 @@ int BonesOffset = 0x988;
 }
 
 int OpenFireOffset = 0x1788;
-int OpenTheSightOffset = 0x10e1;
+int OpenTheSightOffset = 0x1134;
 
 int WeaponOneOffset = 0xa10;
 
