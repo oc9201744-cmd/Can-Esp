@@ -241,14 +241,27 @@ void *readStaticData(void *) {
                     //队伍ID
                     tmpPlayerData.team = team;
                     //名字
-                    tmpPlayerData.name = getPlayerName(memoryTools.readPtr(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset) + 0x13e0));
+                    // İsim: APawn::PlayerState(0x4d0) -> APlayerState::PlayerName(0x4b8) -> FString.data
+                    uintptr_t playerStateAddr = memoryTools.readPtr(objectAddr + 0x4d0);
+                    uintptr_t nameStrData = memoryTools.readPtr(playerStateAddr + 0x4b8);
+                    // Eğer boş ise RealPlayerName dene
+                    if (nameStrData == 0) {
+                        nameStrData = memoryTools.readPtr(playerStateAddr + 0x13e0);
+                    }
+                    tmpPlayerData.name = getPlayerName(nameStrData);
                     // IsBot offset - bool (1 byte)
                     bool isBot = false;
-                    uintptr_t psAddr = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset);
-                    bool isAdvAI = false; bool isMLAI = false;
-                    memoryTools.readMemory(psAddr + 0x650, 1, &isAdvAI);
-                    memoryTools.readMemory(psAddr + 0x10f8, 1, &isMLAI);
-                    isBot = isAdvAI || isMLAI;
+                    // Method 1: FakePlayerAIController pointer (en güvenilir)
+                    uintptr_t fakeAICtrl = memoryTools.readPtr(objectAddr + 0x4968);
+                    if (fakeAICtrl != 0) { isBot = true; }
+                    // Method 2: PlayerState AI flags
+                    if (!isBot) {
+                        uintptr_t psAddr = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset);
+                        bool isAdvAI = false; bool isMLAI = false;
+                        memoryTools.readMemory(psAddr + 0x650, 1, &isAdvAI);
+                        memoryTools.readMemory(psAddr + 0x10f8, 1, &isMLAI);
+                        isBot = isAdvAI || isMLAI;
+                    }
                     tmpPlayerData.robot = isBot ? 1 : 0;
 
 
@@ -645,7 +658,7 @@ void *silenceAimbot(void *) {
             switch (moduleControl.aimbotController.aimbotMode) {
                 case 0:
                     //开镜自瞄
-                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 257 || memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
+                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
                     break;
                 case 1:
                     //开火自瞄
@@ -653,7 +666,7 @@ void *silenceAimbot(void *) {
                     break;
                 case 2:
                     //开镜开火自瞄
-                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 257 || memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1 || ((memoryTools.readPtr(staticData.selfAddr + 0x1058) >> 7) & 1) == 1;
+                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1 || ((memoryTools.readPtr(staticData.selfAddr + 0x1058) >> 7) & 1) == 1;
                     break;
                 case 3:
                     //判断枪械是单发还是全自动
@@ -662,7 +675,7 @@ void *silenceAimbot(void *) {
                         enabledAimbot = ((memoryTools.readPtr(staticData.selfAddr + 0x1058) >> 7) & 1) == 1;
                     } else {
                         //单发连发用开镜
-                        enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 257 || memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
+                        enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
                     }
                     break;
             }
