@@ -41,7 +41,7 @@ int AddControllerPitchInputOffset = 0x898;
 }
 
 int StatusOffset = 0x1018;
-int TeamOffset = 0x1150;
+int TeamOffset = 0x998;
 int NameOffset = 0x15C8;
 int RobotOffset = 0x4968;
 int HpOffset = 0xe60;
