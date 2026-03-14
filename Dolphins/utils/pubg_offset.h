@@ -42,7 +42,7 @@ int AddControllerPitchInputOffset = 0x898;
 
 int StatusOffset = 0x1018;
 int TeamOffset = 0x998;
-int NameOffset = 0x15C8;
+int NameOffset = 0x2868;
 int RobotOffset = 0x4968;
 int HpOffset = 0xe60;
 int HpmaxOffset = 0xe64;
@@ -66,11 +66,11 @@ int BonesOffset = 0x988;
 int OpenFireOffset = 0x1788;
 int OpenTheSightOffset = 0x10e1;
 
-int WeaponOneOffset = 0x25B8;
+int WeaponOneOffset = 0xa10;
 
 namespace WeaponParam {
 
-int MasterOffset = 0x5C8;
+int MasterOffset = 0x110;
 int ShootModeOffset = 0x1089;
 int WeaponAttrOffset = 0x12c0;
 
