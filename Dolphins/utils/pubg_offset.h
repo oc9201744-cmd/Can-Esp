@@ -3,7 +3,7 @@
 
 namespace PubgOffset {
 
-int PlayerControllerOffset[3] = {0x38, 0x78, 0x30};
+int PlayerControllerOffset[3] = {0x470, 0x48, 0x30};
 
 namespace PlayerControllerParam {
 
@@ -25,8 +25,8 @@ int LineOfSightToOffset = 0x7B0;
 int ULevelOffset = 0x30;
 
 namespace ULevelParam {
-int ObjectArrayOffset = 0xA0;
-int ObjectCountOffset = 0xA8;
+int ObjectArrayOffset = 0x28;
+int ObjectCountOffset = 0x30;
 }
 
 namespace ObjectParam {
