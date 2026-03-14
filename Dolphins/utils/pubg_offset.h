@@ -54,12 +54,12 @@ int VehicleHPMaxOffset = 0x340;
 int VehicleFuelOffset = 0x424;
 int VehicleFuelMaxOffset = 0x420;
 
-int MoveCoordOffset = 0x110;
+int MoveCoordOffset = 0x518;
 int MeshOffset = 0x510;
 int boneCountOffset = 0x8d0;
 
 namespace MeshParam {
-int HumanOffset = 0x210;
+int HumanOffset = 0xc40;
 int BonesOffset = 0x988;
 }
 
@@ -90,8 +90,8 @@ int DataBase = 0x490;
 int CoordOffset = 0x208;
 
 namespace CoordParam {
-int HeightOffset = 0x1dc;
-int CoordOffset = 0x1c8;
+int HeightOffset = 0x1ec;
+int CoordOffset = 0x1e4;
 }
 
 }
