@@ -241,19 +241,34 @@ void *readStaticData(void *) {
                     //队伍ID
                     tmpPlayerData.team = team;
                     //名字
-                    // CustomPlayerName FString (0x15C8)
-                    uintptr_t nameData = memoryTools.readPtr(objectAddr + 0x15C8);
-                    int nameCount = memoryTools.readInt(objectAddr + 0x15C8 + 8);
-                    if (nameData == 0 || nameCount <= 0) {
-                        // fallback: PlayerState->PlayerName
+                    // 1. CustomPlayerName direkt (0x15C8 FString.data)
+                    uintptr_t nameStrData = memoryTools.readPtr(objectAddr + 0x15C8);
+                    // 2. PlayerState -> PlayerName
+                    if (nameStrData == 0) {
                         uintptr_t ps = memoryTools.readPtr(objectAddr + 0x4d0);
-                        if (ps != 0) nameData = memoryTools.readPtr(ps + 0x4b8);
+                        if (ps != 0) {
+                            nameStrData = memoryTools.readPtr(ps + 0x4b8);
+                            // 3. RealPlayerName
+                            if (nameStrData == 0) {
+                                nameStrData = memoryTools.readPtr(ps + 0x13e0);
+                            }
+                        }
                     }
-                    tmpPlayerData.name = getPlayerName(nameData);
-                    // FakePlayerAIController pointer (0x4968) - null=gerçek, non-null=bot
+                    tmpPlayerData.name = getPlayerName(nameStrData);
+                    // Bot tespiti
                     bool isBot = false;
-                    uintptr_t fakeCtrl = memoryTools.readPtr(objectAddr + 0x4968);
-                    isBot = (fakeCtrl != 0);
+                    // 1. FakePlayerAIController pointer != 0 ise bot
+                    uintptr_t fakeAICtrl = memoryTools.readPtr(objectAddr + 0x4968);
+                    if (fakeAICtrl != 0) { isBot = true; }
+                    // 2. PlayerState::IsMLAI
+                    if (!isBot) {
+                        uintptr_t ps2 = memoryTools.readPtr(objectAddr + 0x4d0);
+                        if (ps2 != 0) {
+                            bool isML = false;
+                            memoryTools.readMemory(ps2 + 0x10f8, 1, &isML);
+                            isBot = isML;
+                        }
+                    }
                     tmpPlayerData.robot = isBot ? 1 : 0;
 
 
@@ -650,7 +665,7 @@ void *silenceAimbot(void *) {
             switch (moduleControl.aimbotController.aimbotMode) {
                 case 0:
                     //开镜自瞄
-                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + 0x1134) == 1;
+                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
                     break;
                 case 1:
                     //开火自瞄
@@ -658,7 +673,7 @@ void *silenceAimbot(void *) {
                     break;
                 case 2:
                     //开镜开火自瞄
-                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + 0x1134) == 1 || ((memoryTools.readPtr(staticData.selfAddr + 0x1058) >> 7) & 1) == 1;
+                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1 || ((memoryTools.readPtr(staticData.selfAddr + 0x1058) >> 7) & 1) == 1;
                     break;
                 case 3:
                     //判断枪械是单发还是全自动
@@ -667,7 +682,7 @@ void *silenceAimbot(void *) {
                         enabledAimbot = ((memoryTools.readPtr(staticData.selfAddr + 0x1058) >> 7) & 1) == 1;
                     } else {
                         //单发连发用开镜
-                        enabledAimbot = memoryTools.readInt(staticData.selfAddr + 0x1134) == 1;
+                        enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
                     }
                     break;
             }
