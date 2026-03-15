@@ -231,7 +231,7 @@ void *readStaticData(void *) {
 
                     // HP yukarida kontrol edildi
                     // bDead kontrolu kaldirildi - HP ile yapiliyor
-                            uintptr_t statusAddr = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::StatusOffset);
+                            uint64_t statusAddr = 0; memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::StatusOffset, 8, &statusAddr);
 
                     
 
@@ -250,7 +250,7 @@ void *readStaticData(void *) {
 
 
                     
-                    tmpPlayerData.status = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::StatusOffset);
+                    uint64_t _status64 = 0; memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::StatusOffset, 8, &_status64); tmpPlayerData.status = (int)_status64;
                     
                     tmpPlayerDataList.push_back(tmpPlayerData);
                     
@@ -357,7 +357,7 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                                if (playerData.hp > 100) playerData.hp = 100;
                 //取敌人动作
              //   NSLog(@"****： %id",statusName);
-                uintptr_t statusAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::StatusOffset);
+                uint64_t statusAddr = 0; memoryTools.readMemory(staticPlayerData.addr + PubgOffset::ObjectParam::StatusOffset, 8, &statusAddr);
                 
                 if (statusAddr == 2097168) {
                 playerData.statusName = "DRIVE";
