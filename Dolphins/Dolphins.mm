@@ -245,23 +245,9 @@ void *readStaticData(void *) {
                     tmpPlayerData.team = team;
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
-                    // Bot tespiti: PlayerUID (0x988) Net flag var, client'a gelir.
-                    // Gercek oyuncularin PlayerUID dolu, botlarin bos.
-                    // FString layout: [data_ptr 8 bytes][length 4 bytes][capacity 4 bytes]
-                    bool isBot = false;
-                    {
-                        int uidLen = memoryTools.readInt(objectAddr + 0x988 + 0x8);
-                        // UID uzunlugu 0 veya cok buyukse bot
-                        if (uidLen <= 0 || uidLen > 64) {
-                            isBot = true;
-                        } else {
-                            // UID pointer gecerli mi?
-                            uintptr_t uidPtr = memoryTools.readPtr(objectAddr + 0x988);
-                            if (uidPtr == 0 || uidPtr < 0x100000000) {
-                                isBot = true;
-                            }
-                        }
-                    }
+                    // bIsAI(0xA40) ve bIsMLAI(0xA41) - ikisi de bot flag
+                    int aiFlags = memoryTools.readInt(objectAddr + 0xA40);
+                    bool isBot = (aiFlags & 0x01) || (aiFlags & 0x02);
                     tmpPlayerData.robot = isBot ? 1 : 0;
 
                     // Bot filtresi
@@ -528,7 +514,14 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                     }
                 }
                 //对象名字
-                playerData.name = staticPlayerData.name;
+                // DEBUG: A40/A41 degerlerini isme ekle
+                {
+                    int a40 = memoryTools.readInt(staticPlayerData.addr + 0xA40) & 0xFF;
+                    int a41 = memoryTools.readInt(staticPlayerData.addr + 0xA41) & 0xFF;
+                    char debugBuf[64];
+                    snprintf(debugBuf, sizeof(debugBuf), " [%02X/%02X]", a40, a41);
+                    playerData.name = staticPlayerData.name + std::string(debugBuf);
+                }
                 //屏幕XY
                 playerData.screen = worldToScreen(objectCoord, pov, screenSize);//X
                 //宽度和高度
