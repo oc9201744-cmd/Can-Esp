@@ -3,7 +3,7 @@
 
 namespace PubgOffset {
 
-int PlayerControllerOffset[3] = {0x38, 0x78, 0x30};
+int PlayerControllerOffset[3] = {0x470, 0x48, 0x30};
 
 namespace PlayerControllerParam {
 
@@ -25,8 +25,8 @@ int LineOfSightToOffset = 0x7B0;
 int ULevelOffset = 0x30;
 
 namespace ULevelParam {
-int ObjectArrayOffset = 0xA0;
-int ObjectCountOffset = 0xA8;
+int ObjectArrayOffset = 0x28;
+int ObjectCountOffset = 0x30;
 }
 
 namespace ObjectParam {
@@ -41,9 +41,9 @@ int AddControllerPitchInputOffset = 0x898;
 }
 
 int StatusOffset = 0x1018;
-int TeamOffset = 0x998;
-int NameOffset = 0x4d0;
-int RobotOffset = 0x650;
+int TeamOffset = 0x1150;
+int NameOffset = 0x15C8;
+int RobotOffset = 0x4968;
 int HpOffset = 0xe60;
 int HpmaxOffset = 0xe64;
 int DeadOffset = 0xe7c;
@@ -54,23 +54,23 @@ int VehicleHPMaxOffset = 0x340;
 int VehicleFuelOffset = 0x424;
 int VehicleFuelMaxOffset = 0x420;
 
-int MoveCoordOffset = 0x110;
+int MoveCoordOffset = 0x518;
 int MeshOffset = 0x510;
 int boneCountOffset = 0x8d0;
 
 namespace MeshParam {
-int HumanOffset = 0x210;
+int HumanOffset = 0xc40;
 int BonesOffset = 0x988;
 }
 
 int OpenFireOffset = 0x1788;
-int OpenTheSightOffset = 0x1134;
+int OpenTheSightOffset = 0x10e1;
 
-int WeaponOneOffset = 0xa10;
+int WeaponOneOffset = 0x25B8;
 
 namespace WeaponParam {
 
-int MasterOffset = 0x110;
+int MasterOffset = 0x5C8;
 int ShootModeOffset = 0x1089;
 int WeaponAttrOffset = 0x12c0;
 
@@ -90,8 +90,8 @@ int DataBase = 0x490;
 int CoordOffset = 0x208;
 
 namespace CoordParam {
-int HeightOffset = 0x1dc;
-int CoordOffset = 0x1c8;
+int HeightOffset = 0x1ec;
+int CoordOffset = 0x1e4;
 }
 
 }
