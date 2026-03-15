@@ -7,13 +7,13 @@ int PlayerControllerOffset[3] = {0x38, 0x78, 0x30};
 
 namespace PlayerControllerParam {
 
-int SelfOffset = 0x28e0;
+int SelfOffset = 0x28d0;
 int MouseOffset = 0x4e0;
 int CameraManagerOffset = 0x548;
 int AngleOffset = 0x558;
 
 namespace CameraManagerParam {
-int PovOffset = 0x10a0 + 0x10;
+int PovOffset = 0x520 + 0x10;
 }
 
 namespace ControllerFunction {
@@ -42,8 +42,8 @@ int AddControllerPitchInputOffset = 0x898;
 
 int StatusOffset = 0x1018;
 int TeamOffset = 0x998;
-int NameOffset = 0x15C8;
-int RobotOffset = 0x4968;
+int NameOffset = 0x4d0;
+int RobotOffset = 0x650;
 int HpOffset = 0xe60;
 int HpmaxOffset = 0xe64;
 int DeadOffset = 0xe7c;
@@ -66,7 +66,7 @@ int BonesOffset = 0x988;
 int OpenFireOffset = 0x1788;
 int OpenTheSightOffset = 0x1134;
 
-int WeaponOneOffset = 0x2a30 + 0x20;
+int WeaponOneOffset = 0xa10;
 
 namespace WeaponParam {
 
@@ -81,10 +81,10 @@ int RecoilOffset = 0xcf0;
 
 }
 
-int GoodsListOffset = 0x940;
+int GoodsListOffset = 0x2EF8;
 
 namespace GoodsListParam {
-int DataBase = 0x38;
+int DataBase = 0x490;
 }
 
 int CoordOffset = 0x208;
