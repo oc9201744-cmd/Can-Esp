@@ -57,7 +57,7 @@ MemoryTools memoryTools;
 //OffsetSet currentOffsetSet = GL;
 
 OffsetValues offsets[] = {
-    { 0x102a62208, 0x10a566e00, 0x104bd8740, 0x10a1178b0 },  // GL
+    { 0x102A5125C, 0x10A4A1960, 0x104C0F1E8, 0x10A0557E0 },  // GL
     { 0x1028791CC, 0x10A171A00, 0x104510EF0, 0x109AAA1A0 },  // VNG
     { 0x102AD71F8, 0x10A47D400, 0x10476F14C, 0x109DB5940 },  // KR
     { 0x102AAAB0C, 0x10A453300, 0x104742830, 0x109D8B830 }   // TW
@@ -330,11 +330,8 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 if (objectDistance < 0 || objectDistance > 450) {
                     continue;
                 }
-                //获取对象高度
-                float objectHeight = memoryTools.readFloat(staticPlayerData.coordAddr + PubgOffset::ObjectParam::CoordParam::HeightOffset);
-                if (objectHeight < 20) {
-                    continue;
-                }
+                //获取对象高度 - sabit karakter yüksekliği
+                float objectHeight = 170.0f;
                 PlayerData playerData;
                 //角度
                 playerData.angle = lateralAngleView - rotateAngle(selfCoord, objectCoord) - 180;
@@ -351,12 +348,7 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                     playerData.visibility = false;
                 }
                 
-                //判断一下高度
-              if (objectHeight < 50) {
-                    objectHeight -= 18;
-                } else if (objectHeight > 80) {
-                    objectHeight += 12;
-                }
+                //判断一下高度 - sabit değer kullanılıyor
                 //队伍ID
                 playerData.team = staticPlayerData.team;
                 //血量
@@ -691,10 +683,7 @@ void *silenceAimbot(void *) {
                         continue;
                     }
                     //获取对象高度
-                    float objectHeight = memoryTools.readFloat(staticPlayerData.coordAddr + PubgOffset::ObjectParam::CoordParam::HeightOffset);
-                    if (objectHeight < 20) {
-                        continue;
-                    }
+                    float objectHeight = 170.0f;
                     //判断是否倒地
                     if (memoryTools.readFloat(staticPlayerData.addr + PubgOffset::ObjectParam::HpOffset) < 0.5 && moduleControl.aimbotController.fallNotAim) {
                         continue;
