@@ -245,9 +245,23 @@ void *readStaticData(void *) {
                     tmpPlayerData.team = team;
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
-                    // bIsAI 0x0A40 - AUAECharacter field, RPC_Client_SetIsAI ile set edilir
-                    // readMemory yerine readInt + mask - non-JB iOS'ta en güvenilir
-                    bool isBot = ((memoryTools.readInt(objectAddr + 0xA40) & 0x01) == 1);
+                    // Bot tespiti: PlayerUID (0x988) Net flag var, client'a gelir.
+                    // Gercek oyuncularin PlayerUID dolu, botlarin bos.
+                    // FString layout: [data_ptr 8 bytes][length 4 bytes][capacity 4 bytes]
+                    bool isBot = false;
+                    {
+                        int uidLen = memoryTools.readInt(objectAddr + 0x988 + 0x8);
+                        // UID uzunlugu 0 veya cok buyukse bot
+                        if (uidLen <= 0 || uidLen > 64) {
+                            isBot = true;
+                        } else {
+                            // UID pointer gecerli mi?
+                            uintptr_t uidPtr = memoryTools.readPtr(objectAddr + 0x988);
+                            if (uidPtr == 0 || uidPtr < 0x100000000) {
+                                isBot = true;
+                            }
+                        }
+                    }
                     tmpPlayerData.robot = isBot ? 1 : 0;
 
                     // Bot filtresi
