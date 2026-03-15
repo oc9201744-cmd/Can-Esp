@@ -175,10 +175,11 @@ void *readStaticData(void *) {
             //自己指针
             staticData.selfAddr = memoryTools.readPtr(staticData.playerController + PubgOffset::PlayerControllerParam::SelfOffset);
             //自瞄函数
-            uintptr_t selfFunction = memoryTools.readPtr(staticData.selfAddr + 0);
-            AddControllerYawInput = (void (*)(void *, float)) (memoryTools.readPtr(selfFunction + PubgOffset::ObjectParam::PlayerFunction::AddControllerYawInputOffset));//0x780
-            AddControllerRollInput = (void (*)(void *, float)) (memoryTools.readPtr(selfFunction + PubgOffset::ObjectParam::PlayerFunction::AddControllerRollInputOffset));//0x780
-            AddControllerPitchInput = (void (*)(void *, float)) (memoryTools.readPtr(selfFunction + PubgOffset::ObjectParam::PlayerFunction::AddControllerPitchInputOffset));//0x780
+            // vtable PlayerController'dan okunmalı, selfAddr (Pawn) değil!
+            uintptr_t pcVtable = memoryTools.readPtr(staticData.playerController + 0);
+            AddControllerYawInput = (void (*)(void *, float)) (memoryTools.readPtr(pcVtable + PubgOffset::ObjectParam::PlayerFunction::AddControllerYawInputOffset));
+            AddControllerRollInput = (void (*)(void *, float)) (memoryTools.readPtr(pcVtable + PubgOffset::ObjectParam::PlayerFunction::AddControllerRollInputOffset));
+            AddControllerPitchInput = (void (*)(void *, float)) (memoryTools.readPtr(pcVtable + PubgOffset::ObjectParam::PlayerFunction::AddControllerPitchInputOffset));
             //相机管理器
             staticData.cameraManager = memoryTools.readPtr(staticData.playerController + PubgOffset::PlayerControllerParam::CameraManagerOffset);
             
@@ -247,6 +248,9 @@ void *readStaticData(void *) {
                     memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::RobotOffset, 1, &isBot);
                     tmpPlayerData.robot = isBot ? 1 : 0;
 
+                    // Bot filtresi: bot gösterme kapalıysa listeye ekleme
+                    if (isBot && !moduleControl.mainSwitch.botStatus) continue;
+
 
 
                     
@@ -254,7 +258,7 @@ void *readStaticData(void *) {
                     
                     tmpPlayerDataList.push_back(tmpPlayerData);
                     
-                } else if (strstr(className.c_str(), "ProjSmoke_BP_C)") != 0) {
+                } else if (strstr(className.c_str(), "ProjSmoke_BP_C") != 0) {
                     StaticMaterialData tmpMaterialData;
                     //物资类型
                     tmpMaterialData.type = Warning;
@@ -365,7 +369,7 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                                if (playerData.hp > 100) playerData.hp = 100;
                 //取敌人动作
              //   NSLog(@"****： %id",statusName);
-                uintptr_t statusAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::StatusOffset);
+                uint64_t statusAddr = memoryTools.readLong(staticPlayerData.addr + PubgOffset::ObjectParam::StatusOffset);
                 
                 if (statusAddr == 2097168) {
                 playerData.statusName = "DRIVE";
@@ -707,7 +711,6 @@ void *silenceAimbot(void *) {
 
 
                 
-PlayerData playerData;
 
 
 
@@ -983,13 +986,13 @@ PlayerData playerData;
                     }
                     //移动鼠标,我这里用的增量自瞄,是传入的角度差 比如游戏的角度在180度,我上面计算的角度差是-30 这里传入-30就让180-30了
                     if (AddControllerYawInput != NULL) {
-                        AddControllerYawInput(reinterpret_cast<void *>(staticData.selfAddr), aimbotMouseMove.x);
+                        AddControllerYawInput(reinterpret_cast<void *>(staticData.playerController), aimbotMouseMove.x);
                     }
                     if (AddControllerRollInput != NULL) {
-                        AddControllerRollInput(reinterpret_cast<void *>(staticData.selfAddr), aimbotMouseMove.y);
+                        AddControllerRollInput(reinterpret_cast<void *>(staticData.playerController), aimbotMouseMove.y);
                     }
                     if (AddControllerPitchInput != NULL) {
-                        AddControllerPitchInput(reinterpret_cast<void *>(staticData.selfAddr), 0);
+                        AddControllerPitchInput(reinterpret_cast<void *>(staticData.playerController), 0);
                     }
                 }
             }
@@ -1028,7 +1031,7 @@ char *getPlayerName(uintptr_t addr) {
     unsigned short *tempbuf16 = buf16;
     char *tempbuf8 = buf;
     char *buf8 = tempbuf8 + 32;
-    while (tempbuf16 < tempbuf16 + 28) {
+    while (tempbuf16 < buf16 + 28) {
         if (*tempbuf16 <= 0x007F && tempbuf8 + 1 < buf8) {
             *tempbuf8++ = (char) *tempbuf16;
         } else if (*tempbuf16 >= 0x0080 && *tempbuf16 <= 0x07FF && tempbuf8 + 2 < buf8) {
