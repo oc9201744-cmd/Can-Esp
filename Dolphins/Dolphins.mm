@@ -245,12 +245,12 @@ void *readStaticData(void *) {
                     tmpPlayerData.team = team;
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
-                    // bIsAI - 0xA40(0x0001) bool — SDK (AUAECharacter) ile doğrulandı
-                    bool isBot = false;
-                    memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::RobotOffset, 1, &isBot);
+                    // bIsAI 0x0A40 - AUAECharacter field, RPC_Client_SetIsAI ile set edilir
+                    // readMemory yerine readInt + mask - non-JB iOS'ta en güvenilir
+                    bool isBot = ((memoryTools.readInt(objectAddr + 0xA40) & 0x01) == 1);
                     tmpPlayerData.robot = isBot ? 1 : 0;
 
-                    // Bot filtresi: bot gösterme kapalıysa listeye ekleme
+                    // Bot filtresi
                     if (isBot && !moduleControl.mainSwitch.botStatus) continue;
 
 
