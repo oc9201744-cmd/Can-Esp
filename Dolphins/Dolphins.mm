@@ -247,8 +247,7 @@ void *readStaticData(void *) {
                     bool isBot = false;
                     memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::RobotOffset, 1, &isBot);
                     tmpPlayerData.robot = isBot ? 1 : 0;
-                    // Bot filtresi: SCStatus kapali ise botlari gizle
-                    if (isBot && !moduleControl.playerSwitch.SCStatus) continue;
+                    // Botlar her zaman listede - renderer robot flag ile renk ayirimi yapar
 
 
 
