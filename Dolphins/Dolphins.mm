@@ -245,7 +245,7 @@ void *readStaticData(void *) {
                     tmpPlayerData.team = team;
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
-                    // IsBot offset - bool (1 byte)
+                    // bIsAI - 0xA40(0x0001) bool — SDK (AUAECharacter) ile doğrulandı
                     bool isBot = false;
                     memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::RobotOffset, 1, &isBot);
                     tmpPlayerData.robot = isBot ? 1 : 0;
