@@ -202,7 +202,6 @@ void *readStaticData(void *) {
                 
                 //对象坐标指针
                 uintptr_t coordAddr = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::CoordOffset);
-                if (coordAddr <= 0x100000000 || coordAddr >= 0x2000000000) continue;
                 
                 string className = getClassName(memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::ClassIdOffset));
                 //人
@@ -232,7 +231,7 @@ void *readStaticData(void *) {
 
                     // HP yukarida kontrol edildi
                     // bDead kontrolu kaldirildi - HP ile yapiliyor
-                            uint64_t statusAddr = 0; memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::StatusOffset, 8, &statusAddr);
+                            uintptr_t statusAddr = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::StatusOffset);
 
                     
 
@@ -247,12 +246,11 @@ void *readStaticData(void *) {
                     bool isBot = false;
                     memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::RobotOffset, 1, &isBot);
                     tmpPlayerData.robot = isBot ? 1 : 0;
-                    // Botlar her zaman listede - renderer robot flag ile renk ayirimi yapar
 
 
 
                     
-                    uint64_t _status64 = 0; memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::StatusOffset, 8, &_status64); tmpPlayerData.status = (int)_status64;
+                    tmpPlayerData.status = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::StatusOffset);
                     
                     tmpPlayerDataList.push_back(tmpPlayerData);
                     
@@ -327,14 +325,16 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 //坐标
                 ImVec3 objectCoord;
                 memoryTools.readMemory(staticPlayerData.coordAddr + PubgOffset::ObjectParam::CoordParam::CoordOffset, sizeof(ImVec3), &objectCoord);
-                if (!isfinite(objectCoord.x) || !isfinite(objectCoord.y) || !isfinite(objectCoord.z)) continue;
                 //计算自己到对象的距离
                 float objectDistance = get3dDistance(objectCoord, selfCoord, 100);
                 if (objectDistance < 0 || objectDistance > 450) {
                     continue;
                 }
-                //获取对象高度 - sabit karakter yüksekliği
-                float objectHeight = 140.0f;
+                //获取对象高度
+                float objectHeight = memoryTools.readFloat(staticPlayerData.coordAddr + PubgOffset::ObjectParam::CoordParam::HeightOffset);
+                if (objectHeight < 20) {
+                    continue;
+                }
                 PlayerData playerData;
                 //角度
                 playerData.angle = lateralAngleView - rotateAngle(selfCoord, objectCoord) - 180;
@@ -351,7 +351,12 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                     playerData.visibility = false;
                 }
                 
-                //判断一下高度 - sabit değer kullanılıyor
+                //判断一下高度
+              if (objectHeight < 50) {
+                    objectHeight -= 18;
+                } else if (objectHeight > 80) {
+                    objectHeight += 12;
+                }
                 //队伍ID
                 playerData.team = staticPlayerData.team;
                 //血量
@@ -360,7 +365,7 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                                if (playerData.hp > 100) playerData.hp = 100;
                 //取敌人动作
              //   NSLog(@"****： %id",statusName);
-                uint64_t statusAddr = 0; memoryTools.readMemory(staticPlayerData.addr + PubgOffset::ObjectParam::StatusOffset, 8, &statusAddr);
+                uintptr_t statusAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::StatusOffset);
                 
                 if (statusAddr == 2097168) {
                 playerData.statusName = "DRIVE";
@@ -505,9 +510,17 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 //对象名字
                 playerData.name = staticPlayerData.name;
                 //屏幕XY
+                playerData.screen = worldToScreen(objectCoord, pov, screenSize);//X
+                //宽度和高度
+                ImVec2 width = worldToScreen(ImVec3(objectCoord.x,objectCoord.y,objectCoord.z + 100), pov,screenSize);
+                ImVec2 height = worldToScreen(ImVec3(objectCoord.x,objectCoord.y,objectCoord.z + objectHeight), pov,screenSize);
+                playerData.size.x = (playerData.screen.y - width.y) / 2;
+                playerData.size.y = playerData.screen.y - height.y;
+                
                 uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
                 uintptr_t humanAddr = meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset;
-                uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset);
+                uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset) + 48;
+                //判断是否需要骨骼掩体判断
                 BonesData bonesData;
                 if (getBone2d(pov, screenSize,humanAddr, boneAddr, 5, bonesData.head))//头
                     if (getBone2d(pov,screenSize, humanAddr, boneAddr, 4, bonesData.pit))//胸口
@@ -523,42 +536,8 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                                                             if (getBone2d(pov,screenSize, humanAddr, boneAddr, 53, bonesData.lknee))//左膝盖
                                                                 if (getBone2d(pov,screenSize, humanAddr, boneAddr, 57, bonesData.rknee))//右膝盖
                                                                     if (getBone2d(pov,screenSize, humanAddr, boneAddr, 54, bonesData.lankle))//左脚腕
-                                                                        if (getBone2d(pov,screenSize, humanAddr, boneAddr, 58, bonesData.rankle)) {//右脚腕
+                                                                        if (getBone2d(pov,screenSize, humanAddr, boneAddr, 58, bonesData.rankle))//右脚腕
                                                                             playerData.bonesData = bonesData;
-                                                                        }
-
-                // Box hesabı bone'lardan - head üst, ankle alt
-                playerData.screen = worldToScreen(objectCoord, pov, screenSize);
-                if (bonesData.head.x != 0 && bonesData.rankle.x != 0) {
-                    float headY  = bonesData.head.y;
-                    float ankleY = bonesData.rankle.y;
-                    float boxHeight = ankleY - headY;
-                    // Negatif veya cok kucuk height → kamera arkasinda ya da yanlis kemik
-                    if (boxHeight > 5.0f && boxHeight < screenSize.y) {
-                        float boxWidth = boxHeight / 2.5f;
-                        playerData.screen   = bonesData.head;
-                        playerData.size.x   = boxWidth / 2;
-                        playerData.size.y   = boxHeight;
-                    } else {
-                        // Fallback
-                        ImVec2 w = worldToScreen(ImVec3(objectCoord.x,objectCoord.y,objectCoord.z + 100), pov, screenSize);
-                        ImVec2 h = worldToScreen(ImVec3(objectCoord.x,objectCoord.y,objectCoord.z + 140.0f), pov, screenSize);
-                        float fh = playerData.screen.y - h.y;
-                        if (fh > 5.0f && fh < screenSize.y) {
-                            playerData.size.x = (playerData.screen.y - w.y) / 2;
-                            playerData.size.y = fh;
-                        }
-                    }
-                } else {
-                    // Bone yoksa fallback
-                    ImVec2 width  = worldToScreen(ImVec3(objectCoord.x,objectCoord.y,objectCoord.z + 100), pov, screenSize);
-                    ImVec2 height = worldToScreen(ImVec3(objectCoord.x,objectCoord.y,objectCoord.z + 140.0f), pov, screenSize);
-                    float fh = playerData.screen.y - height.y;
-                    if (fh > 5.0f && fh < screenSize.y) {
-                        playerData.size.x = (playerData.screen.y - width.y) / 2;
-                        playerData.size.y = fh;
-                    }
-                }
                 playerDataList.push_back(playerData);
             }
         }
@@ -664,26 +643,25 @@ void *silenceAimbot(void *) {
             switch (moduleControl.aimbotController.aimbotMode) {
                 case 0:
                     //开镜自瞄
-                    { bool _sight=false; memoryTools.readMemory(staticData.selfAddr+PubgOffset::ObjectParam::OpenTheSightOffset,1,&_sight); enabledAimbot=_sight; }
+                    enabledAimbot = ([&](){uint8_t _rb0=0;memoryTools.readMemory(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset,1,&_rb0);return _rb0!=0;})();
                     break;
                 case 1:
                     //开火自瞄
-                    { bool _fire = false; memoryTools.readMemory(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset, 1, &_fire); enabledAimbot = _fire; }
+                    enabledAimbot = ([&](){uint8_t _rb1=0;memoryTools.readMemory(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset,1,&_rb1);return _rb1!=0;})();
                     break;
                 case 2:
                     //开镜开火自瞄
-                    { bool _s2=false,_f2=false; memoryTools.readMemory(staticData.selfAddr+PubgOffset::ObjectParam::OpenTheSightOffset,1,&_s2); memoryTools.readMemory(staticData.selfAddr+PubgOffset::ObjectParam::OpenFireOffset,1,&_f2); enabledAimbot=_s2||_f2; }
+                    enabledAimbot = ([&](){uint8_t _rb2=0;memoryTools.readMemory(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset,1,&_rb2);return _rb2!=0;})() || ([&](){uint8_t _rb3=0;memoryTools.readMemory(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset,1,&_rb3);return _rb3!=0;})();
                     break;
                 case 3:
                     //判断枪械是单发还是全自动
-                    { uint8_t _shootType=0; memoryTools.readMemory(weaponAddr+PubgOffset::ObjectParam::WeaponParam::ShootModeOffset+1,1,&_shootType);
-                    if (_shootType == 4) {
+                    if (([&](){uint8_t _sm=0;memoryTools.readMemory(weaponAddr+PubgOffset::ObjectParam::WeaponParam::ShootModeOffset+1,1,&_sm);return _sm==4;})()) {
                         //全自动用开火
-                        { bool _fire = false; memoryTools.readMemory(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset, 1, &_fire); enabledAimbot = _fire; }
+                        enabledAimbot = ([&](){uint8_t _rb4=0;memoryTools.readMemory(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset,1,&_rb4);return _rb4!=0;})();
                     } else {
                         //单发连发用开镜
-                        { bool _sight=false; memoryTools.readMemory(staticData.selfAddr+PubgOffset::ObjectParam::OpenTheSightOffset,1,&_sight); enabledAimbot=_sight; }
-                    } }
+                        enabledAimbot = ([&](){uint8_t _rb5=0;memoryTools.readMemory(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset,1,&_rb5);return _rb5!=0;})();
+                    }
                     break;
             }
             //启动自瞄
@@ -707,14 +685,16 @@ void *silenceAimbot(void *) {
                     //坐标
                     ImVec3 objectCoord;
                     memoryTools.readMemory(staticPlayerData.coordAddr + PubgOffset::ObjectParam::CoordParam::CoordOffset, sizeof(ImVec3), &objectCoord);
-                    if (!isfinite(objectCoord.x) || !isfinite(objectCoord.y) || !isfinite(objectCoord.z)) continue;
                     //计算自己到对象的距离
                     float objectDistance = get3dDistance(objectCoord, selfCoord, 100);
                     if (objectDistance < 0 || objectDistance > 450 || objectDistance > moduleControl.aimbotController.distance) {
                         continue;
                     }
                     //获取对象高度
-                    float objectHeight = 140.0f;
+                    float objectHeight = memoryTools.readFloat(staticPlayerData.coordAddr + PubgOffset::ObjectParam::CoordParam::HeightOffset);
+                    if (objectHeight < 20) {
+                        continue;
+                    }
                     //判断是否倒地
                     if (memoryTools.readFloat(staticPlayerData.addr + PubgOffset::ObjectParam::HpOffset) < 0.5 && moduleControl.aimbotController.fallNotAim) {
                         continue;
@@ -738,7 +718,7 @@ PlayerData playerData;
                         //骨骼mesh
                         uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
                         uintptr_t humanAddr = meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset;
-                        uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset);
+                        uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset) + 48;
                         //取自瞄部位 0是优先头部,1是优先身体,3是[全自动武器打身体,单发连发打头],4是只打头,5是只打身体
                         switch (moduleControl.aimbotController.aimbotParts) {
                             case 0: {
@@ -779,7 +759,7 @@ PlayerData playerData;
                             }
                                 break;
                             case 2: {
-                                { uint8_t _st2=0; memoryTools.readMemory(weaponAddr+PubgOffset::ObjectParam::WeaponParam::ShootModeOffset+1,1,&_st2); if (_st2==4) {
+                                if (([&](){uint8_t _rb7=0;memoryTools.readMemory(weaponAddr + PubgOffset::ObjectParam::WeaponParam::ShootModeOffset + 1,1,&_rb7);return _rb7==4;})()) {
                                     int boneIds[] = {3, 5, 1, 11, 32, 12, 33, 63, 62, 52, 56, 53, 57, 54, 58};
                                     for (int boneId = 0; boneId < end(boneIds) - begin(boneIds); ++boneId) {
                                         //取骨点
@@ -806,7 +786,6 @@ PlayerData playerData;
                                         }
                                     }
                                 }
-                                } // _st2 block
                             }
                                 break;
                             case 3: {
@@ -946,7 +925,7 @@ PlayerData playerData;
                     }
                     
                     //压枪
-                    bool _fireRecoil=false; memoryTools.readMemory(staticData.selfAddr+PubgOffset::ObjectParam::OpenFireOffset,1,&_fireRecoil); if(_fireRecoil) {
+                    if (([&](){uint8_t _rb6=0;memoryTools.readMemory(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset,1,&_rb6);return _rb6!=0;})()) {
                         //距离运算,压枪的幅度
                         float recoilTimes = 4.5 - get3dDistance(selfCoord, aimbotCoord, 10000);
                         recoilTimes += get3dDistance(selfCoord, aimbotCoord, 10000) * 0.2;
