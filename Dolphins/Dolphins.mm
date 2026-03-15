@@ -677,13 +677,14 @@ void *silenceAimbot(void *) {
                     break;
                 case 3:
                     //判断枪械是单发还是全自动
-                    if (memoryTools.readInt(weaponAddr + PubgOffset::ObjectParam::WeaponParam::ShootModeOffset) >= 1024) {
+                    { uint8_t _shootType=0; memoryTools.readMemory(weaponAddr+PubgOffset::ObjectParam::WeaponParam::ShootModeOffset+1,1,&_shootType);
+                    if (_shootType == 4) {
                         //全自动用开火
                         { bool _fire = false; memoryTools.readMemory(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset, 1, &_fire); enabledAimbot = _fire; }
                     } else {
                         //单发连发用开镜
                         { bool _sight=false; memoryTools.readMemory(staticData.selfAddr+PubgOffset::ObjectParam::OpenTheSightOffset,1,&_sight); enabledAimbot=_sight; }
-                    }
+                    } }
                     break;
             }
             //启动自瞄
@@ -779,7 +780,7 @@ PlayerData playerData;
                             }
                                 break;
                             case 2: {
-                                if (memoryTools.readInt(weaponAddr + PubgOffset::ObjectParam::WeaponParam::ShootModeOffset) >= 1024) {
+                                { uint8_t _st2=0; memoryTools.readMemory(weaponAddr+PubgOffset::ObjectParam::WeaponParam::ShootModeOffset+1,1,&_st2); if (_st2==4) {
                                     int boneIds[] = {3, 5, 1, 11, 32, 12, 33, 63, 62, 52, 56, 53, 57, 54, 58};
                                     for (int boneId = 0; boneId < end(boneIds) - begin(boneIds); ++boneId) {
                                         //取骨点
@@ -806,6 +807,7 @@ PlayerData playerData;
                                         }
                                     }
                                 }
+                                } // _st2 block
                             }
                                 break;
                             case 3: {
