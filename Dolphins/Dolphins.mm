@@ -514,12 +514,17 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                     }
                 }
                 //对象名字
-                // DEBUG: A40/A41 degerlerini isme ekle
+                // DEBUG: PlayerState UID ve OpenID ile bot tespiti
                 {
-                    int a40 = memoryTools.readInt(staticPlayerData.addr + 0xA40) & 0xFF;
-                    int a41 = memoryTools.readInt(staticPlayerData.addr + 0xA41) & 0xFF;
+                    uintptr_t ps = memoryTools.readPtr(staticPlayerData.addr + 0x4D0);
+                    uint64_t uid = 0;
+                    int oidLen = 0;
+                    if (ps > 0x100000000) {
+                        memoryTools.readMemory(ps + 0x6C8, 8, &uid);
+                        oidLen = memoryTools.readInt(ps + 0x6E0);
+                    }
                     char debugBuf[64];
-                    snprintf(debugBuf, sizeof(debugBuf), " [%02X/%02X]", a40, a41);
+                    snprintf(debugBuf, sizeof(debugBuf), " [UID:%llu OID:%d]", (unsigned long long)uid, oidLen);
                     playerData.name = staticPlayerData.name + std::string(debugBuf);
                 }
                 //屏幕XY
