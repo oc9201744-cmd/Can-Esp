@@ -175,11 +175,13 @@ void *readStaticData(void *) {
             //自己指针
             staticData.selfAddr = memoryTools.readPtr(staticData.playerController + PubgOffset::PlayerControllerParam::SelfOffset);
             //自瞄函数
-            // vtable PlayerController'dan okunmalı, selfAddr (Pawn) değil!
-            uintptr_t pcVtable = memoryTools.readPtr(staticData.playerController + 0);
-            AddControllerYawInput = (void (*)(void *, float)) (memoryTools.readPtr(pcVtable + PubgOffset::ObjectParam::PlayerFunction::AddControllerYawInputOffset));
-            AddControllerRollInput = (void (*)(void *, float)) (memoryTools.readPtr(pcVtable + PubgOffset::ObjectParam::PlayerFunction::AddControllerRollInputOffset));
-            AddControllerPitchInput = (void (*)(void *, float)) (memoryTools.readPtr(pcVtable + PubgOffset::ObjectParam::PlayerFunction::AddControllerPitchInputOffset));
+            // AddController* fonksiyonları Pawn vtable'ından okunur, selfAddr ile çağrılır
+            if (staticData.selfAddr != 0) {
+                uintptr_t selfVtable = memoryTools.readPtr(staticData.selfAddr + 0);
+                AddControllerYawInput   = (void (*)(void *, float)) (memoryTools.readPtr(selfVtable + PubgOffset::ObjectParam::PlayerFunction::AddControllerYawInputOffset));
+                AddControllerRollInput  = (void (*)(void *, float)) (memoryTools.readPtr(selfVtable + PubgOffset::ObjectParam::PlayerFunction::AddControllerRollInputOffset));
+                AddControllerPitchInput = (void (*)(void *, float)) (memoryTools.readPtr(selfVtable + PubgOffset::ObjectParam::PlayerFunction::AddControllerPitchInputOffset));
+            }
             //相机管理器
             staticData.cameraManager = memoryTools.readPtr(staticData.playerController + PubgOffset::PlayerControllerParam::CameraManagerOffset);
             
@@ -249,7 +251,7 @@ void *readStaticData(void *) {
                     tmpPlayerData.robot = isBot ? 1 : 0;
 
                     // Bot filtresi: bot gösterme kapalıysa listeye ekleme
-                    if (isBot && !moduleControl.mainSwitch.aimbotStatus) continue;
+                    if (isBot && !moduleControl.mainSwitch.botStatus) continue;
 
 
 
@@ -986,13 +988,13 @@ void *silenceAimbot(void *) {
                     }
                     //移动鼠标,我这里用的增量自瞄,是传入的角度差 比如游戏的角度在180度,我上面计算的角度差是-30 这里传入-30就让180-30了
                     if (AddControllerYawInput != NULL) {
-                        AddControllerYawInput(reinterpret_cast<void *>(staticData.playerController), aimbotMouseMove.x);
+                        AddControllerYawInput(reinterpret_cast<void *>(staticData.selfAddr), aimbotMouseMove.x);
                     }
                     if (AddControllerRollInput != NULL) {
-                        AddControllerRollInput(reinterpret_cast<void *>(staticData.playerController), aimbotMouseMove.y);
+                        AddControllerRollInput(reinterpret_cast<void *>(staticData.selfAddr), aimbotMouseMove.y);
                     }
                     if (AddControllerPitchInput != NULL) {
-                        AddControllerPitchInput(reinterpret_cast<void *>(staticData.playerController), 0);
+                        AddControllerPitchInput(reinterpret_cast<void *>(staticData.selfAddr), 0);
                     }
                 }
             }
