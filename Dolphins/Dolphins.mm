@@ -331,7 +331,7 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                     continue;
                 }
                 //获取对象高度 - sabit karakter yüksekliği
-                float objectHeight = 170.0f;
+                float objectHeight = 140.0f;
                 PlayerData playerData;
                 //角度
                 playerData.angle = lateralAngleView - rotateAngle(selfCoord, objectCoord) - 180;
@@ -502,17 +502,9 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 //对象名字
                 playerData.name = staticPlayerData.name;
                 //屏幕XY
-                playerData.screen = worldToScreen(objectCoord, pov, screenSize);//X
-                //宽度和高度
-                ImVec2 width = worldToScreen(ImVec3(objectCoord.x,objectCoord.y,objectCoord.z + 100), pov,screenSize);
-                ImVec2 height = worldToScreen(ImVec3(objectCoord.x,objectCoord.y,objectCoord.z + objectHeight), pov,screenSize);
-                playerData.size.x = (playerData.screen.y - width.y) / 2;
-                playerData.size.y = playerData.screen.y - height.y;
-                
                 uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
                 uintptr_t humanAddr = meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset;
                 uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset) + 48;
-                //判断是否需要骨骼掩体判断
                 BonesData bonesData;
                 if (getBone2d(pov, screenSize,humanAddr, boneAddr, 5, bonesData.head))//头
                     if (getBone2d(pov,screenSize, humanAddr, boneAddr, 4, bonesData.pit))//胸口
@@ -528,8 +520,28 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                                                             if (getBone2d(pov,screenSize, humanAddr, boneAddr, 53, bonesData.lknee))//左膝盖
                                                                 if (getBone2d(pov,screenSize, humanAddr, boneAddr, 57, bonesData.rknee))//右膝盖
                                                                     if (getBone2d(pov,screenSize, humanAddr, boneAddr, 54, bonesData.lankle))//左脚腕
-                                                                        if (getBone2d(pov,screenSize, humanAddr, boneAddr, 58, bonesData.rankle))//右脚腕
+                                                                        if (getBone2d(pov,screenSize, humanAddr, boneAddr, 58, bonesData.rankle)) {//右脚腕
                                                                             playerData.bonesData = bonesData;
+                                                                        }
+
+                // Box hesabı bone'lardan - head üst, ankle alt
+                playerData.screen = worldToScreen(objectCoord, pov, screenSize);
+                if (bonesData.head.x != 0 && bonesData.rankle.x != 0) {
+                    // Bone'lardan box hesapla
+                    float headY = bonesData.head.y;
+                    float ankleY = bonesData.rankle.y;
+                    float boxHeight = ankleY - headY;
+                    float boxWidth = boxHeight / 2.5f;
+                    playerData.screen = bonesData.head;
+                    playerData.size.x = boxWidth / 2;
+                    playerData.size.y = boxHeight;
+                } else {
+                    // Bone yoksa fallback
+                    ImVec2 width = worldToScreen(ImVec3(objectCoord.x,objectCoord.y,objectCoord.z + 100), pov,screenSize);
+                    ImVec2 height = worldToScreen(ImVec3(objectCoord.x,objectCoord.y,objectCoord.z + 140.0f), pov,screenSize);
+                    playerData.size.x = (playerData.screen.y - width.y) / 2;
+                    playerData.size.y = playerData.screen.y - height.y;
+                }
                 playerDataList.push_back(playerData);
             }
         }
@@ -683,7 +695,7 @@ void *silenceAimbot(void *) {
                         continue;
                     }
                     //获取对象高度
-                    float objectHeight = 170.0f;
+                    float objectHeight = 140.0f;
                     //判断是否倒地
                     if (memoryTools.readFloat(staticPlayerData.addr + PubgOffset::ObjectParam::HpOffset) < 0.5 && moduleControl.aimbotController.fallNotAim) {
                         continue;
