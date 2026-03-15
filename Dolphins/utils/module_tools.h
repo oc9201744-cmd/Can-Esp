@@ -62,10 +62,8 @@ struct MainSwitch {
     bool playerStatus;
     bool materialStatus;
     bool aimbotStatus;
-         bool gzb;;
-        
-
-    
+    bool botStatus;     // Bot ESP göster/gizle (true = bot göster)
+    bool gzb;
 };
 
 
@@ -279,5 +277,3 @@ MaterialStruct isMaterial(const char *name);
 //是否为物资(盒子)
 MaterialStruct isBoxMaterial(int box_goods_id);
 #endif /* CustomStrcut_h */
-
-
