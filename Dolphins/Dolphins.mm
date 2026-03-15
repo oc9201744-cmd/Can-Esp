@@ -245,12 +245,20 @@ void *readStaticData(void *) {
                     tmpPlayerData.team = team;
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
-                    // bIsAI(0xA40) ve bIsMLAI(0xA41) - ikisi de bot flag
-                    int aiFlags = memoryTools.readInt(objectAddr + 0xA40);
-                    bool isBot = (aiFlags & 0x01) || (aiFlags & 0x02);
+                    // Bot tespiti: Controller sinifi ile
+                    // APawn::Controller @ 0x4E8
+                    // FakePlayerAIController → bot, STExtraPlayerController → gercek oyuncu
+                    uintptr_t controllerAddr = memoryTools.readPtr(objectAddr + 0x4E8);
+                    bool isBot = false;
+                    if (controllerAddr > 0x100000000 && controllerAddr < 0x2000000000) {
+                        string ctrlClass = getClassName(memoryTools.readInt(controllerAddr + PubgOffset::ObjectParam::ClassIdOffset));
+                        isBot = (strstr(ctrlClass.c_str(), "FakePlayer") != 0 ||
+                                 strstr(ctrlClass.c_str(), "AIController") != 0) &&
+                                 strstr(ctrlClass.c_str(), "PlayerController") == 0;
+                    }
                     tmpPlayerData.robot = isBot ? 1 : 0;
 
-                    // Bot filtresi
+                    // Bot filtresi: botStatus kapali ise botlari gizle
                     if (isBot && !moduleControl.mainSwitch.botStatus) continue;
 
 
@@ -514,19 +522,7 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                     }
                 }
                 //对象名字
-                // DEBUG: PlayerState UID ve OpenID ile bot tespiti
-                {
-                    uintptr_t ps = memoryTools.readPtr(staticPlayerData.addr + 0x4D0);
-                    uint64_t uid = 0;
-                    int oidLen = 0;
-                    if (ps > 0x100000000) {
-                        memoryTools.readMemory(ps + 0x6C8, 8, &uid);
-                        oidLen = memoryTools.readInt(ps + 0x6E0);
-                    }
-                    char debugBuf[64];
-                    snprintf(debugBuf, sizeof(debugBuf), " [UID:%llu OID:%d]", (unsigned long long)uid, oidLen);
-                    playerData.name = staticPlayerData.name + std::string(debugBuf);
-                }
+                playerData.name = staticPlayerData.name;
                 //屏幕XY
                 playerData.screen = worldToScreen(objectCoord, pov, screenSize);//X
                 //宽度和高度
