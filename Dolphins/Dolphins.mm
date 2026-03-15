@@ -249,7 +249,7 @@ void *readStaticData(void *) {
                     tmpPlayerData.robot = isBot ? 1 : 0;
 
                     // Bot filtresi: bot gösterme kapalıysa listeye ekleme
-                    if (isBot && !moduleControl.mainSwitch.botStatus) continue;
+                    if (isBot && !moduleControl.mainSwitch.aimbotStatus) continue;
 
 
 
@@ -369,7 +369,7 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                                if (playerData.hp > 100) playerData.hp = 100;
                 //取敌人动作
              //   NSLog(@"****： %id",statusName);
-                uint64_t statusAddr = memoryTools.readLong(staticPlayerData.addr + PubgOffset::ObjectParam::StatusOffset);
+                uint64_t statusAddr = (uint64_t)memoryTools.readInt(staticPlayerData.addr + PubgOffset::ObjectParam::StatusOffset);
                 
                 if (statusAddr == 2097168) {
                 playerData.statusName = "DRIVE";
