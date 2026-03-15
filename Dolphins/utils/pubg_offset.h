@@ -59,7 +59,7 @@ int MeshOffset = 0x510;            // ACharacter::Mesh [DUMP ✅]
 int boneCountOffset = 0x8D0;
 
 namespace MeshParam {
-int HumanOffset = 0x210;           // USkeletalMeshComponent ComponentToWorld [DUMP ✅]
+int HumanOffset = 0x1B8;           // USkeletalMeshComponent ComponentToWorld (non-SIMD FTransform) [DUMP analysis]
 int BonesOffset = 0xC40;           // USkeletalMeshComponent::CachedComponentSpaceTransforms [DUMP ✅]
 }
 
