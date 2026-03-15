@@ -241,16 +241,19 @@ void *readStaticData(void *) {
                     //队伍ID
                     tmpPlayerData.team = team;
                     //名字
-                    uintptr_t nameData = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset);
-                    int nameLen = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::NameOffset + 8);
-                    if (nameData == 0 || nameLen <= 0) {
+                    // CustomPlayerName FString (0x15C8)
+                    uintptr_t nameData = memoryTools.readPtr(objectAddr + 0x15C8);
+                    int nameCount = memoryTools.readInt(objectAddr + 0x15C8 + 8);
+                    if (nameData == 0 || nameCount <= 0) {
+                        // fallback: PlayerState->PlayerName
                         uintptr_t ps = memoryTools.readPtr(objectAddr + 0x4d0);
-                        nameData = memoryTools.readPtr(ps + 0x4b8);
+                        if (ps != 0) nameData = memoryTools.readPtr(ps + 0x4b8);
                     }
                     tmpPlayerData.name = getPlayerName(nameData);
-                    // IsBot offset - bool (1 byte)
+                    // FakePlayerAIController pointer (0x4968) - null=gerçek, non-null=bot
                     bool isBot = false;
-                    memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::RobotOffset, 1, &isBot);
+                    uintptr_t fakeCtrl = memoryTools.readPtr(objectAddr + 0x4968);
+                    isBot = (fakeCtrl != 0);
                     tmpPlayerData.robot = isBot ? 1 : 0;
 
 
@@ -647,7 +650,7 @@ void *silenceAimbot(void *) {
             switch (moduleControl.aimbotController.aimbotMode) {
                 case 0:
                     //开镜自瞄
-                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
+                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + 0x1134) == 1;
                     break;
                 case 1:
                     //开火自瞄
@@ -655,7 +658,7 @@ void *silenceAimbot(void *) {
                     break;
                 case 2:
                     //开镜开火自瞄
-                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1 || ((memoryTools.readPtr(staticData.selfAddr + 0x1058) >> 7) & 1) == 1;
+                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + 0x1134) == 1 || ((memoryTools.readPtr(staticData.selfAddr + 0x1058) >> 7) & 1) == 1;
                     break;
                 case 3:
                     //判断枪械是单发还是全自动
@@ -664,7 +667,7 @@ void *silenceAimbot(void *) {
                         enabledAimbot = ((memoryTools.readPtr(staticData.selfAddr + 0x1058) >> 7) & 1) == 1;
                     } else {
                         //单发连发用开镜
-                        enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
+                        enabledAimbot = memoryTools.readInt(staticData.selfAddr + 0x1134) == 1;
                     }
                     break;
             }
