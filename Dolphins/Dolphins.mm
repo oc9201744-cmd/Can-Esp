@@ -94,7 +94,7 @@ uintptr_t getUE4DylibBase() {
     uint32_t count = _dyld_image_count();
     for (uint32_t i = 0; i < count; i++) {
         const char *name = _dyld_get_image_name(i);
-        if (name && (strstr(name, UE4) != nullptr || strstr(name, PUBGM_UE4) != nullptr)) {
+        if (name && (strstr(name, "UE4") != nullptr || strstr(name, "PUBGM_UE4") != nullptr)) {
             s_ue4DylibBase = (uintptr_t)_dyld_get_image_vmaddr_slide(i);
             return s_ue4DylibBase;
         }
