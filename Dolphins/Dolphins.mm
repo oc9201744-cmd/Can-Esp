@@ -57,7 +57,7 @@ MemoryTools memoryTools;
 //OffsetSet currentOffsetSet = GL;
 
 OffsetValues offsets[] = {
-    { 0x102A5125C, 0x10A4A1960, 0x104C0F1E8, 0x10A0557E0 },  // GL
+    { 0x102A62208, 0x10A566E00, 0x104bd8740, 0x10a1178b0 },  // GL
     { 0x1028791CC, 0x10A171A00, 0x104510EF0, 0x109AAA1A0 },  // VNG
     { 0x102AD71F8, 0x10A47D400, 0x10476F14C, 0x109DB5940 },  // KR
     { 0x102AAAB0C, 0x10A453300, 0x104742830, 0x109D8B830 }   // TW
@@ -77,56 +77,6 @@ void (*AddControllerRollInput)(void *actot, float val);
 void (*AddControllerPitchInput)(void *actot, float val);
 
 
-
-// --- UE4.dylib Global Pointer Reader ---
-// UE4.dylib icindeki global fonksiyon pointer'lari runtime'da okur
-// Dylib reverse engineering ile dogrulanan offsetler:
-//   _AddControllerYawInput   @ dylib_base + 0xfcc50
-//   _AddControllerRollInput  @ dylib_base + 0xfcc58
-//   _AddControllerPitchInput @ dylib_base + 0xfcc60
-//   _LineOfSightTo           @ dylib_base + 0xfcc38
-//   _PlayerCameraManager     @ dylib_base + 0xfcc40
-
-static uintptr_t s_ue4DylibBase = 0;
-
-uintptr_t getUE4DylibBase() {
-    if (s_ue4DylibBase != 0) return s_ue4DylibBase;
-    uint32_t count = _dyld_image_count();
-    for (uint32_t i = 0; i < count; i++) {
-        const char *name = _dyld_get_image_name(i);
-        if (name && (strstr(name, "UE4") != nullptr || strstr(name, "PUBGM_UE4") != nullptr)) {
-            s_ue4DylibBase = (uintptr_t)_dyld_get_image_vmaddr_slide(i);
-            return s_ue4DylibBase;
-        }
-    }
-    return 0;
-}
-
-// Dylib global'lerinden fonksiyon pointer'larini oku
-void loadUE4FunctionPointers() {
-    uintptr_t base = getUE4DylibBase();
-    if (base == 0) return;
-
-    // Her global bir 8-byte function pointer
-    uintptr_t yaw_addr   = base + 0xfcc50;
-    uintptr_t roll_addr  = base + 0xfcc58;
-    uintptr_t pitch_addr = base + 0xfcc60;
-    uintptr_t los_addr   = base + 0xfcc38;
-
-    // Pointer gecerlilik kontrolu
-    if (memoryTools.IsValidAddress(yaw_addr)) {
-        AddControllerYawInput   = *reinterpret_cast<void(**)(void*, float)>(yaw_addr);
-    }
-    if (memoryTools.IsValidAddress(roll_addr)) {
-        AddControllerRollInput  = *reinterpret_cast<void(**)(void*, float)>(roll_addr);
-    }
-    if (memoryTools.IsValidAddress(pitch_addr)) {
-        AddControllerPitchInput = *reinterpret_cast<void(**)(void*, float)>(pitch_addr);
-    }
-    if (memoryTools.IsValidAddress(los_addr)) {
-        LineOfSightTo = *reinterpret_cast<bool(**)(void*, void*, ImVec3, bool)>(los_addr);
-    }
-}
 
 long gWorld() {
     // non-JB: dylib IPA içine gömülü, ana binary index 0'dır
@@ -220,13 +170,15 @@ void *readStaticData(void *) {
             staticData.gnameAddr = gName();
             //角色控制器
             staticData.playerController = memoryTools.readPtr(memoryTools.readPtr(memoryTools.readPtr(staticData.gwlordAddr + PubgOffset::PlayerControllerOffset[0]) + PubgOffset::PlayerControllerOffset[1]) + PubgOffset::PlayerControllerOffset[2]);
-            //掩体判断
-            LineOfSightTo = (bool (*)(void *, void *, ImVec3, bool)) (memoryTools.readPtr(memoryTools.readPtr(staticData.playerController + 0x0) + PubgOffset::PlayerControllerParam::ControllerFunction::LineOfSightToOffset));//0x780
+            //掩体判断 — LineOfSightTo vtable offset: 0x7b0 (PB 4.3 GL)
+            LineOfSightTo = (bool (*)(void *, void *, ImVec3, bool)) (memoryTools.readPtr(memoryTools.readPtr(staticData.playerController + 0x0) + 0x7b0));
             //自己指针
             staticData.selfAddr = memoryTools.readPtr(staticData.playerController + PubgOffset::PlayerControllerParam::SelfOffset);
-            //自瞄函数
-            // UE4.dylib global pointer'larindan oku (dylib reverse engineering ile dogrulandi)
-            loadUE4FunctionPointers();
+            //自瞄函数 — Yaw:0x890 Roll:0x898 Pitch:0x888 (PB 4.3 GL)
+            uintptr_t selfFunction = memoryTools.readPtr(staticData.selfAddr + 0);
+            AddControllerYawInput   = (void (*)(void *, float)) (memoryTools.readPtr(selfFunction + 0x890));
+            AddControllerRollInput  = (void (*)(void *, float)) (memoryTools.readPtr(selfFunction + 0x898));
+            AddControllerPitchInput = (void (*)(void *, float)) (memoryTools.readPtr(selfFunction + 0x888));
             //相机管理器
             staticData.cameraManager = memoryTools.readPtr(staticData.playerController + PubgOffset::PlayerControllerParam::CameraManagerOffset);
             
@@ -279,43 +231,42 @@ void *readStaticData(void *) {
 
                     // HP yukarida kontrol edildi
                     // bDead kontrolu kaldirildi - HP ile yapiliyor
-                            uintptr_t statusAddr = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::StatusOffset);
 
-                    
 
                     tmpPlayerData.addr = objectAddr;
                     //坐标地址
                     tmpPlayerData.coordAddr = coordAddr;
                     //队伍ID
                     tmpPlayerData.team = team;
-                    // Bot tespiti: Dylib reverse engineering sonucu belirlendi
-                    // Yontem: AIController null kontrolu + PlayerState->bIsBot
+                    //名字
+                    // İsim: APawn::PlayerState(0x4d0) -> APlayerState::PlayerName(0x4b8) -> FString.data
+                    uintptr_t playerStateAddr = memoryTools.readPtr(objectAddr + 0x4d0);
+                    uintptr_t nameStrData = memoryTools.readPtr(playerStateAddr + 0x4b8);
+                    // Eğer boş ise RealPlayerName dene
+                    if (nameStrData == 0) {
+                        nameStrData = memoryTools.readPtr(playerStateAddr + 0x13e0);
+                    }
+                    tmpPlayerData.name = getPlayerName(nameStrData);
+                    // IsBot tespiti - 3 yöntem birlikte kullanılıyor
                     bool isBot = false;
-                    {
-                        // AIController offset: actor + 0x4E8
-                        // Null ise oyuncu, dolu ise bot olabilir
-                        uintptr_t aiController = memoryTools.readPtr(objectAddr + 0x4E8);
-                        if (aiController != 0) {
-                            // AIController var - PlayerState uzerinden kontrol
-                            // actor + 0x3D8 = PlayerState ptr
-                            uintptr_t playerState = memoryTools.readPtr(objectAddr + 0x3D8);
-                            if (playerState != 0) {
-                                // PlayerState + 0x290 = bIsBot (1 byte)
-                                uint8_t botFlag = 0;
-                                memoryTools.readMemory(playerState + 0x290, 1, &botFlag);
-                                isBot = (botFlag != 0);
-                            } else {
-                                isBot = true; // PlayerState yok = bot
-                            }
-                        }
+                    // Method 1: FakePlayerAIController pointer kontrolü (en güvenilir)
+                    uintptr_t fakeAICtrl = memoryTools.readPtr(objectAddr + 0x4968);
+                    if (fakeAICtrl != 0) { isBot = true; }
+                    // Method 2: PlayerState üzerindeki AI flag'leri (playerStateAddr = objectAddr + 0x4d0)
+                    if (!isBot) {
+                        bool isAdvAI = false;
+                        bool isMLAI  = false;
+                        memoryTools.readMemory(playerStateAddr + 0x650,  1, &isAdvAI);
+                        memoryTools.readMemory(playerStateAddr + 0x10f8, 1, &isMLAI);
+                        isBot = isAdvAI || isMLAI;
+                    }
+                    // Method 3: Sınıf adı kontrolü — bot karakterler AI/NPC içerir
+                    if (!isBot) {
+                        isBot = (strstr(className.c_str(), "AICharacter")  != 0 ||
+                                 strstr(className.c_str(), "BotCharacter") != 0 ||
+                                 strstr(className.c_str(), "NPC")          != 0);
                     }
                     tmpPlayerData.robot = isBot ? 1 : 0;
-
-                    // Bot filtresi
-                    if (isBot && !moduleControl.mainSwitch.botStatus) continue;
-
-                    // Isim
-                    tmpPlayerData.name = std::string(getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset)));
 
 
 
@@ -324,7 +275,7 @@ void *readStaticData(void *) {
                     
                     tmpPlayerDataList.push_back(tmpPlayerData);
                     
-                } else if (strstr(className.c_str(), "ProjSmoke_BP_C)") != 0) {
+                } else if (strstr(className.c_str(), "ProjSmoke_BP_C") != 0) {
                     StaticMaterialData tmpMaterialData;
                     //物资类型
                     tmpMaterialData.type = Warning;
@@ -435,7 +386,7 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                                if (playerData.hp > 100) playerData.hp = 100;
                 //取敌人动作
              //   NSLog(@"****： %id",statusName);
-                uintptr_t statusAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::StatusOffset);
+                int statusAddr = memoryTools.readInt(staticPlayerData.addr + PubgOffset::ObjectParam::StatusOffset);
                 
                 if (statusAddr == 2097168) {
                 playerData.statusName = "DRIVE";
@@ -564,9 +515,7 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 
                 
                 //取对手手持武器
-                // 4.3 SDK: iki kademeli silah okuma
-                uintptr_t _weaponMgr = memoryTools.readPtr(staticPlayerData.addr + 0x25B8);
-                uintptr_t weaponAddr = (_weaponMgr != 0) ? memoryTools.readPtr(_weaponMgr + 0x5D8) : 0;
+                uintptr_t weaponAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::WeaponOneOffset);
                 if (weaponAddr == 0) {
                     playerData.weaponName = "FIST";
                 } else {
@@ -706,33 +655,31 @@ void *silenceAimbot(void *) {
         usleep(16666);
         if (moduleControl.systemStatus == TransmissionNormal && moduleControl.mainSwitch.aimbotStatus/* && softWareData.loginStatus*/) {
             //武器指针
-            // 4.3 SDK: iki kademeli silah okuma
-            uintptr_t _selfWeaponMgr = memoryTools.readPtr(staticData.selfAddr + 0x25B8);
-            uintptr_t weaponAddr = (_selfWeaponMgr != 0) ? memoryTools.readPtr(_selfWeaponMgr + 0x5D8) : 0;
+            uintptr_t weaponAddr = memoryTools.readPtr(staticData.selfAddr + PubgOffset::ObjectParam::WeaponOneOffset);
             //自瞄开关
             bool enabledAimbot = false;
             //判断自瞄启动模式
             switch (moduleControl.aimbotController.aimbotMode) {
                 case 0:
                     //开镜自瞄
-                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 257 || memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
+                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
                     break;
                 case 1:
                     //开火自瞄
-                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1;
+                    enabledAimbot = ((memoryTools.readPtr(staticData.selfAddr + 0x1058) >> 7) & 1) == 1;
                     break;
                 case 2:
                     //开镜开火自瞄
-                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 257 || memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1 || memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1;
+                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1 || ((memoryTools.readPtr(staticData.selfAddr + 0x1058) >> 7) & 1) == 1;
                     break;
                 case 3:
                     //判断枪械是单发还是全自动
                     if (memoryTools.readInt(weaponAddr + PubgOffset::ObjectParam::WeaponParam::ShootModeOffset) >= 1024) {
                         //全自动用开火
-                        enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1;
+                        enabledAimbot = ((memoryTools.readPtr(staticData.selfAddr + 0x1058) >> 7) & 1) == 1;
                     } else {
                         //单发连发用开镜
-                        enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 257 || memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
+                        enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
                     }
                     break;
             }
@@ -753,6 +700,11 @@ void *silenceAimbot(void *) {
                 ImVec3 aimbotCoord = ImVec3(0,0,0);
                 //循环人物对象列表
                 for (auto staticPlayerData: staticData.playerDataList) {
+
+                    // Bot ise aimbot hedef almaz — sadece gerçek oyunculara kilitlen
+                    if (staticPlayerData.robot == 1) {
+                        continue;
+                    }
 
                     //坐标
                     ImVec3 objectCoord;
@@ -778,10 +730,6 @@ void *silenceAimbot(void *) {
                     //判断自瞄对象是否在指定屏幕范围
 
 
-                
-PlayerData playerData;
-
-
 
 
 
@@ -791,99 +739,63 @@ PlayerData playerData;
                         uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
                         uintptr_t humanAddr = meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset;
                         uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset) + 48;
-                        //取自瞄部位 0是优先头部,1是优先身体,3是[全自动武器打身体,单发连发打头],4是只打头,5是只打身体
+
+                        // Hedef kemik koordinatı seçimi
+                        // Önce görünür kemik aranır (LineOfSight); hiç görünmüyorsa
+                        // doğrudan ilk kemik kullanılır (fallback) — bu sayede aimbot
+                        // LineOfSightTo null olsa bile çalışmaya devam eder.
+                        auto selectBone = [&](int* ids, int count, int fallbackId) {
+                            ImVec3 candidate = {0, 0, 0};
+                            // Önce görünür kemik ara
+                            for (int i = 0; i < count; ++i) {
+                                ImVec3 bc = getBone(humanAddr, boneAddr, ids[i]);
+                                if (isCoordVisibility(bc)) {
+                                    candidate = bc;
+                                    break;
+                                }
+                            }
+                            // Görünür kemik bulunamadıysa fallback: doğrudan hedef kemik
+                            if (candidate.x == 0 && candidate.y == 0 && candidate.z == 0) {
+                                candidate = getBone(humanAddr, boneAddr, fallbackId);
+                            }
+                            if (candidate.x != 0 || candidate.y != 0 || candidate.z != 0) {
+                                aimbotCoord = candidate;
+                                aimbotPlayerData = staticPlayerData;
+                                aimbotRadius = screenDistance;
+                            }
+                        };
+
                         switch (moduleControl.aimbotController.aimbotParts) {
                             case 0: {
-                                //判断骨点是否可见
-                                int boneIds[] = {5, 3, 1, 11, 12, 32, 33, 52, 53, 54, 56, 57, 58, 62, 63};
-                                for (int boneId = 0; boneId < end(boneIds) - begin(boneIds); ++boneId) {
-                                    //取骨点
-                                    aimbotCoord = getBone(humanAddr, boneAddr, boneIds[boneId]);
-                                    //是否可见,可见则赋值给上面的变量
-                                    if (isCoordVisibility(aimbotCoord)) {
-                                        //自瞄对象数据
-                                        aimbotPlayerData = staticPlayerData;
-                                        //当前对象所在的屏幕范围
-                                        aimbotRadius = screenDistance;
-                                        //跳出循环
-                                        break;
-                                    } else {
-                                        //对象坐标置0
-                                        aimbotCoord = {0, 0, 0};
-                                    }
-                                }
-                            }
-                                //跳出switch
-                                break;
+                                // Öncelik: Kafa (5), sonra gövde
+                                int ids[] = {5, 3, 1, 11, 12, 32, 33, 52, 53, 54, 56, 57, 58, 62, 63};
+                                selectBone(ids, sizeof(ids)/sizeof(ids[0]), 5);
+                            } break;
                             case 1: {
-                                int boneIds[] = {11, 3, 5, 1, 11, 32, 12, 33, 63, 62, 52, 56, 53, 57, 54, 58};
-                                for (int boneId = 0; boneId < end(boneIds) - begin(boneIds); ++boneId) {
-                                    //取骨点
-                                    aimbotCoord = getBone(humanAddr, boneAddr, boneIds[boneId]);
-                                    if (isCoordVisibility(aimbotCoord)) {
-                                        aimbotPlayerData = staticPlayerData;
-                                        aimbotRadius = screenDistance;
-                                        break;
-                                    } else {
-                                        aimbotCoord = {0, 0, 0};
-                                    }
-                                }
-                            }
-                                break;
+                                // Öncelik: Gövde (3), sonra kafa
+                                int ids[] = {3, 1, 5, 11, 32, 12, 33, 63, 62, 52, 56, 53, 57, 54, 58};
+                                selectBone(ids, sizeof(ids)/sizeof(ids[0]), 3);
+                            } break;
                             case 2: {
+                                // Silaha göre: full-auto → gövde, single/burst → kafa
                                 if (memoryTools.readInt(weaponAddr + PubgOffset::ObjectParam::WeaponParam::ShootModeOffset) >= 1024) {
-                                    int boneIds[] = {3, 5, 1, 11, 32, 12, 33, 63, 62, 52, 56, 53, 57, 54, 58};
-                                    for (int boneId = 0; boneId < end(boneIds) - begin(boneIds); ++boneId) {
-                                        //取骨点
-                                        aimbotCoord = getBone(humanAddr, boneAddr, boneIds[boneId]);
-                                        if (isCoordVisibility(aimbotCoord)) {
-                                            aimbotPlayerData = staticPlayerData;
-                                            aimbotRadius = screenDistance;
-                                            break;
-                                        } else {
-                                            aimbotCoord = {0, 0, 0};
-                                        }
-                                    }
+                                    int ids[] = {3, 5, 1, 11, 32, 12, 33, 63, 62, 52, 56, 53, 57, 54, 58};
+                                    selectBone(ids, sizeof(ids)/sizeof(ids[0]), 3);
                                 } else {
-                                    int boneIds[] = {5, 3, 1, 11, 32, 12, 33, 63, 62, 52, 56, 53, 57, 54, 58};
-                                    for (int boneId = 0; boneId < end(boneIds) - begin(boneIds); ++boneId) {
-                                        //取骨点
-                                        aimbotCoord = getBone(humanAddr, boneAddr, boneIds[boneId]);
-                                        if (isCoordVisibility(aimbotCoord)) {
-                                            aimbotPlayerData = staticPlayerData;
-                                            aimbotRadius = screenDistance;
-                                            break;
-                                        } else {
-                                            aimbotCoord = {0, 0, 0};
-                                        }
-                                    }
+                                    int ids[] = {5, 3, 1, 11, 32, 12, 33, 63, 62, 52, 56, 53, 57, 54, 58};
+                                    selectBone(ids, sizeof(ids)/sizeof(ids[0]), 5);
                                 }
-                            }
-                                break;
+                            } break;
                             case 3: {
-                                //取骨点
-                                aimbotCoord = getBone(humanAddr, boneAddr, 5);
-                                if (isCoordVisibility(aimbotCoord)) {
-                                    aimbotPlayerData = staticPlayerData;
-                                    aimbotRadius = screenDistance;
-                                    break;
-                                } else {
-                                    aimbotCoord = {0, 0, 0};
-                                }
-                            }
-                                break;
+                                // Sadece kafa (5)
+                                int ids[] = {5};
+                                selectBone(ids, 1, 5);
+                            } break;
                             case 4: {
-                                //坐标
-                                aimbotCoord = getBone(humanAddr, boneAddr, 3);
-                                if (isCoordVisibility(aimbotCoord)) {
-                                    aimbotPlayerData = staticPlayerData;
-                                    aimbotRadius = screenDistance;
-                                    break;
-                                } else {
-                                    aimbotCoord = {0, 0, 0};
-                                }
-                            }
-                                break;
+                                // Sadece göğüs (3)
+                                int ids[] = {3};
+                                selectBone(ids, 1, 3);
+                            } break;
                         }
                     }
                     //switch结束
@@ -997,7 +909,7 @@ PlayerData playerData;
                     }
                     
                     //压枪
-                    if (memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1) {
+                    if (((memoryTools.readPtr(staticData.selfAddr + 0x1058) >> 7) & 1) == 1) {
                         //距离运算,压枪的幅度
                         float recoilTimes = 4.5 - get3dDistance(selfCoord, aimbotCoord, 10000);
                         recoilTimes += get3dDistance(selfCoord, aimbotCoord, 10000) * 0.2;
@@ -1100,7 +1012,7 @@ char *getPlayerName(uintptr_t addr) {
     unsigned short *tempbuf16 = buf16;
     char *tempbuf8 = buf;
     char *buf8 = tempbuf8 + 32;
-    while (tempbuf16 < tempbuf16 + 28) {
+    while (tempbuf16 < buf16 + 14) {
         if (*tempbuf16 <= 0x007F && tempbuf8 + 1 < buf8) {
             *tempbuf8++ = (char) *tempbuf16;
         } else if (*tempbuf16 >= 0x0080 && *tempbuf16 <= 0x07FF && tempbuf8 + 2 < buf8) {
