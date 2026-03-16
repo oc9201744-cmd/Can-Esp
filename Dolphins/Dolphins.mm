@@ -76,8 +76,6 @@ void (*AddControllerRollInput)(void *actot, float val);
 //旋转
 void (*AddControllerPitchInput)(void *actot, float val);
 
-// SetControlRotation - AController vtable @ 0x508
-void (*SetControlRotation)(void *controller, float pitch, float yaw, float roll, void *fstr, int fstr_len, int fstr_max);
 
 
 
@@ -184,11 +182,6 @@ void *readStaticData(void *) {
                 AddControllerYawInput   = (void (*)(void *, float)) (memoryTools.readPtr(selfVtable + PubgOffset::ObjectParam::PlayerFunction::AddControllerYawInputOffset));
                 AddControllerRollInput  = (void (*)(void *, float)) (memoryTools.readPtr(selfVtable + PubgOffset::ObjectParam::PlayerFunction::AddControllerRollInputOffset));
                 AddControllerPitchInput = (void (*)(void *, float)) (memoryTools.readPtr(selfVtable + PubgOffset::ObjectParam::PlayerFunction::AddControllerPitchInputOffset));
-            }
-            // SetControlRotation - playerController vtable @ 0x508
-            if (staticData.playerController != 0) {
-                uintptr_t ctrlVtable = memoryTools.readPtr(staticData.playerController + 0);
-                SetControlRotation = (void (*)(void *, float, float, float, void *, int, int))(memoryTools.readPtr(ctrlVtable + 0x508));
             }
             //相机管理器
             staticData.cameraManager = memoryTools.readPtr(staticData.playerController + PubgOffset::PlayerControllerParam::CameraManagerOffset);
@@ -1016,21 +1009,9 @@ void *silenceAimbot(void *) {
                     while (newYaw >  180.0f) newYaw -= 360.0f;
                     while (newYaw < -180.0f) newYaw += 360.0f;
 
-                    // SetControlRotation - oyunun kendi fonksiyonu (dylib yöntemi, güvenli)
-                    // playerController vtable @ 0x508
-                    if (SetControlRotation != NULL) {
-                        SetControlRotation(reinterpret_cast<void *>(staticData.playerController),
-                                           newPitch, newYaw, 0.0f,
-                                           nullptr, 0, 0);
-                    } else {
-                        // Fallback: AddControllerInput
-                        float diffY = change(getAngleDifference(aimbotMouse.x, curYaw)   * intensity);
-                        float diffP = change(getAngleDifference(aimbotMouse.y, curPitch)  * intensity);
-                        if (AddControllerYawInput)
-                            AddControllerYawInput(reinterpret_cast<void *>(staticData.selfAddr), diffY);
-                        if (AddControllerRollInput)
-                            AddControllerRollInput(reinterpret_cast<void *>(staticData.selfAddr), diffP);
-                    }
+                    // Direkt ControlRotation yaz - internal mod için en güvenilir yöntem
+                    *(float *)(staticData.playerController + PubgOffset::PlayerControllerParam::MouseOffset)       = newPitch;
+                    *(float *)(staticData.playerController + PubgOffset::PlayerControllerParam::MouseOffset + 0x4) = newYaw;
                 }
             }
         }
