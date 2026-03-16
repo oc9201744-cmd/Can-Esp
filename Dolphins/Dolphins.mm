@@ -78,6 +78,56 @@ void (*AddControllerPitchInput)(void *actot, float val);
 
 
 
+// --- UE4.dylib Global Pointer Reader ---
+// UE4.dylib icindeki global fonksiyon pointer'lari runtime'da okur
+// Dylib reverse engineering ile dogrulanan offsetler:
+//   _AddControllerYawInput   @ dylib_base + 0xfcc50
+//   _AddControllerRollInput  @ dylib_base + 0xfcc58
+//   _AddControllerPitchInput @ dylib_base + 0xfcc60
+//   _LineOfSightTo           @ dylib_base + 0xfcc38
+//   _PlayerCameraManager     @ dylib_base + 0xfcc40
+
+static uintptr_t s_ue4DylibBase = 0;
+
+uintptr_t getUE4DylibBase() {
+    if (s_ue4DylibBase != 0) return s_ue4DylibBase;
+    uint32_t count = _dyld_image_count();
+    for (uint32_t i = 0; i < count; i++) {
+        const char *name = _dyld_get_image_name(i);
+        if (name && (strstr(name, UE4) != nullptr || strstr(name, PUBGM_UE4) != nullptr)) {
+            s_ue4DylibBase = (uintptr_t)_dyld_get_image_vmaddr_slide(i);
+            return s_ue4DylibBase;
+        }
+    }
+    return 0;
+}
+
+// Dylib global'lerinden fonksiyon pointer'larini oku
+void loadUE4FunctionPointers() {
+    uintptr_t base = getUE4DylibBase();
+    if (base == 0) return;
+
+    // Her global bir 8-byte function pointer
+    uintptr_t yaw_addr   = base + 0xfcc50;
+    uintptr_t roll_addr  = base + 0xfcc58;
+    uintptr_t pitch_addr = base + 0xfcc60;
+    uintptr_t los_addr   = base + 0xfcc38;
+
+    // Pointer gecerlilik kontrolu
+    if (memoryTools.IsValidAddress(yaw_addr)) {
+        AddControllerYawInput   = *reinterpret_cast<void(**)(void*, float)>(yaw_addr);
+    }
+    if (memoryTools.IsValidAddress(roll_addr)) {
+        AddControllerRollInput  = *reinterpret_cast<void(**)(void*, float)>(roll_addr);
+    }
+    if (memoryTools.IsValidAddress(pitch_addr)) {
+        AddControllerPitchInput = *reinterpret_cast<void(**)(void*, float)>(pitch_addr);
+    }
+    if (memoryTools.IsValidAddress(los_addr)) {
+        LineOfSightTo = *reinterpret_cast<bool(**)(void*, void*, ImVec3, bool)>(los_addr);
+    }
+}
+
 long gWorld() {
     // non-JB: dylib IPA içine gömülü, ana binary index 0'dır
     OffsetValues offsetsForBundle = [OffsetsManager getOffsetsForBundleID:[[NSBundle mainBundle] bundleIdentifier]];
@@ -175,11 +225,8 @@ void *readStaticData(void *) {
             //自己指针
             staticData.selfAddr = memoryTools.readPtr(staticData.playerController + PubgOffset::PlayerControllerParam::SelfOffset);
             //自瞄函数
-            // 4.3 SDK dogrulanmis vtable offsetleri
-            uintptr_t selfFunction = memoryTools.readPtr(staticData.selfAddr + 0);
-            AddControllerYawInput   = (void (*)(void *, float)) (memoryTools.readPtr(selfFunction + 0x6E8));
-            AddControllerRollInput  = (void (*)(void *, float)) (memoryTools.readPtr(selfFunction + 0x6F8));
-            AddControllerPitchInput = (void (*)(void *, float)) (memoryTools.readPtr(selfFunction + 0x6F0));
+            // UE4.dylib global pointer'larindan oku (dylib reverse engineering ile dogrulandi)
+            loadUE4FunctionPointers();
             //相机管理器
             staticData.cameraManager = memoryTools.readPtr(staticData.playerController + PubgOffset::PlayerControllerParam::CameraManagerOffset);
             
