@@ -182,6 +182,11 @@ void *readStaticData(void *) {
                 AddControllerRollInput  = (void (*)(void *, float)) (memoryTools.readPtr(selfVtable + PubgOffset::ObjectParam::PlayerFunction::AddControllerRollInputOffset));
                 AddControllerPitchInput = (void (*)(void *, float)) (memoryTools.readPtr(selfVtable + PubgOffset::ObjectParam::PlayerFunction::AddControllerPitchInputOffset));
             }
+            // SetControlRotation - playerController vtable @ 0x508
+            if (staticData.playerController != 0) {
+                uintptr_t ctrlVtable = memoryTools.readPtr(staticData.playerController + 0);
+                SetControlRotation = (void (*)(void *, float, float, float, void *, int, int))(memoryTools.readPtr(ctrlVtable + 0x508));
+            }
             //相机管理器
             staticData.cameraManager = memoryTools.readPtr(staticData.playerController + PubgOffset::PlayerControllerParam::CameraManagerOffset);
             
@@ -977,27 +982,51 @@ void *silenceAimbot(void *) {
                     }
 
                     // Mevcut ControlRotation oku
+                    // AController::ControlRotation FRotator @ 0x4E0
+                    // {Pitch @ 0x4E0, Yaw @ 0x4E4, Roll @ 0x4E8}
                     float curPitch = memoryTools.readFloat(staticData.playerController + PubgOffset::PlayerControllerParam::MouseOffset);
                     float curYaw   = memoryTools.readFloat(staticData.playerController + PubgOffset::PlayerControllerParam::MouseOffset + 0x4);
 
-                    // Hedef açı farkı
-                    float diffYaw   = change(getAngleDifference(aimbotMouse.x, curYaw)   * moduleControl.aimbotController.aimbotIntensity);
-                    float diffPitch = change(getAngleDifference(aimbotMouse.y, curPitch)  * moduleControl.aimbotController.aimbotIntensity);
+                    float intensity = moduleControl.aimbotController.aimbotIntensity;
 
-                    if (!isfinite(diffYaw) || !isfinite(diffPitch)) {
+                    // Hedef açı hesapla (smooth veya lock)
+                    float newPitch, newYaw;
+                    if (intensity >= 1.0f) {
+                        // Lock: direkt hedef açısına git
+                        newPitch = aimbotMouse.y;
+                        newYaw   = aimbotMouse.x;
+                    } else {
+                        // Smooth: farkın intensity kadarını uygula
+                        newPitch = curPitch + change(getAngleDifference(aimbotMouse.y, curPitch) * intensity);
+                        newYaw   = curYaw   + change(getAngleDifference(aimbotMouse.x, curYaw)   * intensity);
+                    }
+
+                    if (!isfinite(newPitch) || !isfinite(newYaw)) {
                         continue;
                     }
 
-                    // APawn::AddControllerInput ile uygula (güvenli yöntem)
-                    // selfAddr = ASTExtraPlayerCharacter (APawn türevi)
-                    if (AddControllerYawInput != NULL) {
-                        AddControllerYawInput(reinterpret_cast<void *>(staticData.selfAddr), diffYaw);
-                    }
-                    if (AddControllerRollInput != NULL) {
-                        AddControllerRollInput(reinterpret_cast<void *>(staticData.selfAddr), diffPitch);
-                    }
-                    if (AddControllerPitchInput != NULL) {
-                        AddControllerPitchInput(reinterpret_cast<void *>(staticData.selfAddr), 0);
+                    // Pitch: -89 ile 89 arasında clamp
+                    if (newPitch >  89.0f) newPitch =  89.0f;
+                    if (newPitch < -89.0f) newPitch = -89.0f;
+
+                    // Yaw: -180 ile 180 arasında normalize
+                    while (newYaw >  180.0f) newYaw -= 360.0f;
+                    while (newYaw < -180.0f) newYaw += 360.0f;
+
+                    // SetControlRotation - oyunun kendi fonksiyonu (dylib yöntemi, güvenli)
+                    // playerController vtable @ 0x508
+                    if (SetControlRotation != NULL) {
+                        SetControlRotation(reinterpret_cast<void *>(staticData.playerController),
+                                           newPitch, newYaw, 0.0f,
+                                           nullptr, 0, 0);
+                    } else {
+                        // Fallback: AddControllerInput
+                        float diffY = change(getAngleDifference(aimbotMouse.x, curYaw)   * intensity);
+                        float diffP = change(getAngleDifference(aimbotMouse.y, curPitch)  * intensity);
+                        if (AddControllerYawInput)
+                            AddControllerYawInput(reinterpret_cast<void *>(staticData.selfAddr), diffY);
+                        if (AddControllerRollInput)
+                            AddControllerRollInput(reinterpret_cast<void *>(staticData.selfAddr), diffP);
                     }
                 }
             }
