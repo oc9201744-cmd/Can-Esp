@@ -76,6 +76,9 @@ void (*AddControllerRollInput)(void *actot, float val);
 //旋转
 void (*AddControllerPitchInput)(void *actot, float val);
 
+// SetControlRotation - AController vtable @ 0x508
+void (*SetControlRotation)(void *controller, float pitch, float yaw, float roll, void *fstr, int fstr_len, int fstr_max);
+
 
 
 long gWorld() {
