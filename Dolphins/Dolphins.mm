@@ -977,36 +977,28 @@ void *silenceAimbot(void *) {
                     }
 
                     // Mevcut ControlRotation oku
-                    // AController::ControlRotation @ MouseOffset (0x4E0)
-                    // FRotator: Pitch(0x4E0), Yaw(0x4E4), Roll(0x4E8) - float x3
                     float curPitch = memoryTools.readFloat(staticData.playerController + PubgOffset::PlayerControllerParam::MouseOffset);
                     float curYaw   = memoryTools.readFloat(staticData.playerController + PubgOffset::PlayerControllerParam::MouseOffset + 0x4);
 
-                    // Hedef ile mevcut açı farkı
-                    float diffPitch = getAngleDifference(aimbotMouse.y, curPitch);
-                    float diffYaw   = getAngleDifference(aimbotMouse.x, curYaw);
+                    // Hedef açı farkı
+                    float diffYaw   = change(getAngleDifference(aimbotMouse.x, curYaw)   * moduleControl.aimbotController.aimbotIntensity);
+                    float diffPitch = change(getAngleDifference(aimbotMouse.y, curPitch)  * moduleControl.aimbotController.aimbotIntensity);
 
-                    float intensity = moduleControl.aimbotController.aimbotIntensity;
-
-                    float newPitch, newYaw;
-                    if (intensity >= 1.0f) {
-                        // Lock modu: direkt hedef açıya yaz
-                        newPitch = aimbotMouse.y;
-                        newYaw   = aimbotMouse.x;
-                    } else {
-                        // Smooth mod: farkın intensity kadarını uygula
-                        newPitch = curPitch + diffPitch * intensity;
-                        newYaw   = curYaw   + diffYaw   * intensity;
-                    }
-
-                    if (!isfinite(newPitch) || !isfinite(newYaw)) {
+                    if (!isfinite(diffYaw) || !isfinite(diffPitch)) {
                         continue;
                     }
 
-                    // Direkt ControlRotation'a yaz (dylib yöntemi)
-                    // Internal mod: pointer dereference ile direkt bellek yazma
-                    *(float *)(staticData.playerController + PubgOffset::PlayerControllerParam::MouseOffset)       = newPitch;
-                    *(float *)(staticData.playerController + PubgOffset::PlayerControllerParam::MouseOffset + 0x4) = newYaw;
+                    // APawn::AddControllerInput ile uygula (güvenli yöntem)
+                    // selfAddr = ASTExtraPlayerCharacter (APawn türevi)
+                    if (AddControllerYawInput != NULL) {
+                        AddControllerYawInput(reinterpret_cast<void *>(staticData.selfAddr), diffYaw);
+                    }
+                    if (AddControllerRollInput != NULL) {
+                        AddControllerRollInput(reinterpret_cast<void *>(staticData.selfAddr), diffPitch);
+                    }
+                    if (AddControllerPitchInput != NULL) {
+                        AddControllerPitchInput(reinterpret_cast<void *>(staticData.selfAddr), 0);
+                    }
                 }
             }
         }
