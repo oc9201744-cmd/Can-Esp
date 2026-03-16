@@ -971,33 +971,42 @@ void *silenceAimbot(void *) {
                         aimbotMouse.y -= recoilTimes * recoil;
                     }
                     
-                    //判断是否是有效数
+                    // Hedef açı geçerli mi?
                     if (!isfinite(aimbotMouse.x) || !isfinite(aimbotMouse.y)) {
                         continue;
                     }
-                    //准星移动的角度
-                    ImVec2 aimbotMouseMove;
-                    //计算角度
-                    //getAngleDifference 读内存里的准星角度和计算得到的准星角度进行运算,得到角度差
-                    //change是调整角度 正数变负数, 负数变整数
-                    // * moduleControl.aimbotController.aimbotIntensity 就是 * 0.35 让准星慢慢移动到指定位置,类似触摸自瞄  * 1就是强锁了
-                    //这里是类触摸的关键,* 0.35就是得到的角度差的35%,一次移动角度差的35% 就让准星慢慢移动到敌人了
-                    aimbotMouseMove.x = change(getAngleDifference(aimbotMouse.x, memoryTools.readFloat(staticData.playerController + PubgOffset::PlayerControllerParam::MouseOffset + 0x4)) * moduleControl.aimbotController.aimbotIntensity);
-                    aimbotMouseMove.y = change(getAngleDifference(aimbotMouse.y, memoryTools.readFloat(staticData.playerController + PubgOffset::PlayerControllerParam::MouseOffset)) * moduleControl.aimbotController.aimbotIntensity);
-                    //判断计算得到的角度是不是一个有效数
-                    if (!isfinite(aimbotMouseMove.x) || !isfinite(aimbotMouseMove.y)) {
+
+                    // Mevcut ControlRotation oku
+                    // AController::ControlRotation @ MouseOffset (0x4E0)
+                    // FRotator: Pitch(0x4E0), Yaw(0x4E4), Roll(0x4E8) - float x3
+                    float curPitch = memoryTools.readFloat(staticData.playerController + PubgOffset::PlayerControllerParam::MouseOffset);
+                    float curYaw   = memoryTools.readFloat(staticData.playerController + PubgOffset::PlayerControllerParam::MouseOffset + 0x4);
+
+                    // Hedef ile mevcut açı farkı
+                    float diffPitch = getAngleDifference(aimbotMouse.y, curPitch);
+                    float diffYaw   = getAngleDifference(aimbotMouse.x, curYaw);
+
+                    float intensity = moduleControl.aimbotController.aimbotIntensity;
+
+                    float newPitch, newYaw;
+                    if (intensity >= 1.0f) {
+                        // Lock modu: direkt hedef açıya yaz
+                        newPitch = aimbotMouse.y;
+                        newYaw   = aimbotMouse.x;
+                    } else {
+                        // Smooth mod: farkın intensity kadarını uygula
+                        newPitch = curPitch + diffPitch * intensity;
+                        newYaw   = curYaw   + diffYaw   * intensity;
+                    }
+
+                    if (!isfinite(newPitch) || !isfinite(newYaw)) {
                         continue;
                     }
-                    //移动鼠标,我这里用的增量自瞄,是传入的角度差 比如游戏的角度在180度,我上面计算的角度差是-30 这里传入-30就让180-30了
-                    if (AddControllerYawInput != NULL) {
-                        AddControllerYawInput(reinterpret_cast<void *>(staticData.selfAddr), aimbotMouseMove.x);
-                    }
-                    if (AddControllerRollInput != NULL) {
-                        AddControllerRollInput(reinterpret_cast<void *>(staticData.selfAddr), aimbotMouseMove.y);
-                    }
-                    if (AddControllerPitchInput != NULL) {
-                        AddControllerPitchInput(reinterpret_cast<void *>(staticData.selfAddr), 0);
-                    }
+
+                    // Direkt ControlRotation'a yaz (dylib yöntemi)
+                    // Internal mod: pointer dereference ile direkt bellek yazma
+                    *(float *)(staticData.playerController + PubgOffset::PlayerControllerParam::MouseOffset)       = newPitch;
+                    *(float *)(staticData.playerController + PubgOffset::PlayerControllerParam::MouseOffset + 0x4) = newYaw;
                 }
             }
         }
