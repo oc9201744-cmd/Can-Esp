@@ -245,17 +245,11 @@ void *readStaticData(void *) {
                     tmpPlayerData.team = team;
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
-                    // Bot tespiti: Controller sinifi ile
-                    // APawn::Controller @ 0x4E8
-                    // FakePlayerAIController → bot, STExtraPlayerController → gercek oyuncu
+                    // Bot tespiti: APawn::Controller @ 0x4E8
+                    // Simulated proxy (bot) → Controller = NULL (0)
+                    // Gerçek oyuncu → Controller = ASTExtraPlayerController (ptr mevcut)
                     uintptr_t controllerAddr = memoryTools.readPtr(objectAddr + 0x4E8);
-                    bool isBot = false;
-                    if (controllerAddr > 0x100000000 && controllerAddr < 0x2000000000) {
-                        string ctrlClass = getClassName(memoryTools.readInt(controllerAddr + PubgOffset::ObjectParam::ClassIdOffset));
-                        isBot = (strstr(ctrlClass.c_str(), "FakePlayer") != 0 ||
-                                 strstr(ctrlClass.c_str(), "AIController") != 0) &&
-                                 strstr(ctrlClass.c_str(), "PlayerController") == 0;
-                    }
+                    bool isBot = (controllerAddr == 0);
                     tmpPlayerData.robot = isBot ? 1 : 0;
 
                     // Bot filtresi: botStatus kapali ise botlari gizle
