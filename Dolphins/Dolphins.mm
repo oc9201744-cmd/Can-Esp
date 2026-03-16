@@ -1,5 +1,5 @@
-// Dolphins_Final_Fixed.mm
-// En Yeni Dylib Yöntemi ve Bot Ayrımı Entegre Edilmiş Versiyon
+// Dolphins_Final_Corrected.mm
+// Derleme Hataları Giderilmiş, Yeni Dylib Yöntemi ve Bot Ayrımı Entegre Edilmiş Versiyon
 
 #import "Dolphins/crossoffsets.h"
 #import <Foundation/Foundation.h>
@@ -15,16 +15,18 @@
 #include "Dolphins/utils/memory_tools.h"
 #include "Dolphins/utils/log.h"
 
+#define kWidth  [UIScreen mainScreen].bounds.size.width
+#define kHeight [UIScreen mainScreen].bounds.size.height
+
 using namespace std;
 
 ModuleControl moduleControl;
 MemoryTools memoryTools;
 
 // --- Dylib'den Alınan Fonksiyon Prototipleri ---
-// Yeni dylib'de bu fonksiyonlar sembol olarak mevcut
-void (*AddControllerYawInput)(void *pawn, float val);
-void (*AddControllerPitchInput)(void *pawn, float val);
-bool (*LineOfSightTo)(void *controller, void *actor, ImVec3 bone_point, bool ischeck);
+void (*AddControllerYawInput)(void *pawn, float val) = nullptr;
+void (*AddControllerPitchInput)(void *pawn, float val) = nullptr;
+bool (*LineOfSightTo)(void *controller, void *actor, ImVec3 bone_point, bool ischeck) = nullptr;
 
 struct {
     uintptr_t libAddr = 0;
@@ -36,10 +38,20 @@ struct {
     vector<StaticPlayerData> playerDataList;
 } staticData;
 
+// --- Orijinal gWorld ve gName Fonksiyonları (OffsetsManager ile) ---
+long gWorld() {
+    OffsetValues offsetsForBundle = [OffsetsManager getOffsetsForBundleID:[[NSBundle mainBundle] bundleIdentifier]];
+    return reinterpret_cast<long(__fastcall*)(long)>((long)_dyld_get_image_vmaddr_slide(0) + offsetsForBundle.gWorldFun)((long)_dyld_get_image_vmaddr_slide(0) + offsetsForBundle.gWorldData);
+}
+
+long gName() {
+    OffsetValues offsetsForBundle = [OffsetsManager getOffsetsForBundleID:[[NSBundle mainBundle] bundleIdentifier]];
+    return reinterpret_cast<long(__fastcall*)(long)>((long)_dyld_get_image_vmaddr_slide(0) + offsetsForBundle.gNameFun)((long)_dyld_get_image_vmaddr_slide(0) + offsetsForBundle.gNameData);
+}
+
 // --- BOT AYRIMI: Yeni Dylib Yöntemi ---
 bool isActorBot(uintptr_t actorAddr) {
     // 1. Kontrol: PlayerState üzerinden bIsABot flag'i (En kesin yöntem)
-    // Genellikle Actor + 0x3D8 -> PlayerState + 0x290 (1 byte bool)
     uintptr_t playerState = memoryTools.readPtr(actorAddr + 0x3D8);
     if (playerState != 0) {
         uint8_t isBotFlag = 0;
@@ -48,12 +60,9 @@ bool isActorBot(uintptr_t actorAddr) {
     }
 
     // 2. Kontrol: APawn::Controller kontrolü (Dylib'deki yedek yöntem)
-    // Gerçek oyuncuların Controller adresi varken, uzaktaki botlarınki null olabilir
     uintptr_t controller = memoryTools.readPtr(actorAddr + 0x4E8);
     if (controller == 0) return true;
 
-    // 3. Kontrol: İsim üzerinden (Gerekirse)
-    // Bot isimleri genellikle belirli bir pattern izler veya boş döner
     return false;
 }
 
@@ -75,17 +84,17 @@ void *readStaticData(void *) {
                 staticData.cameraManager = memoryTools.readPtr(staticData.playerController + PubgOffset::PlayerControllerParam::CameraManagerOffset);
                 
                 // --- DYLIB YÖNTEMİ: Fonksiyon Adreslerini vtable'dan Çekme ---
-                // Yeni dylib bu adresleri vtable'ın belirli indexlerinden okuyor
                 uintptr_t selfVtable = memoryTools.readPtr(staticData.selfAddr + 0);
                 if (selfVtable != 0) {
-                    // Ofsetler yeni dylib ile uyumlu hale getirildi
                     AddControllerYawInput   = (void (*)(void *, float)) (memoryTools.readPtr(selfVtable + 0x6E8)); 
                     AddControllerPitchInput = (void (*)(void *, float)) (memoryTools.readPtr(selfVtable + 0x6F8));
                 }
                 
                 // LineOfSightTo (Görünürlük Kontrolü)
                 uintptr_t pcVtable = memoryTools.readPtr(staticData.playerController + 0);
-                LineOfSightTo = (bool (*)(void *, void *, ImVec3, bool)) (memoryTools.readPtr(pcVtable + 0x780));
+                if (pcVtable != 0) {
+                    LineOfSightTo = (bool (*)(void *, void *, ImVec3, bool)) (memoryTools.readPtr(pcVtable + 0x780));
+                }
             }
 
             // Oyuncu Taraması
@@ -132,18 +141,19 @@ void *silenceAimbot(void *) {
             float minFov = moduleControl.aimbotController.aimbotRadius;
 
             for (auto &p : staticData.playerDataList) {
-                ImVec3 headPos; // Kafa ofsetini al (Örn: Bone 5)
+                ImVec3 headPos;
                 uintptr_t mesh = memoryTools.readPtr(p.addr + PubgOffset::ObjectParam::MeshOffset);
                 uintptr_t bones = memoryTools.readPtr(mesh + PubgOffset::ObjectParam::MeshParam::BonesOffset) + 48;
                 headPos = getBone(mesh + PubgOffset::ObjectParam::MeshParam::HumanOffset, bones, 5);
 
                 // Görünürlük Kontrolü (Dylib yöntemi)
-                if (moduleControl.aimbotController.visibleCheck && LineOfSightTo) {
+                // visibleCheck yerine aimbotStatus veya menüden gelen uygun bir bayrak kullanılabilir
+                if (LineOfSightTo) {
                     if (!LineOfSightTo((void*)staticData.playerController, (void*)p.addr, headPos, false)) continue;
                 }
 
-                ImVec2 screenPos = worldToScreen(headPos, pov, ImVec2(screenWidth, screenHeight));
-                float dist = get2dDistance(ImVec2(screenWidth/2, screenHeight/2), screenPos);
+                ImVec2 screenPos = worldToScreen(headPos, pov, ImVec2(kWidth, kHeight));
+                float dist = get2dDistance(ImVec2(kWidth/2, kHeight/2), screenPos);
 
                 if (dist < minFov) {
                     minFov = dist;
