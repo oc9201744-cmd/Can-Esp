@@ -239,33 +239,37 @@ void *readStaticData(void *) {
                     //队伍ID
                     tmpPlayerData.team = team;
                     //名字
-                    // İsim: APawn::PlayerState(0x4d0) -> APlayerState::PlayerName(0x4b8) -> FString.data
+                    // İsim okuma: APawn::PlayerState (0x4d0) -> APlayerState::PlayerName (0x4b8)
                     uintptr_t playerStateAddr = memoryTools.readPtr(objectAddr + 0x4d0);
-                    uintptr_t nameStrData = memoryTools.readPtr(playerStateAddr + 0x4b8);
-                    // Eğer boş ise RealPlayerName dene
-                    if (nameStrData == 0) {
-                        nameStrData = memoryTools.readPtr(playerStateAddr + 0x13e0);
+                    if (playerStateAddr != 0) {
+                        uintptr_t nameStrData = memoryTools.readPtr(playerStateAddr + 0x4b8);
+                        // Eğer boş ise RealPlayerName (0x13e0) dene
+                        if (nameStrData == 0) {
+                            nameStrData = memoryTools.readPtr(playerStateAddr + 0x13e0);
+                        }
+                        tmpPlayerData.name = getPlayerName(nameStrData);
+                    } else {
+                        tmpPlayerData.name = "Unknown";
                     }
-                    tmpPlayerData.name = getPlayerName(nameStrData);
-                    // IsBot tespiti - 3 yöntem birlikte kullanılıyor
+
+                    // Bot tespiti
                     bool isBot = false;
-                    // Method 1: FakePlayerAIController pointer kontrolü (en güvenilir)
-                    uintptr_t fakeAICtrl = memoryTools.readPtr(objectAddr + 0x4968);
-                    if (fakeAICtrl != 0) { isBot = true; }
-                    // Method 2: PlayerState üzerindeki AI flag'leri (playerStateAddr = objectAddr + 0x4d0)
-                    if (!isBot) {
-                        bool isAdvAI = false;
-                        bool isMLAI  = false;
-                        memoryTools.readMemory(playerStateAddr + 0x650,  1, &isAdvAI);
-                        memoryTools.readMemory(playerStateAddr + 0x10f8, 1, &isMLAI);
-                        isBot = isAdvAI || isMLAI;
+
+                    // Method 1: APlayerState::bIsABot (offset 0x4DC, bit mask 0x4)
+                    // Bu, AIO header'dan onaylı UE4 standart bot flag'i — en güvenilir yöntem
+                    if (!isBot && playerStateAddr != 0) {
+                        uint8_t botFlags = 0;
+                        memoryTools.readMemory(playerStateAddr + 0x4DC, 1, &botFlags);
+                        if (botFlags & 0x4) { isBot = true; }
                     }
-                    // Method 3: Sınıf adı kontrolü — bot karakterler AI/NPC içerir
+
+                    // Method 2: Sınıf adı kontrolü (offset bağımsız güvenlik katmanı)
                     if (!isBot) {
                         isBot = (strstr(className.c_str(), "AICharacter")  != 0 ||
                                  strstr(className.c_str(), "BotCharacter") != 0 ||
                                  strstr(className.c_str(), "NPC")          != 0);
                     }
+
                     tmpPlayerData.robot = isBot ? 1 : 0;
 
 
@@ -1006,27 +1010,38 @@ bool isOnSmoke(ImVec3 coord) {
 
 //获取玩家名字
 char *getPlayerName(uintptr_t addr) {
-    char *buf = (char *) malloc(448);
-    unsigned short buf16[16] = {0};
-    memoryTools.readMemory(addr, 28, buf16);
+    if (addr == 0) {
+        char *empty = (char *) malloc(4);
+        empty[0] = '\0';
+        return empty;
+    }
+    // 32 UTF-16 karakter destekle (oyuncu isimleri için yeterli)
+    static const int MAX_UTF16 = 32;
+    char *buf = (char *) malloc(256);
+    memset(buf, 0, 256);
+    unsigned short buf16[MAX_UTF16] = {0};
+    memoryTools.readMemory(addr, MAX_UTF16 * 2, buf16);
     unsigned short *tempbuf16 = buf16;
     char *tempbuf8 = buf;
-    char *buf8 = tempbuf8 + 32;
-    while (tempbuf16 < buf16 + 14) {
-        if (*tempbuf16 <= 0x007F && tempbuf8 + 1 < buf8) {
+    // Çıktı sınırı: 256 - 4 (null terminator için güvenlik payı)
+    char *buf8end = buf + 252;
+    while (tempbuf16 < buf16 + MAX_UTF16) {
+        if (*tempbuf16 == 0) break; // null terminator
+        if (*tempbuf16 <= 0x007F && tempbuf8 + 1 < buf8end) {
             *tempbuf8++ = (char) *tempbuf16;
-        } else if (*tempbuf16 >= 0x0080 && *tempbuf16 <= 0x07FF && tempbuf8 + 2 < buf8) {
-            *tempbuf8++ = (*tempbuf16 >> 6) | 0xC0;
-            *tempbuf8++ = (*tempbuf16 & 0x3F) | 0x80;
-        } else if (*tempbuf16 >= 0x0800 && *tempbuf16 <= 0xFFFF && tempbuf8 + 3 < buf8) {
-            *tempbuf8++ = (*tempbuf16 >> 12) | 0xE0;
-            *tempbuf8++ = ((*tempbuf16 >> 6) & 0x3F) | 0x80;
-            *tempbuf8++ = (*tempbuf16 & 0x3F) | 0x80;
+        } else if (*tempbuf16 >= 0x0080 && *tempbuf16 <= 0x07FF && tempbuf8 + 2 < buf8end) {
+            *tempbuf8++ = (char)((*tempbuf16 >> 6) | 0xC0);
+            *tempbuf8++ = (char)((*tempbuf16 & 0x3F) | 0x80);
+        } else if (*tempbuf16 >= 0x0800 && tempbuf8 + 3 < buf8end) {
+            *tempbuf8++ = (char)((*tempbuf16 >> 12) | 0xE0);
+            *tempbuf8++ = (char)(((*tempbuf16 >> 6) & 0x3F) | 0x80);
+            *tempbuf8++ = (char)((*tempbuf16 & 0x3F) | 0x80);
         } else {
             break;
         }
         tempbuf16++;
     }
+    *tempbuf8 = '\0';
     return buf;
 }
 //获取类名
