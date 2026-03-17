@@ -1,5 +1,5 @@
 export THEOS = /var/theos
-# arm64e'yi kaldırıyoruz çünkü kütüphanelerin desteklemiyor
+# arm64e desteği yoksa arm64 en güvenli liman
 ARCHS = arm64
 DEBUG = 0
 FINALPACKAGE = 1
@@ -13,11 +13,18 @@ TWEAK_NAME = Blackshark
 Blackshark_FRAMEWORKS = IOKit UIKit Foundation Security QuartzCore CoreGraphics CoreText AVFoundation Accelerate GLKit SystemConfiguration GameController
 Blackshark_EXTRA_FRAMEWORKS = JRMemory
 
-# Path Ayarları
-Blackshark_CFLAGS = -fno-lto -fobjc-arc -Wno-deprecated-declarations -fvisibility=hidden -fpermissive -fexceptions -w -F$(THEOS_PROJECT_DIR)
-Blackshark_CCFLAGS = -fno-lto -std=c++17 -fno-rtti -fno-exceptions -DNDEBUG -fvisibility=hidden -fpermissive -fexceptions -w -F$(THEOS_PROJECT_DIR)
+# Path ve Header Ayarları (Dobby.h yolunu buraya ekledik)
+# -I parametresi derleyiciye "buradaki .h dosyalarına bak" der.
+Blackshark_CFLAGS = -fno-lto -fobjc-arc -Wno-deprecated-declarations -fvisibility=hidden -fpermissive -fexceptions -w \
+                   -F$(THEOS_PROJECT_DIR) \
+                   -I$(THEOS_PROJECT_DIR)/Dolphins/lib
 
-# LDFLAGS - Kütüphane yollarını netleştiriyoruz
+Blackshark_CCFLAGS = -fno-lto -std=c++17 -fno-rtti -fno-exceptions -DNDEBUG -fvisibility=hidden -fpermissive -fexceptions -w \
+                    -F$(THEOS_PROJECT_DIR) \
+                    -I$(THEOS_PROJECT_DIR)/Dolphins/lib
+
+# LDFLAGS - Kütüphaneyi bağlama (Linking)
+# -ldobby ifadesi libdobby.a veya dobby.a dosyasını arar.
 Blackshark_LDFLAGS = -L$(THEOS_PROJECT_DIR)/Dolphins/lib -ldobby -lc++ -F$(THEOS_PROJECT_DIR)
 
 Blackshark_USE_SUBSTRATE = 0
