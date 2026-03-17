@@ -510,41 +510,40 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 uintptr_t humanAddr = meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset;
                 uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset) + 48;
                 BonesData bonesData;
-                if (getBone2d(pov, screenSize,humanAddr, boneAddr, 5, bonesData.head))//头
-                    if (getBone2d(pov,screenSize, humanAddr, boneAddr, 4, bonesData.pit))//胸口
-                        if (getBone2d(pov,screenSize, humanAddr, boneAddr, 1, bonesData.pelvis))//屁股
-                            if (getBone2d(pov,screenSize, humanAddr, boneAddr, 11, bonesData.lcollar))//左肩
-                                if (getBone2d(pov, screenSize,humanAddr, boneAddr, 32, bonesData.rcollar))//右肩
-                                    if (getBone2d(pov,screenSize, humanAddr, boneAddr, 12, bonesData.lelbow))//左手肘
-                                        if (getBone2d(pov,screenSize, humanAddr, boneAddr, 33, bonesData.relbow))//右手肘
-                                            if (getBone2d(pov,screenSize, humanAddr, boneAddr, 63, bonesData.lwrist))//左手腕
-                                                if (getBone2d(pov,screenSize, humanAddr, boneAddr, 62, bonesData.rwrist))//右手腕
-                                                    if (getBone2d(pov, screenSize,humanAddr, boneAddr, 52, bonesData.lthigh))//左大腿
-                                                        if (getBone2d(pov,screenSize, humanAddr, boneAddr, 56, bonesData.rthigh))//右大腿
-                                                            if (getBone2d(pov,screenSize, humanAddr, boneAddr, 53, bonesData.lknee))//左膝盖
-                                                                if (getBone2d(pov,screenSize, humanAddr, boneAddr, 57, bonesData.rknee))//右膝盖
-                                                                    if (getBone2d(pov,screenSize, humanAddr, boneAddr, 54, bonesData.lankle))//左脚腕
-                                                                        if (getBone2d(pov,screenSize, humanAddr, boneAddr, 58, bonesData.rankle)) {//右脚腕
-                                                                            playerData.bonesData = bonesData;
-                                                                        }
+                // Tüm kemikleri oku
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 5, bonesData.head);
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 4, bonesData.pit);
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 1, bonesData.pelvis);
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 11, bonesData.lcollar);
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 32, bonesData.rcollar);
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 12, bonesData.lelbow);
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 33, bonesData.relbow);
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 63, bonesData.lwrist);
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 62, bonesData.rwrist);
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 52, bonesData.lthigh);
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 56, bonesData.rthigh);
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 53, bonesData.lknee);
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 57, bonesData.rknee);
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 54, bonesData.lankle);
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 58, bonesData.rankle);
+                playerData.bonesData = bonesData;
 
-                // Box hesabı bone'lardan - head üst, ankle alt
+                // Box hesabı kemiklerden
                 playerData.screen = worldToScreen(objectCoord, pov, screenSize);
-                if (bonesData.head.x != 0 && bonesData.rankle.x != 0) {
-                    // Bone'lardan box hesapla
-                    float headY = bonesData.head.y;
-                    float ankleY = bonesData.rankle.y;
-                    float boxHeight = ankleY - headY;
-                    float boxWidth = boxHeight / 2.5f;
-                    playerData.screen = bonesData.head;
-                    playerData.size.x = boxWidth / 2;
+                if (bonesData.head.x != 0 && bonesData.rankle.x != 0 && bonesData.head.y < bonesData.rankle.y) {
+                    float boxHeight = bonesData.rankle.y - bonesData.head.y;
+                    playerData.screen = ImVec2(bonesData.head.x, bonesData.head.y);
+                    playerData.size.x = boxHeight / 3.0f;
                     playerData.size.y = boxHeight;
-                } else {
-                    // Bone yoksa fallback
-                    ImVec2 width = worldToScreen(ImVec3(objectCoord.x,objectCoord.y,objectCoord.z + 100), pov,screenSize);
-                    ImVec2 height = worldToScreen(ImVec3(objectCoord.x,objectCoord.y,objectCoord.z + 140.0f), pov,screenSize);
-                    playerData.size.x = (playerData.screen.y - width.y) / 2;
-                    playerData.size.y = playerData.screen.y - height.y;
+                } else if (bonesData.head.x != 0) {
+                    // Sadece baş varsa tahmini box
+                    ImVec2 footScreen = worldToScreen(ImVec3(objectCoord.x, objectCoord.y, objectCoord.z), pov, screenSize);
+                    float boxHeight = footScreen.y - bonesData.head.y;
+                    if (boxHeight > 10) {
+                        playerData.screen = ImVec2(bonesData.head.x, bonesData.head.y);
+                        playerData.size.x = boxHeight / 3.0f;
+                        playerData.size.y = boxHeight;
+                    }
                 }
                 playerDataList.push_back(playerData);
             }
