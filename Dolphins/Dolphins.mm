@@ -79,15 +79,13 @@ void (*AddControllerPitchInput)(void *actot, float val);
 
 
 long gWorld() {
-    // non-JB: dylib IPA içine gömülü, ana binary index 0'dır
     OffsetValues offsetsForBundle = [OffsetsManager getOffsetsForBundleID:[[NSBundle mainBundle] bundleIdentifier]];
-    return reinterpret_cast<long(__fastcall*)(long)>((long)_dyld_get_image_vmaddr_slide(0) + offsetsForBundle.gWorldFun)((long)_dyld_get_image_vmaddr_slide(0) + offsetsForBundle.gWorldData);
+    return reinterpret_cast<long(__fastcall*)(long)>((long)_dyld_get_image_vmaddr_slide(1) + offsetsForBundle.gWorldFun)((long)_dyld_get_image_vmaddr_slide(1) + offsetsForBundle.gWorldData);
 }
 
 long gName() {
-    // non-JB: dylib IPA içine gömülü, ana binary index 0'dır
     OffsetValues offsetsForBundle = [OffsetsManager getOffsetsForBundleID:[[NSBundle mainBundle] bundleIdentifier]];
-    return reinterpret_cast<long(__fastcall*)(long)>((long)_dyld_get_image_vmaddr_slide(0) + offsetsForBundle.gNameFun)((long)_dyld_get_image_vmaddr_slide(0) + offsetsForBundle.gNameData);
+    return reinterpret_cast<long(__fastcall*)(long)>((long)_dyld_get_image_vmaddr_slide(1) + offsetsForBundle.gNameFun)((long)_dyld_get_image_vmaddr_slide(1) + offsetsForBundle.gNameData);
 }
 
 
@@ -160,8 +158,7 @@ void *readStaticData(void *) {
     while (true) {
         sleep(4);
         if(moduleControl.systemStatus != TransmissionNormal){
-            // non-JB: ana binary index 0 — JB tweakında index 1'di
-                staticData.libAddr = (uintptr_t)_dyld_get_image_vmaddr_slide(0);
+            staticData.libAddr = (uintptr_t)_dyld_get_image_vmaddr_slide(1);
             if(staticData.libAddr != 1){
                 moduleControl.systemStatus = TransmissionNormal;
             }
@@ -205,16 +202,7 @@ void *readStaticData(void *) {
                 
                 string className = getClassName(memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::ClassIdOffset));
                 //人
-                //人
-                bool isPlayer = (
-                    strstr(className.c_str(), "PlayerPawn")         != 0 ||
-                    strstr(className.c_str(), "PlayerCharacter")    != 0 ||
-                    strstr(className.c_str(), "PlayerControllertSl")!= 0 ||
-                    strstr(className.c_str(), "CharacterModelTaget")!= 0
-                );
-                if (isPlayer && moduleControl.mainSwitch.playerStatus) {
-                    // Kendine çizme
-                    if (objectAddr == staticData.selfAddr) continue;
+                if (strstr(className.c_str(), "PlayerPawn") || (strstr(className.c_str(), "PlayerCharacter") || (strstr(className.c_str(), "PlayerControllertSl") || (strstr(className.c_str(), "_PlayerPawn_TPlanAI_C")|| (strstr(className.c_str(), "CharacterModelTaget")|| (strstr(className.c_str(), "FakePlayer_AIPawn")!= 0 && moduleControl.mainSwitch.playerStatus)) )))) {
                     //队伍ID
                     int team = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::TeamOffset);
                     int TeamID = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::TeamOffset);
@@ -222,17 +210,16 @@ void *readStaticData(void *) {
                     StaticPlayerData tmpPlayerData;
                     //对象指针地址
 
-                    // Oldu mu kontrolu - IsDead (1 byte bool)
-                    uint8_t deadByte = 0;
-                    memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::DeadOffset, 1, &deadByte);
-                    if (deadByte & 0x01) continue;
+                    bool bDead = memoryTools.readPtr(staticData.selfAddr + PubgOffset::ObjectParam::DeadOffset);
 
 
 
 
 
-                    // HP yukarida kontrol edildi
-                    // bDead kontrolu kaldirildi - HP ile yapiliyor
+                    float hp = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::HpOffset);
+                            if(bDead) continue;
+                            uintptr_t statusAddr = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::StatusOffset);
+
                     
 
                     tmpPlayerData.addr = objectAddr;
@@ -242,22 +229,21 @@ void *readStaticData(void *) {
                     tmpPlayerData.team = team;
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
-                    // Bot tespiti
-                    // Yöntem 1: FakePlayerAIController pointer (ASTExtraPlayerCharacter + 0x4968)
-                    // Bot ise bu pointer dolu, gerçek oyuncuda null - AIOHeader satır 191129
-                    uintptr_t fakeAIC = memoryTools.readPtr(objectAddr + 0x4968);
-                    bool isBot = (fakeAIC > 0x100000000 && fakeAIC < 0x2000000000);
-                    // Yöntem 2: bIsAI / bIsMLAI (AUAECharacter)
-                    if (!isBot) {
-                        bool bIsAI = false, bIsMLAI = false;
-                        memoryTools.readMemory(objectAddr + 0xA40, 1, &bIsAI);
-                        memoryTools.readMemory(objectAddr + 0xA41, 1, &bIsMLAI);
-                        isBot = bIsAI || bIsMLAI;
+                    //人机 - FakePlayerAIController pointer (ASTExtraPlayerCharacter+0x4968)
+                    {
+                        bool isBot = false;
+                        uintptr_t fakeAIC = memoryTools.readPtr(objectAddr + 0x4968);
+                        if (fakeAIC > 0x100000000 && fakeAIC < 0x2000000000) {
+                            isBot = true;
+                        }
+                        if (!isBot) {
+                            bool bIsAI = false, bIsMLAI = false;
+                            memoryTools.readMemory(objectAddr + 0xA40, 1, &bIsAI);
+                            memoryTools.readMemory(objectAddr + 0xA41, 1, &bIsMLAI);
+                            isBot = bIsAI || bIsMLAI;
+                        }
+                        tmpPlayerData.robot = isBot ? 1 : 0;
                     }
-                    tmpPlayerData.robot = isBot ? 1 : 0;
-
-
-
                     
                     tmpPlayerData.status = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::StatusOffset);
                     
@@ -339,8 +325,11 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 if (objectDistance < 0 || objectDistance > 450) {
                     continue;
                 }
-                //获取对象高度 - sabit karakter yüksekliği
-                float objectHeight = 140.0f;
+                //获取对象高度
+                float objectHeight = memoryTools.readFloat(staticPlayerData.coordAddr + PubgOffset::ObjectParam::CoordParam::HeightOffset);
+                if (objectHeight < 20) {
+                    continue;
+                }
                 PlayerData playerData;
                 //角度
                 playerData.angle = lateralAngleView - rotateAngle(selfCoord, objectCoord) - 180;
@@ -357,139 +346,151 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                     playerData.visibility = false;
                 }
                 
-                //判断一下高度 - sabit değer kullanılıyor
+                //判断一下高度
+              if (objectHeight < 50) {
+                    objectHeight -= 18;
+                } else if (objectHeight > 80) {
+                    objectHeight += 12;
+                }
                 //队伍ID
                 playerData.team = staticPlayerData.team;
                 //血量
                 playerData.hp = memoryTools.readFloat(staticPlayerData.addr + PubgOffset::ObjectParam::HpOffset);
-                // Baygın oyuncular hp=0 olabilir, IsDead kontrolü readStaticData'da yapılıyor
+                playerData.hp = memoryTools.readFloat(staticPlayerData.addr + PubgOffset::ObjectParam::HpOffset);
                                if (playerData.hp > 100) playerData.hp = 100;
                 //取敌人动作
              //   NSLog(@"****： %id",statusName);
-                // CurrentStates uint64 bit flags
-                // EPawnState: GunFire=7, GunADS=9, Dying=17, InVehicle=20, InParachute=23
-                uint64_t statusVal = 0;
-                memoryTools.readMemory(staticPlayerData.addr + PubgOffset::ObjectParam::StatusOffset, 8, &statusVal);
-                if ((statusVal >> 20) & 1) {
-                    playerData.statusName = "DRIVE";
+                uintptr_t statusAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::StatusOffset);
+                
+                if (statusAddr == 2097168) {
+                playerData.statusName = "DRIVE";
                 }
-                if ((statusVal >> 23) & 1) {
-                    playerData.statusName = "FLYING ON PARACHUTE";
+                if (statusAddr == 262208) {
+                playerData.statusName = "HEALING";
                 }
-                if ((statusVal >> 17) & 1) {
-                    playerData.statusName = "KNOCKED";
+                if (statusAddr == 33554449) {
+                playerData.statusName = "FLYING ON PARACHUTE";
                 }
-                if (statusVal == 147) {
+                if (statusAddr == 262160) {
+                playerData.statusName = "STAND";
+                }
+                if (statusAddr == 16) {
+                playerData.statusName = "STAND";
+                }
+                if (statusAddr == 524288) {
+                playerData.statusName = "KNOCKED";
+                }
+                if (statusAddr == 147) {
                 playerData.statusName = "JUMP";
                 }
-                if (statusVal == 529) {
+                if (statusAddr == 529) {
                 playerData.statusName = "WALK & RELOADING";
                 }
-                if (statusVal == 35) {
+                if (statusAddr == 35) {
                 playerData.statusName = "CROUCHING";
                 }
-                if (statusVal == 8205) {
+                if (statusAddr == 8205) {
                 playerData.statusName = "SHOOTING";
                 }
-                if (statusVal == 33) {
+                if (statusAddr == 33) {
                 playerData.statusName = "蹲走";
                 }
-                if (statusVal == 65568) {
+                if (statusAddr == 65568) {
                 playerData.statusName = "蹲下丢雷";
                 }
-                if (statusVal == 65600) {
+                if (statusAddr == 65600) {
                 playerData.statusName = "趴下丢雷";
                 }
-                if (statusVal == 1088) {
+                if (statusAddr == 1088) {
                 playerData.statusName = "趴下开镜";
                 }
-                if (statusVal == 1056) {
+                if (statusAddr == 1056) {
                 playerData.statusName = "蹲下开镜";
                 }
-                if (statusVal == 18) {
+                if (statusAddr == 18) {
                 playerData.statusName = "站立";
                 }
-                if (statusVal == 32784) {
+                if (statusAddr == 32784) {
                 playerData.statusName = "挥拳";
                 }
-                if (statusVal == 23) {
+                if (statusAddr == 23) {
                 playerData.statusName = "拿枪";
                 }
-                if (statusVal == 1073741840) {
+                if (statusAddr == 1073741840) {
                 playerData.statusName = "开火";
                 }
-                if (statusVal == 16777219) {
+                if (statusAddr == 16777219) {
                 playerData.statusName = "游泳";
                 }
-                if (statusVal == 524289) {
+                if (statusAddr == 524289) {
                 playerData.statusName = "击倒";
                 }
-                if (statusVal == 8205) {
+                if (statusAddr == 8205) {
                 playerData.statusName = "开火";
                 }
-                if (statusVal == 1040) {
+                if (statusAddr == 1040) {
                 playerData.statusName = "开镜";
                                }
-                if (statusVal == 272) {
+                if (statusAddr == 272) {
                 playerData.statusName = "开枪";
                                }
-                if (statusVal == 4112) {
+                if (statusAddr == 4112) {
                 playerData.statusName = "歪头";
                                }
-                if (statusVal == 19) {
+                if (statusAddr == 19) {
                 playerData.statusName = "奔跑";
                                }
-                if (statusVal == 6552) {
+                if (statusAddr == 6552) {
                 playerData.statusName = "拉手雷";
                                }
-                if (statusVal == 64) {
+                if (statusAddr == 64) {
                 playerData.statusName = "趴着";
                                }
-                if (statusVal == 32) {
+                if (statusAddr == 32) {
                 playerData.statusName = "蹲着";
                                }
-                if (statusVal == 144) {
+                if (statusAddr == 144) {
                 playerData.statusName = "跳跃";
                                }
-                if (statusVal == 4128) {
+                if (statusAddr == 4128) {
                 playerData.statusName = "蹲着歪头";
                                }
-                if (statusVal == 4384) {
+                if (statusAddr == 4384) {
                 playerData.statusName = "蹲着开火";
                                }
-                if (statusVal == 528) {
+                if (statusAddr == 528) {
                 playerData.statusName = "换弹中";
                                }
-                if (statusVal == 320) {
+                if (statusAddr == 320) {
                 playerData.statusName = "趴着开火";
                                }
-                if (statusVal == 288) {
+                if (statusAddr == 288) {
                 playerData.statusName = "蹲着开火";
                                }
-                if (statusVal == 576) {
+                if (statusAddr == 576) {
                 playerData.statusName = "趴着换弹";
                                }
-                if (statusVal == 544) {
+                if (statusAddr == 544) {
                 playerData.statusName = "蹲着换弹";
                                }
-                if (statusVal == 67108880) {
+                if (statusAddr == 67108880) {
                 playerData.statusName = "翻墙中";
                                }
-                if (statusVal == 273) {
+                if (statusAddr == 273) {
                 playerData.statusName = "RUN & SHOOT";
                                }
-                if (statusVal == 4194320) {
+                if (statusAddr == 4194320) {
                 playerData.statusName = "乘坐";
                                }
-                if (statusVal == 17) {
+                if (statusAddr == 17) {
                 playerData.statusName = "WALK";
                                }
                 
                 
                 
                 //取对手手持武器
-                uintptr_t weaponMgrAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::WeaponManagerComponentOffset);
-                uintptr_t weaponAddr = memoryTools.readPtr(weaponMgrAddr + PubgOffset::ObjectParam::WeaponOneOffset);
+                uintptr_t weaponMgr1 = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::WeaponManagerComponentOffset);
+                uintptr_t weaponAddr = memoryTools.readPtr(weaponMgr1 + PubgOffset::ObjectParam::WeaponOneOffset);
                 if (weaponAddr == 0) {
                     playerData.weaponName = "FIST";
                 } else {
@@ -503,48 +504,36 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 }
                 //对象名字
                 playerData.name = staticPlayerData.name;
-                //屏幕XY
+                //屏幕XY - worldToScreen ile güvenilir box hesabı
+                ImVec2 footScreen = worldToScreen(objectCoord, pov, screenSize);
+                ImVec2 headScreen = worldToScreen(ImVec3(objectCoord.x, objectCoord.y, objectCoord.z + 175.0f), pov, screenSize);
+                float boxH = footScreen.y - headScreen.y;
+                if (boxH < 5.0f) boxH = 5.0f;
+                playerData.screen = headScreen;
+                playerData.size.x = boxH / 3.0f;
+                playerData.size.y = boxH;
+                
                 uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
                 uintptr_t humanAddr = meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset;
-                uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset);
+                uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset) + 48;
+                //判断是否需要骨骼掩体判断
                 BonesData bonesData;
-                // Kemik verileri - iskelet çizimi için
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 5, bonesData.head);
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 4, bonesData.pit);
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 1, bonesData.pelvis);
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 11, bonesData.lcollar);
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 32, bonesData.rcollar);
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 12, bonesData.lelbow);
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 33, bonesData.relbow);
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 63, bonesData.lwrist);
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 62, bonesData.rwrist);
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 52, bonesData.lthigh);
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 56, bonesData.rthigh);
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 53, bonesData.lknee);
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 57, bonesData.rknee);
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 54, bonesData.lankle);
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 58, bonesData.rankle);
-                playerData.bonesData = bonesData;
-
-                // Box - worldToScreen ile güvenilir hesap (bone yoksa da çalışır)
-                // Ayak = objectCoord (zemin), Baş = objectCoord.z + 170 (karakter boyu)
-                ImVec2 footScreen = worldToScreen(objectCoord, pov, screenSize);
-                ImVec2 headScreen = worldToScreen(ImVec3(objectCoord.x, objectCoord.y, objectCoord.z + 170.0f), pov, screenSize);
-                playerData.screen = headScreen;
-                float boxH = footScreen.y - headScreen.y;
-                if (boxH > 5.0f) {
-                    playerData.size.x = boxH / 3.0f;
-                    playerData.size.y = boxH;
-                }
-                // Bone head varsa daha hassas üst nokta
-                if (bonesData.head.x > 0 && bonesData.head.y > 0) {
-                    float boneBoxH = footScreen.y - bonesData.head.y;
-                    if (boneBoxH > 5.0f) {
-                        playerData.screen = ImVec2(bonesData.head.x, bonesData.head.y);
-                        playerData.size.x = boneBoxH / 3.0f;
-                        playerData.size.y = boneBoxH;
-                    }
-                }
+                if (getBone2d(pov, screenSize,humanAddr, boneAddr, 5, bonesData.head))//头
+                    if (getBone2d(pov,screenSize, humanAddr, boneAddr, 4, bonesData.pit))//胸口
+                        if (getBone2d(pov,screenSize, humanAddr, boneAddr, 1, bonesData.pelvis))//屁股
+                            if (getBone2d(pov,screenSize, humanAddr, boneAddr, 11, bonesData.lcollar))//左肩
+                                if (getBone2d(pov, screenSize,humanAddr, boneAddr, 32, bonesData.rcollar))//右肩
+                                    if (getBone2d(pov,screenSize, humanAddr, boneAddr, 12, bonesData.lelbow))//左手肘
+                                        if (getBone2d(pov,screenSize, humanAddr, boneAddr, 33, bonesData.relbow))//右手肘
+                                            if (getBone2d(pov,screenSize, humanAddr, boneAddr, 63, bonesData.lwrist))//左手腕
+                                                if (getBone2d(pov,screenSize, humanAddr, boneAddr, 62, bonesData.rwrist))//右手腕
+                                                    if (getBone2d(pov, screenSize,humanAddr, boneAddr, 52, bonesData.lthigh))//左大腿
+                                                        if (getBone2d(pov,screenSize, humanAddr, boneAddr, 56, bonesData.rthigh))//右大腿
+                                                            if (getBone2d(pov,screenSize, humanAddr, boneAddr, 53, bonesData.lknee))//左膝盖
+                                                                if (getBone2d(pov,screenSize, humanAddr, boneAddr, 57, bonesData.rknee))//右膝盖
+                                                                    if (getBone2d(pov,screenSize, humanAddr, boneAddr, 54, bonesData.lankle))//左脚腕
+                                                                        if (getBone2d(pov,screenSize, humanAddr, boneAddr, 58, bonesData.rankle))//右脚腕
+                                                                            playerData.bonesData = bonesData;
                 playerDataList.push_back(playerData);
             }
         }
@@ -642,8 +631,8 @@ void *silenceAimbot(void *) {
         usleep(16666);
         if (moduleControl.systemStatus == TransmissionNormal && moduleControl.mainSwitch.aimbotStatus/* && softWareData.loginStatus*/) {
             //武器指针
-            uintptr_t weaponMgrAddr = memoryTools.readPtr(staticData.selfAddr + PubgOffset::ObjectParam::WeaponManagerComponentOffset);
-            uintptr_t weaponAddr = memoryTools.readPtr(weaponMgrAddr + PubgOffset::ObjectParam::WeaponOneOffset);
+            uintptr_t weaponMgr2 = memoryTools.readPtr(staticData.selfAddr + PubgOffset::ObjectParam::WeaponManagerComponentOffset);
+            uintptr_t weaponAddr = memoryTools.readPtr(weaponMgr2 + PubgOffset::ObjectParam::WeaponOneOffset);
             //自瞄开关
             bool enabledAimbot = false;
             //判断自瞄启动模式
@@ -698,7 +687,10 @@ void *silenceAimbot(void *) {
                         continue;
                     }
                     //获取对象高度
-                    float objectHeight = 140.0f;
+                    float objectHeight = memoryTools.readFloat(staticPlayerData.coordAddr + PubgOffset::ObjectParam::CoordParam::HeightOffset);
+                    if (objectHeight < 20) {
+                        continue;
+                    }
                     //判断是否倒地
                     if (memoryTools.readFloat(staticPlayerData.addr + PubgOffset::ObjectParam::HpOffset) < 0.5 && moduleControl.aimbotController.fallNotAim) {
                         continue;
@@ -722,7 +714,7 @@ PlayerData playerData;
                         //骨骼mesh
                         uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
                         uintptr_t humanAddr = meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset;
-                        uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset);
+                        uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset) + 48;
                         //取自瞄部位 0是优先头部,1是优先身体,3是[全自动武器打身体,单发连发打头],4是只打头,5是只打身体
                         switch (moduleControl.aimbotController.aimbotParts) {
                             case 0: {
@@ -838,8 +830,7 @@ PlayerData playerData;
                     float bulletFlyTime = get3dDistance(selfCoord, aimbotCoord, bulletSpeed) * 1.2;
                     //移动加坐标
                     ImVec3 moveCoord;
-                    uintptr_t moveCompAddr = memoryTools.readPtr(aimbotPlayerData.addr + 0x518);
-                    memoryTools.readMemory(moveCompAddr + 0x18c, 12, &moveCoord);
+                    memoryTools.readMemory(aimbotPlayerData.addr + PubgOffset::ObjectParam::MoveCoordOffset, 12, &moveCoord);
                     //预判坐标
                     float bulletSpeed1 = memoryTools.readFloat(weaponAttrAddr + PubgOffset::ObjectParam::WeaponParam::WeaponAttrParam::BulletSpeedOffset);
                     if(bulletSpeed1 != 1800000){
