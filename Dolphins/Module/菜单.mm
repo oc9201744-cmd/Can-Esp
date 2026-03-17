@@ -254,7 +254,7 @@ static BOOL gTriedLoadAppIconTexture = NO;
     ImGui::SetNextWindowSize({1280, 700}, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowPos({172, 172}, ImGuiCond_FirstUseEver);
 
-    if (ImGui::Begin("ONURCAN IOS PUBG 4.3 FREE", &self.moduleControl->menuStatus, ImGuiWindowFlags_NoCollapse)) {
+    if (ImGui::Begin("GLOCK IOS PUBG 4.2.0 FREE", &self.moduleControl->menuStatus, ImGuiWindowFlags_NoCollapse)) {
         ImGuiContext& g = *GImGui;
         if (g.NavWindow == NULL) {
             self.moduleControl->menuStatus = !self.moduleControl->menuStatus;
@@ -353,16 +353,16 @@ static BOOL gTriedLoadAppIconTexture = NO;
     }
 
     ImGui::SameLine();
-    ImGui::BeginGroup();
-    ImGui::TextColored(ImVec4(0.38f, 0.72f, 1.00f, 1.00f), "Application");
-    ImGui::Separator();
-    ImGui::Text("App Name           : %s", appName.UTF8String);
-    ImGui::Text("Bundle Identifier  : %s", bundleID.UTF8String);
-    ImGui::EndGroup();
+ImGui::BeginGroup();
+ImGui::TextColored(ImVec4(0.38f, 0.72f, 1.00f, 1.00f), "Application");
+ImGui::Separator();
+ImGui::Text("App Name           : %s", appName.UTF8String);
+ImGui::Text("Bundle Identifier  : %s", bundleID.UTF8String);
+ImGui::EndGroup();
 
-    ImGui::EndChild();
+ImGui::EndChild();
 
-    ImGui::Spacing();
+ImGui::Spacing();
     ImGui::TextColored(ImVec4(0.38f, 0.72f, 1.00f, 1.00f), "Device");
     ImGui::Separator();
     ImGui::Text("Device Model       : %s", deviceName.UTF8String);
@@ -396,13 +396,6 @@ static BOOL gTriedLoadAppIconTexture = NO;
     if (ImGui::Checkbox("ENABLE ESP", &self.moduleControl->mainSwitch.playerStatus)) {
         configManager::putBoolean(config,"mainSwitch", "player", self.moduleControl->mainSwitch.playerStatus);
     }
-
-    // Bot/oyuncu ayrımı — Show Bots toggle
-    if (ImGui::Checkbox("Show Bots", &self.moduleControl->mainSwitch.botStatus)) {
-        configManager::putBoolean(config,"mainSwitch", "botStatus", self.moduleControl->mainSwitch.botStatus);
-    }
-    ImGui::SameLine();
-    ImGui::TextDisabled("(Bot ESP goster/gizle)");
 
     if (ImGui::Checkbox("Icon", &self.moduleControl->playerSwitch.SCStatus)) {
         configManager::putBoolean(config,"playerSwitch", "icon", self.moduleControl->playerSwitch.SCStatus);
@@ -647,51 +640,64 @@ static BOOL gTriedLoadAppIconTexture = NO;
             break;
     }
 
-    self.moduleControl->mainSwitch.playerStatus   = configManager::readBoolean(config,"mainSwitch", "player", false);
+    self.moduleControl->mainSwitch.playerStatus = configManager::readBoolean(config,"mainSwitch", "player", false);
     self.moduleControl->mainSwitch.materialStatus = configManager::readBoolean(config,"mainSwitch", "material", false);
-    self.moduleControl->mainSwitch.aimbotStatus   = configManager::readBoolean(config,"mainSwitch", "aimbot", false);
-    self.moduleControl->mainSwitch.botStatus      = configManager::readBoolean(config,"mainSwitch", "botStatus", true); // default: bot göster
+    self.moduleControl->mainSwitch.aimbotStatus = configManager::readBoolean(config,"mainSwitch", "aimbot", false);
 
-    self.moduleControl->playerSwitch.boneStatus   = configManager::readBoolean(config,"playerSwitch", "bones", false);
-    self.moduleControl->playerSwitch.SCStatus     = configManager::readBoolean(config,"playerSwitch", "icon", false);
-    self.moduleControl->playerSwitch.boxStatus    = configManager::readBoolean(config,"playerSwitch", "box", false);
-    self.moduleControl->playerSwitch.WZStatus     = configManager::readBoolean(config,"playerSwitch", "cars", false);
-    self.moduleControl->playerSwitch.lineStatus   = configManager::readBoolean(config,"playerSwitch", "line", false);
-    self.moduleControl->playerSwitch.WZWZStatus   = configManager::readBoolean(config,"playerSwitch", "items", false);
-    self.moduleControl->playerSwitch.infoStatus   = configManager::readBoolean(config,"playerSwitch", "info", false);
-    self.moduleControl->playerSwitch.backStatus   = configManager::readBoolean(config,"playerSwitch", "arrows", false);
-    self.moduleControl->playerSwitch.radarStatus  = configManager::readBoolean(config,"playerSwitch", "radar", false);
-    self.moduleControl->playerSwitch.fillStatus   = configManager::readBoolean(config,"playerSwitch", "fill", false);
-    self.moduleControl->playerSwitch.lineStatusC  = configManager::readBoolean(config,"playerSwitch", "aimline", false);
+    self.moduleControl->playerSwitch.boneStatus = configManager::readBoolean(config,"playerSwitch", "bones", false);
+    self.moduleControl->playerSwitch.SCStatus = configManager::readBoolean(config,"playerSwitch", "icon", false);
+    self.moduleControl->playerSwitch.boxStatus = configManager::readBoolean(config,"playerSwitch", "box", false);
+    self.moduleControl->playerSwitch.WZStatus = configManager::readBoolean(config,"playerSwitch", "cars", false);
+    self.moduleControl->playerSwitch.lineStatus = configManager::readBoolean(config,"playerSwitch", "line", false);
+    self.moduleControl->playerSwitch.WZWZStatus = configManager::readBoolean(config,"playerSwitch", "items", false);
+    self.moduleControl->playerSwitch.infoStatus = configManager::readBoolean(config,"playerSwitch", "info", false);
+    self.moduleControl->playerSwitch.backStatus = configManager::readBoolean(config,"playerSwitch", "arrows", false);
+    self.moduleControl->playerSwitch.radarStatus = configManager::readBoolean(config,"playerSwitch", "radar", false);
+    self.moduleControl->playerSwitch.fillStatus = configManager::readBoolean(config,"playerSwitch", "fill", false);
+    self.moduleControl->playerSwitch.lineStatusC = configManager::readBoolean(config,"playerSwitch", "aimline", false);
 
-    self.moduleControl->playerSwitch.radarSize      = configManager::readFloat(config,"playerSwitch", "radarSize", 70);
-    self.moduleControl->playerSwitch.radarCoord.x   = configManager::readFloat(config,"playerSwitch", "radarX", 500);
-    self.moduleControl->playerSwitch.radarCoord.y   = configManager::readFloat(config,"playerSwitch", "radarY", 500);
+    self.moduleControl->playerSwitch.radarSize = configManager::readFloat(config,"playerSwitch", "radarSize", 70);
+    self.moduleControl->playerSwitch.radarCoord.x = configManager::readFloat(config,"playerSwitch", "radarX", 500);
+    self.moduleControl->playerSwitch.radarCoord.y = configManager::readFloat(config,"playerSwitch", "radarY", 500);
 
     for (int i = 0; i < All; ++i) {
         std::string str = "materialSwitch_" + std::to_string(i);
         self.moduleControl->materialSwitch[i] = configManager::readBoolean(config,"materialSwitch", str.c_str(), false);
     }
 
-    self.moduleControl->aimbotController.fallNotAim       = configManager::readBoolean(config,"aimbotControl", "fall", false);
+    self.moduleControl->aimbotController.fallNotAim = configManager::readBoolean(config,"aimbotControl", "fall", false);
     self.moduleControl->aimbotController.showAimbotRadius = configManager::readBoolean(config,"aimbotControl", "showRadius", true);
-    self.moduleControl->aimbotController.aimbotRadius     = configManager::readFloat(config,"aimbotControl", "radius", 500);
-    self.moduleControl->aimbotController.smoke            = configManager::readBoolean(config,"aimbotControl", "smoke", true);
-    self.moduleControl->aimbotController.aimbotMode       = configManager::readInteger(config,"aimbotControl", "mode", 0);
-    self.moduleControl->aimbotController.aimbotParts      = configManager::readInteger(config,"aimbotControl", "parts", 0);
+    self.moduleControl->aimbotController.aimbotRadius = configManager::readFloat(config,"aimbotControl", "radius", 500);
+    self.moduleControl->aimbotController.smoke = configManager::readBoolean(config,"aimbotControl", "smoke", true);
+    self.moduleControl->aimbotController.aimbotMode = configManager::readInteger(config,"aimbotControl", "mode", 0);
+    self.moduleControl->aimbotController.aimbotParts = configManager::readInteger(config,"aimbotControl", "parts", 0);
 
     aimbotIntensity = configManager::readInteger(config,"aimbotControl", "intensity", 2);
     switch (aimbotIntensity) {
-        case 0: self.moduleControl->aimbotController.aimbotIntensity = 0.1f; break;
-        case 1: self.moduleControl->aimbotController.aimbotIntensity = 0.2f; break;
-        case 2: self.moduleControl->aimbotController.aimbotIntensity = 0.3f; break;
-        case 3: self.moduleControl->aimbotController.aimbotIntensity = 0.4f; break;
-        case 4: self.moduleControl->aimbotController.aimbotIntensity = 0.5f; break;
-        case 5: self.moduleControl->aimbotController.aimbotIntensity = 1.0f; break;
-        case 6: self.moduleControl->aimbotController.aimbotIntensity = 1.2f; break;
+        case 0:
+            self.moduleControl->aimbotController.aimbotIntensity = 0.1f;
+            break;
+        case 1:
+            self.moduleControl->aimbotController.aimbotIntensity = 0.2f;
+            break;
+        case 2:
+            self.moduleControl->aimbotController.aimbotIntensity = 0.3f;
+            break;
+        case 3:
+            self.moduleControl->aimbotController.aimbotIntensity = 0.4f;
+            break;
+        case 4:
+            self.moduleControl->aimbotController.aimbotIntensity = 0.5f;
+            break;
+        case 5:
+            self.moduleControl->aimbotController.aimbotIntensity = 1.0f;
+            break;
+        case 6:
+            self.moduleControl->aimbotController.aimbotIntensity = 1.2f;
+            break;
     }
 
-    self.moduleControl->mainSwitch.gzb          = configManager::readBoolean(config,"mainSwitch", "gzb", true);
+    self.moduleControl->mainSwitch.gzb = configManager::readBoolean(config,"mainSwitch", "gzb", true);
     self.moduleControl->aimbotController.distance = configManager::readFloat(config,"aimbotControl", "distance", 450);
 }
 
@@ -721,6 +727,8 @@ static BOOL gTriedLoadAppIconTexture = NO;
 }
 
 
+
+
 // ----------------------------------
 //          IDA OFFSETS
 // ----------------------------------
@@ -731,9 +739,9 @@ static int (*orig_AnoSDKOnRecvData)();
 static int (*orig_AceWorker)();
 
 
-//
+// 
 //        HOOK
-//
+// 
 int hook_AnoSDKOnRecvData() {
     return 1;
 }
@@ -810,6 +818,8 @@ void showStageToast() {
 
 
 // ----------------------------------
+
+// ----------------------------------
 void perform_offset_hook() {
 
     uintptr_t base = (uintptr_t)_dyld_get_image_header(0);
@@ -819,14 +829,17 @@ void perform_offset_hook() {
 
     if (ano_addr > 0x1000 && ace_addr > 0x1000) {
 
+
         MSHookFunction((void *)ano_addr,
                        (void *)hook_AnoSDKOnRecvData,
                        (void **)&orig_AnoSDKOnRecvData);
 
+        // 2) AceWorker Hook 
         MSHookFunction((void *)ace_addr,
                        (void *)hook_AceWorker,
                        (void **)&orig_AceWorker);
 
+        // 
         showStageToast();
 
     } else {
