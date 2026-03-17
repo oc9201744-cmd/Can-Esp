@@ -242,12 +242,30 @@ void *readStaticData(void *) {
                     tmpPlayerData.team = team;
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
-                    // Bot tespiti - className üzerinden (kesin yöntem)
-                    // FakePlayer_AIPawn ve _PlayerPawn_TPlanAI_C = bot className'leri
-                    bool isBot = (
-                        strstr(className.c_str(), "FakePlayer_AIPawn")     != 0 ||
-                        strstr(className.c_str(), "_PlayerPawn_TPlanAI_C") != 0
-                    );
+
+                    // Bot tespiti
+                    // dump'tan: ASTExtraPlayerCharacter::FakePlayerAIController = 0x4968
+                    // null = gercek oyuncu, dolu = bot (NetMulticast RPC ile set ediliyor)
+                    bool isBot = false;
+                    uintptr_t fakeAIC = memoryTools.readPtr(objectAddr + 0x4968);
+                    isBot = (fakeAIC > 0x100000000 && fakeAIC < 0x2000000000);
+                    // Fallback: bIsAI(0xa40) + bIsMLAI(0xa41) - AUAECharacter
+                    if (!isBot) {
+                        uint8_t bIsAI = 0, bIsMLAI = 0;
+                        memoryTools.readMemory(objectAddr + 0xa40, 1, &bIsAI);
+                        memoryTools.readMemory(objectAddr + 0xa41, 1, &bIsMLAI);
+                        isBot = (bIsAI & 0x01) || (bIsMLAI & 0x01);
+                    }
+                    // Fallback2: STExtraPlayerState::MLAIDisplayUID(0x6d0)
+                    // 0x23b0 = ASTExtraBaseCharacter::STExtraPlayerState (direkt cast)
+                    if (!isBot) {
+                        uintptr_t stPS = memoryTools.readPtr(objectAddr + 0x23b0);
+                        if (stPS > 0x100000000 && stPS < 0x2000000000) {
+                            uint64_t uid = 0;
+                            memoryTools.readMemory(stPS + 0x6d0, 8, &uid);
+                            isBot = (uid != 0);
+                        }
+                    }
                     tmpPlayerData.robot = isBot ? 1 : 0;
 
 
