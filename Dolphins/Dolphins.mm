@@ -158,7 +158,7 @@ __attribute__((constructor)) static void initialize() {
 // 固定数据函数
 void *readStaticData(void *) {
     while (true) {
-        sleep(4);
+        sleep(1);
         if(moduleControl.systemStatus != TransmissionNormal){
             // non-JB: ana binary index 0 — JB tweakında index 1'di
                 staticData.libAddr = (uintptr_t)_dyld_get_image_vmaddr_slide(0);
@@ -202,30 +202,34 @@ void *readStaticData(void *) {
                 
                 //对象坐标指针
                 uintptr_t coordAddr = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::CoordOffset);
-                
+
+                // Kendimizi atlıyoruz — kendi adresimizi ESP listesine ekleme
+                if (objectAddr == staticData.selfAddr) continue;
+
                 string className = getClassName(memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::ClassIdOffset));
                 //人
-                // isPlayer: sadece gerçek oyuncu sınıflarını yakala (STExtraAI* botları hariç)
+                // isPlayer: hem gerçek oyuncu hem bot sınıflarını yakala
                 bool isPlayer = (
-                    strstr(className.c_str(), "PlayerPawn")          != 0 ||
-                    strstr(className.c_str(), "PlayerCharacter")     != 0 ||
-                    strstr(className.c_str(), "PlayerControllerSl")  != 0 ||
-                    strstr(className.c_str(), "CharacterModelTarget") != 0
+                    strstr(className.c_str(), "PlayerPawn")           != 0 ||
+                    strstr(className.c_str(), "PlayerCharacter")      != 0 ||
+                    strstr(className.c_str(), "PlayerControllerSl")   != 0 ||
+                    strstr(className.c_str(), "CharacterModelTarget")  != 0
                 );
-                // STExtraAI* sınıfları bottur — isPlayer içinden çıkar
+                // Kesin AI sınıfları (class adından anlaşılanlar)
                 bool isAIClass = (
-                    strstr(className.c_str(), "STExtraAI")   != 0 ||
+                    strstr(className.c_str(), "STExtraAI")    != 0 ||
                     strstr(className.c_str(), "AICharacter")  != 0 ||
                     strstr(className.c_str(), "BotCharacter") != 0 ||
                     strstr(className.c_str(), "NPC")          != 0
                 );
-                // AI sınıfı da isPlayer olarak görünebilir — AI ise "isPlayer"ı koru ama robot flag'i set et
-                if (isAIClass && !isPlayer) isPlayer = true; // botları da listeye al ama robot=1 olacak
+                // AI class → listeye al (robot=1 olarak işaretlenir)
+                if (isAIClass && !isPlayer) isPlayer = true;
                 if ((isPlayer || isAIClass) && moduleControl.mainSwitch.playerStatus) {
                     //队伍ID
                     int team = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::TeamOffset);
                     int TeamID = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::TeamOffset);
-                    if (team == TeamID) continue;
+                    // Takım arkadaşlarını atla (0 team özel durum — ikisi de 0 ise devam etme)
+                    if (team != 0 && team == TeamID) continue;
                     StaticPlayerData tmpPlayerData;
                     //对象指针地址
 
@@ -1003,11 +1007,17 @@ void *silenceAimbot(void *) {
                     }
                     //准星移动的角度
                     ImVec2 aimbotMouseMove;
-                    // Hard lock modunda intensity zorla 1.0 — tam kilitleme
-                    float effectiveIntensity = hardLock ? 1.0f : moduleControl.aimbotController.aimbotIntensity;
-                    //计算角度
-                    aimbotMouseMove.x = change(getAngleDifference(aimbotMouse.x, memoryTools.readFloat(staticData.playerController + PubgOffset::PlayerControllerParam::MouseOffset + 0x4)) * effectiveIntensity);
-                    aimbotMouseMove.y = change(getAngleDifference(aimbotMouse.y, memoryTools.readFloat(staticData.playerController + PubgOffset::PlayerControllerParam::MouseOffset)) * effectiveIntensity);
+                    float diffX = getAngleDifference(aimbotMouse.x, memoryTools.readFloat(staticData.playerController + PubgOffset::PlayerControllerParam::MouseOffset + 0x4));
+                    float diffY = getAngleDifference(aimbotMouse.y, memoryTools.readFloat(staticData.playerController + PubgOffset::PlayerControllerParam::MouseOffset));
+                    if (hardLock) {
+                        // Hard lock: change() smoothing atlanır — tam açı farkı direkt gönderilir (anlık kilitlenme)
+                        aimbotMouseMove.x = diffX;
+                        aimbotMouseMove.y = diffY;
+                    } else {
+                        float effectiveIntensity = moduleControl.aimbotController.aimbotIntensity;
+                        aimbotMouseMove.x = change(diffX * effectiveIntensity);
+                        aimbotMouseMove.y = change(diffY * effectiveIntensity);
+                    }
                     //判断计算得到的角度是不是一个有效数
                     if (!isfinite(aimbotMouseMove.x) || !isfinite(aimbotMouseMove.y)) {
                         continue;
