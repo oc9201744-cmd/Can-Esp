@@ -79,11 +79,13 @@ void (*AddControllerPitchInput)(void *actot, float val);
 
 
 long gWorld() {
+    // non-JB: dylib IPA içine gömülü, ana binary index 0'dır
     OffsetValues offsetsForBundle = [OffsetsManager getOffsetsForBundleID:[[NSBundle mainBundle] bundleIdentifier]];
     return reinterpret_cast<long(__fastcall*)(long)>((long)_dyld_get_image_vmaddr_slide(0) + offsetsForBundle.gWorldFun)((long)_dyld_get_image_vmaddr_slide(0) + offsetsForBundle.gWorldData);
 }
 
 long gName() {
+    // non-JB: dylib IPA içine gömülü, ana binary index 0'dır
     OffsetValues offsetsForBundle = [OffsetsManager getOffsetsForBundleID:[[NSBundle mainBundle] bundleIdentifier]];
     return reinterpret_cast<long(__fastcall*)(long)>((long)_dyld_get_image_vmaddr_slide(0) + offsetsForBundle.gNameFun)((long)_dyld_get_image_vmaddr_slide(0) + offsetsForBundle.gNameData);
 }
@@ -158,7 +160,8 @@ void *readStaticData(void *) {
     while (true) {
         sleep(4);
         if(moduleControl.systemStatus != TransmissionNormal){
-            staticData.libAddr = (uintptr_t)_dyld_get_image_vmaddr_slide(0);
+            // non-JB: ana binary index 0 — JB tweakında index 1'di
+                staticData.libAddr = (uintptr_t)_dyld_get_image_vmaddr_slide(0);
             if(staticData.libAddr != 1){
                 moduleControl.systemStatus = TransmissionNormal;
             }
@@ -202,7 +205,14 @@ void *readStaticData(void *) {
                 
                 string className = getClassName(memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::ClassIdOffset));
                 //人
-                if (strstr(className.c_str(), "PlayerPawn") || (strstr(className.c_str(), "PlayerCharacter") || (strstr(className.c_str(), "PlayerControllertSl") || (strstr(className.c_str(), "_PlayerPawn_TPlanAI_C")|| (strstr(className.c_str(), "CharacterModelTaget")|| (strstr(className.c_str(), "FakePlayer_AIPawn")!= 0 && moduleControl.mainSwitch.playerStatus)) )))) {
+                //人
+                bool isPlayer = (
+                    strstr(className.c_str(), "PlayerPawn")         != 0 ||
+                    strstr(className.c_str(), "PlayerCharacter")    != 0 ||
+                    strstr(className.c_str(), "PlayerControllertSl")!= 0 ||
+                    strstr(className.c_str(), "CharacterModelTaget")!= 0
+                );
+                if (isPlayer && moduleControl.mainSwitch.playerStatus) {
                     //队伍ID
                     int team = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::TeamOffset);
                     int TeamID = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::TeamOffset);
@@ -210,16 +220,17 @@ void *readStaticData(void *) {
                     StaticPlayerData tmpPlayerData;
                     //对象指针地址
 
-                    uint8_t deadVal = 0;
-                    memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::DeadOffset, 1, &deadVal);
-                    bool bDead = (deadVal & 0x01);
+                    // Oldu mu kontrolu - IsDead (1 byte bool)
+                    bool isDead = false;
+                    memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::DeadOffset, 1, &isDead);
+                    if (isDead) continue;
 
 
 
 
 
-                    float hp = memoryTools.readFloat(objectAddr + PubgOffset::ObjectParam::HpOffset);
-                            if(bDead) continue;
+                    // HP yukarida kontrol edildi
+                    // bDead kontrolu kaldirildi - HP ile yapiliyor
                             uintptr_t statusAddr = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::StatusOffset);
 
                     
@@ -231,21 +242,22 @@ void *readStaticData(void *) {
                     tmpPlayerData.team = team;
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
-                    //人机 - FakePlayerAIController pointer (ASTExtraPlayerCharacter+0x4968)
-                    {
-                        bool isBot = false;
-                        uintptr_t fakeAIC = memoryTools.readPtr(objectAddr + 0x4968);
-                        if (fakeAIC > 0x100000000 && fakeAIC < 0x2000000000) {
-                            isBot = true;
-                        }
-                        if (!isBot) {
-                            bool bIsAI = false, bIsMLAI = false;
-                            memoryTools.readMemory(objectAddr + 0xA40, 1, &bIsAI);
-                            memoryTools.readMemory(objectAddr + 0xA41, 1, &bIsMLAI);
-                            isBot = bIsAI || bIsMLAI;
-                        }
-                        tmpPlayerData.robot = isBot ? 1 : 0;
+                    // Bot: FakePlayerAIController pointer (0x4968)
+                    bool isBot = false;
+                    uintptr_t fakeAIC = memoryTools.readPtr(objectAddr + 0x4968);
+                    if (fakeAIC > 0x100000000 && fakeAIC < 0x2000000000) {
+                        isBot = true;
                     }
+                    if (!isBot) {
+                        bool bIsAI = false, bIsMLAI = false;
+                        memoryTools.readMemory(objectAddr + 0xA40, 1, &bIsAI);
+                        memoryTools.readMemory(objectAddr + 0xA41, 1, &bIsMLAI);
+                        isBot = bIsAI || bIsMLAI;
+                    }
+                    tmpPlayerData.robot = isBot ? 1 : 0;
+
+
+
                     
                     tmpPlayerData.status = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::StatusOffset);
                     
@@ -358,7 +370,7 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 playerData.team = staticPlayerData.team;
                 //血量
                 playerData.hp = memoryTools.readFloat(staticPlayerData.addr + PubgOffset::ObjectParam::HpOffset);
-                playerData.hp = memoryTools.readFloat(staticPlayerData.addr + PubgOffset::ObjectParam::HpOffset);
+                // Baygın oyuncular hp=0 olabilir, IsDead kontrolü readStaticData'da yapılıyor
                                if (playerData.hp > 100) playerData.hp = 100;
                 //取敌人动作
              //   NSLog(@"****： %id",statusName);
@@ -506,14 +518,13 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 }
                 //对象名字
                 playerData.name = staticPlayerData.name;
-                //屏幕XY - worldToScreen ile güvenilir box hesabı
-                ImVec2 footScreen = worldToScreen(objectCoord, pov, screenSize);
-                ImVec2 headScreen = worldToScreen(ImVec3(objectCoord.x, objectCoord.y, objectCoord.z + 175.0f), pov, screenSize);
-                float boxH = footScreen.y - headScreen.y;
-                if (boxH < 5.0f) boxH = 5.0f;
-                playerData.screen = headScreen;
-                playerData.size.x = boxH / 3.0f;
-                playerData.size.y = boxH;
+                //屏幕XY
+                playerData.screen = worldToScreen(objectCoord, pov, screenSize);//X
+                //宽度和高度
+                ImVec2 width = worldToScreen(ImVec3(objectCoord.x,objectCoord.y,objectCoord.z + 100), pov,screenSize);
+                ImVec2 height = worldToScreen(ImVec3(objectCoord.x,objectCoord.y,objectCoord.z + objectHeight), pov,screenSize);
+                playerData.size.x = (playerData.screen.y - width.y) / 2;
+                playerData.size.y = playerData.screen.y - height.y;
                 
                 uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
                 uintptr_t humanAddr = meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset;
