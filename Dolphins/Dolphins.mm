@@ -242,12 +242,19 @@ void *readStaticData(void *) {
                     tmpPlayerData.team = team;
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
-                    // IsBot offset - bool (1 byte)
-                    // bIsAI=0xA40, bIsMLAI=0xA41 (AUAECharacter - AIOHeader doğrulandı)
-                    bool isAI = false, isMLAI = false;
-                    memoryTools.readMemory(objectAddr + 0xA40, 1, &isAI);
-                    memoryTools.readMemory(objectAddr + 0xA41, 1, &isMLAI);
-                    tmpPlayerData.robot = (isAI || isMLAI) ? 1 : 0;
+                    // Bot tespiti
+                    // Yöntem 1: FakePlayerAIController pointer (ASTExtraPlayerCharacter + 0x4968)
+                    // Bot ise bu pointer dolu, gerçek oyuncuda null - AIOHeader satır 191129
+                    uintptr_t fakeAIC = memoryTools.readPtr(objectAddr + 0x4968);
+                    bool isBot = (fakeAIC > 0x100000000 && fakeAIC < 0x2000000000);
+                    // Yöntem 2: bIsAI / bIsMLAI (AUAECharacter)
+                    if (!isBot) {
+                        bool bIsAI = false, bIsMLAI = false;
+                        memoryTools.readMemory(objectAddr + 0xA40, 1, &bIsAI);
+                        memoryTools.readMemory(objectAddr + 0xA41, 1, &bIsMLAI);
+                        isBot = bIsAI || bIsMLAI;
+                    }
+                    tmpPlayerData.robot = isBot ? 1 : 0;
 
 
 
@@ -371,20 +378,6 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 }
                 if ((statusVal >> 17) & 1) {
                     playerData.statusName = "KNOCKED";
-                // dummy to close if chain
-                } if (false) {
-                    playerData.statusName = "KNOCKED";
-                if (false) {
-                playerData.statusName = "KNOCKED";
-                }
-                if (false) {
-                playerData.statusName = "KNOCKED";
-                }
-                if (false) {
-                playerData.statusName = "KNOCKED";
-                }
-                if (false) {
-                playerData.statusName = "KNOCKED";
                 }
                 if (statusVal == 147) {
                 playerData.statusName = "JUMP";
