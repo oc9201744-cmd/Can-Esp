@@ -57,7 +57,7 @@ MemoryTools memoryTools;
 //OffsetSet currentOffsetSet = GL;
 
 OffsetValues offsets[] = {
-    { 0x102A62208, 0x10A566E00, 0x104bd8740, 0x10a1178b0 },  // GL
+    { 0x102A5125C, 0x10A4A1960, 0x104C0F1E8, 0x10A0557E0 },  // GL
     { 0x1028791CC, 0x10A171A00, 0x104510EF0, 0x109AAA1A0 },  // VNG
     { 0x102AD71F8, 0x10A47D400, 0x10476F14C, 0x109DB5940 },  // KR
     { 0x102AAAB0C, 0x10A453300, 0x104742830, 0x109D8B830 }   // TW
@@ -174,11 +174,11 @@ void *readStaticData(void *) {
             LineOfSightTo = (bool (*)(void *, void *, ImVec3, bool)) (memoryTools.readPtr(memoryTools.readPtr(staticData.playerController + 0x0) + 0x7b0));
             //自己指针
             staticData.selfAddr = memoryTools.readPtr(staticData.playerController + PubgOffset::PlayerControllerParam::SelfOffset);
-            //自瞄函数 — Yaw:0x890 Roll:0x898 Pitch:0x888 (PB 4.3 GL)
+            //自瞄函数 — Yaw:0x890 Roll:0x888 Pitch:0x898 (pubg_offset.h'den)
             uintptr_t selfFunction = memoryTools.readPtr(staticData.selfAddr + 0);
-            AddControllerYawInput   = (void (*)(void *, float)) (memoryTools.readPtr(selfFunction + 0x890));
-            AddControllerRollInput  = (void (*)(void *, float)) (memoryTools.readPtr(selfFunction + 0x898));
-            AddControllerPitchInput = (void (*)(void *, float)) (memoryTools.readPtr(selfFunction + 0x888));
+            AddControllerYawInput   = (void (*)(void *, float)) (memoryTools.readPtr(selfFunction + PubgOffset::ObjectParam::PlayerFunction::AddControllerYawInputOffset));
+            AddControllerRollInput  = (void (*)(void *, float)) (memoryTools.readPtr(selfFunction + PubgOffset::ObjectParam::PlayerFunction::AddControllerRollInputOffset));
+            AddControllerPitchInput = (void (*)(void *, float)) (memoryTools.readPtr(selfFunction + PubgOffset::ObjectParam::PlayerFunction::AddControllerPitchInputOffset));
             //相机管理器
             staticData.cameraManager = memoryTools.readPtr(staticData.playerController + PubgOffset::PlayerControllerParam::CameraManagerOffset);
             
@@ -248,22 +248,12 @@ void *readStaticData(void *) {
                     //队伍ID
                     tmpPlayerData.team = team;
                     //名字
-                    // İsim okuma: APawn::PlayerState — PUBG Mobile 4.3 GL için birden fazla offset dene
-                    // PlayerState offset: önce 0x4d0, olmazsa 0x4c8, 0x4c0
-                    uintptr_t playerStateAddr = 0;
-                    uintptr_t psOffsets[] = { 0x4d0, 0x4c8, 0x4c0, 0x4b8 };
-                    for (uintptr_t psOff : psOffsets) {
-                        uintptr_t candidate = memoryTools.readPtr(objectAddr + psOff);
-                        if (candidate > 0x100000000 && candidate < 0x2000000000 && candidate % 8 == 0) {
-                            playerStateAddr = candidate;
-                            break;
-                        }
-                    }
-                    if (playerStateAddr != 0) {
-                        // FString PlayerName: data pointer + 4byte count + 4byte max
-                        // PUBG Mobile 4.3 GL için birden fazla name offset dene
-                        uintptr_t nameStrData = 0;
-                        uintptr_t nameOffsets[] = { 0x4b8, 0x4c0, 0x3f0, 0x400 };
+                    // PlayerState: kPlayerState = 0x2308 (PUBGOffsets.hpp kaynağından)
+                    uintptr_t playerStateAddr = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::PlayerStateOffset);
+                    uintptr_t nameStrData = 0;
+                    if (playerStateAddr > 0x100000000 && playerStateAddr < 0x2000000000 && playerStateAddr % 8 == 0) {
+                        // PlayerState içinde FString isim offsetlerini dene
+                        uintptr_t nameOffsets[] = { 0x4b8, 0x4c0, 0x4c8, 0x3f0, 0x400 };
                         for (uintptr_t nOff : nameOffsets) {
                             uintptr_t nd = memoryTools.readPtr(playerStateAddr + nOff);
                             int nameLen = memoryTools.readInt(playerStateAddr + nOff + 0x8);
@@ -280,39 +270,28 @@ void *readStaticData(void *) {
                                 nameStrData = rpn;
                             }
                         }
-                        if (nameStrData != 0) {
-                            char* namePtr = getPlayerName(nameStrData);
-                            if (namePtr && strlen(namePtr) > 0) {
-                                tmpPlayerData.name = namePtr;
-                            } else {
-                                tmpPlayerData.name = "Unknown";
-                            }
-                            // namePtr: StaticPlayerData.name string ise kopyalanmıştır,
-                            // char* ise pointer ownership geçmiştir — free burada yapılmaz
-                        } else {
-                            tmpPlayerData.name = "Unknown";
-                        }
+                    }
+                    // Son fallback: doğrudan karakter üzerinde NameOffset (0x960)
+                    if (nameStrData == 0) {
+                        nameStrData = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset);
+                    }
+                    if (nameStrData != 0) {
+                        char* namePtr = getPlayerName(nameStrData);
+                        tmpPlayerData.name = (namePtr && strlen(namePtr) > 0) ? namePtr : "Unknown";
                     } else {
                         tmpPlayerData.name = "Unknown";
                     }
 
                     // Bot tespiti
-                    // Method 1: Sınıf adı — en güvenilir yöntem (PUBG Mobile 4.3)
-                    // STExtraAICharacter ve diğer AI sınıfları kesinlikle bottur
+                    // Method 1: Sınıf adı — STExtraAI* kesinlikle bottur
                     bool isBot = isAIClass;
-
-                    // Method 2: PlayerState üzerinden bIsABot flag kontrolü (birden fazla offset dene)
-                    if (!isBot && playerStateAddr != 0) {
-                        // PUBG Mobile 4.3 GL için bIsABot flag offsetleri (bit 0x2 veya 0x4)
-                        uint8_t botFlags258 = 0, botFlags4DC = 0, botFlags259 = 0;
-                        memoryTools.readMemory(playerStateAddr + 0x258, 1, &botFlags258);
-                        memoryTools.readMemory(playerStateAddr + 0x4DC, 1, &botFlags4DC);
-                        memoryTools.readMemory(playerStateAddr + 0x259, 1, &botFlags259);
-                        if ((botFlags258 & 0x8) || (botFlags4DC & 0x4) || (botFlags259 & 0x1)) {
-                            isBot = true;
-                        }
+                    // Method 2: kbIsAI (0xa40) ve kbIsMLAI (0xa41) flag kontrolü
+                    if (!isBot) {
+                        uint8_t bIsAI = 0, bIsMLAI = 0;
+                        memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::RobotOffset, 1, &bIsAI);
+                        memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::MLRobotOffset, 1, &bIsMLAI);
+                        isBot = (bIsAI != 0) || (bIsMLAI != 0);
                     }
-
                     tmpPlayerData.robot = isBot ? 1 : 0;
 
 
@@ -710,10 +689,11 @@ void *silenceAimbot(void *) {
             //武器指针
             uintptr_t weaponAddr = memoryTools.readPtr(staticData.selfAddr + PubgOffset::ObjectParam::WeaponOneOffset);
 
-            // Ateş durumu — readInt kullan (readPtr 8 byte okur, bit shift yanlış sonuç verir)
-            bool isFiring = ((memoryTools.readInt(staticData.selfAddr + 0x1058) >> 7) & 1) == 1;
-            // Dürbün durumu
-            bool isScoping = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
+            // Ateş durumu — OpenFireOffset (0x1788) kullan
+            bool isFiring = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1;
+            // Dürbün durumu — 1 veya 257 (tam dürbün) olabilir
+            bool isScoping = (memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 257 ||
+                              memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1);
             // Silah tam auto mu — weaponAddr 0 ise kontrol atlenir
             bool isFullAuto = (weaponAddr != 0) &&
                               (memoryTools.readInt(weaponAddr + PubgOffset::ObjectParam::WeaponParam::ShootModeOffset) >= 1024);
