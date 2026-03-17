@@ -359,129 +359,136 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                                if (playerData.hp > 100) playerData.hp = 100;
                 //取敌人动作
              //   NSLog(@"****： %id",statusName);
-                uintptr_t statusAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::StatusOffset);
-                
-                if (statusAddr == 2097168) {
-                playerData.statusName = "DRIVE";
+                // CurrentStates uint64 bit flags
+                // EPawnState: GunFire=7, GunADS=9, Dying=17, InVehicle=20, InParachute=23
+                uint64_t statusVal = 0;
+                memoryTools.readMemory(staticPlayerData.addr + PubgOffset::ObjectParam::StatusOffset, 8, &statusVal);
+                if ((statusVal >> 20) & 1) {
+                    playerData.statusName = "DRIVE";
                 }
-                if (statusAddr == 262208) {
-                playerData.statusName = "HEALING";
+                if ((statusVal >> 23) & 1) {
+                    playerData.statusName = "FLYING ON PARACHUTE";
                 }
-                if (statusAddr == 33554449) {
-                playerData.statusName = "FLYING ON PARACHUTE";
-                }
-                if (statusAddr == 262160) {
-                playerData.statusName = "STAND";
-                }
-                if (statusAddr == 16) {
-                playerData.statusName = "STAND";
-                }
-                if (statusAddr == 524288) {
+                if ((statusVal >> 17) & 1) {
+                    playerData.statusName = "KNOCKED";
+                // dummy to close if chain
+                } if (false) {
+                    playerData.statusName = "KNOCKED";
+                if (false) {
                 playerData.statusName = "KNOCKED";
                 }
-                if (statusAddr == 147) {
+                if (false) {
+                playerData.statusName = "KNOCKED";
+                }
+                if (false) {
+                playerData.statusName = "KNOCKED";
+                }
+                if (false) {
+                playerData.statusName = "KNOCKED";
+                }
+                if (statusVal == 147) {
                 playerData.statusName = "JUMP";
                 }
-                if (statusAddr == 529) {
+                if (statusVal == 529) {
                 playerData.statusName = "WALK & RELOADING";
                 }
-                if (statusAddr == 35) {
+                if (statusVal == 35) {
                 playerData.statusName = "CROUCHING";
                 }
-                if (statusAddr == 8205) {
+                if (statusVal == 8205) {
                 playerData.statusName = "SHOOTING";
                 }
-                if (statusAddr == 33) {
+                if (statusVal == 33) {
                 playerData.statusName = "蹲走";
                 }
-                if (statusAddr == 65568) {
+                if (statusVal == 65568) {
                 playerData.statusName = "蹲下丢雷";
                 }
-                if (statusAddr == 65600) {
+                if (statusVal == 65600) {
                 playerData.statusName = "趴下丢雷";
                 }
-                if (statusAddr == 1088) {
+                if (statusVal == 1088) {
                 playerData.statusName = "趴下开镜";
                 }
-                if (statusAddr == 1056) {
+                if (statusVal == 1056) {
                 playerData.statusName = "蹲下开镜";
                 }
-                if (statusAddr == 18) {
+                if (statusVal == 18) {
                 playerData.statusName = "站立";
                 }
-                if (statusAddr == 32784) {
+                if (statusVal == 32784) {
                 playerData.statusName = "挥拳";
                 }
-                if (statusAddr == 23) {
+                if (statusVal == 23) {
                 playerData.statusName = "拿枪";
                 }
-                if (statusAddr == 1073741840) {
+                if (statusVal == 1073741840) {
                 playerData.statusName = "开火";
                 }
-                if (statusAddr == 16777219) {
+                if (statusVal == 16777219) {
                 playerData.statusName = "游泳";
                 }
-                if (statusAddr == 524289) {
+                if (statusVal == 524289) {
                 playerData.statusName = "击倒";
                 }
-                if (statusAddr == 8205) {
+                if (statusVal == 8205) {
                 playerData.statusName = "开火";
                 }
-                if (statusAddr == 1040) {
+                if (statusVal == 1040) {
                 playerData.statusName = "开镜";
                                }
-                if (statusAddr == 272) {
+                if (statusVal == 272) {
                 playerData.statusName = "开枪";
                                }
-                if (statusAddr == 4112) {
+                if (statusVal == 4112) {
                 playerData.statusName = "歪头";
                                }
-                if (statusAddr == 19) {
+                if (statusVal == 19) {
                 playerData.statusName = "奔跑";
                                }
-                if (statusAddr == 6552) {
+                if (statusVal == 6552) {
                 playerData.statusName = "拉手雷";
                                }
-                if (statusAddr == 64) {
+                if (statusVal == 64) {
                 playerData.statusName = "趴着";
                                }
-                if (statusAddr == 32) {
+                if (statusVal == 32) {
                 playerData.statusName = "蹲着";
                                }
-                if (statusAddr == 144) {
+                if (statusVal == 144) {
                 playerData.statusName = "跳跃";
                                }
-                if (statusAddr == 4128) {
+                if (statusVal == 4128) {
                 playerData.statusName = "蹲着歪头";
                                }
-                if (statusAddr == 4384) {
+                if (statusVal == 4384) {
                 playerData.statusName = "蹲着开火";
                                }
-                if (statusAddr == 528) {
+                if (statusVal == 528) {
                 playerData.statusName = "换弹中";
                                }
-                if (statusAddr == 320) {
+                if (statusVal == 320) {
                 playerData.statusName = "趴着开火";
                                }
-                if (statusAddr == 288) {
+                if (statusVal == 288) {
                 playerData.statusName = "蹲着开火";
                                }
-                if (statusAddr == 576) {
+                if (statusVal == 576) {
                 playerData.statusName = "趴着换弹";
                                }
-                if (statusAddr == 544) {
+                if (statusVal == 544) {
                 playerData.statusName = "蹲着换弹";
                                }
-                if (statusAddr == 67108880) {
+                if (statusVal == 67108880) {
                 playerData.statusName = "翻墙中";
                                }
-                if (statusAddr == 273) {
+                if (statusVal == 273) {
                 playerData.statusName = "RUN & SHOOT";
                                }
-                if (statusAddr == 4194320) {
+                if (statusVal == 4194320) {
                 playerData.statusName = "乘坐";
                                }
-                if (statusAddr == 17) {
+                if (statusVal == 17) {
                 playerData.statusName = "WALK";
                                }
                 
@@ -508,7 +515,7 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 uintptr_t humanAddr = meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset;
                 uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset);
                 BonesData bonesData;
-                // Tüm kemikleri oku
+                // Kemik verileri - iskelet çizimi için
                 getBone2d(pov, screenSize, humanAddr, boneAddr, 5, bonesData.head);
                 getBone2d(pov, screenSize, humanAddr, boneAddr, 4, bonesData.pit);
                 getBone2d(pov, screenSize, humanAddr, boneAddr, 1, bonesData.pelvis);
@@ -526,18 +533,23 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 getBone2d(pov, screenSize, humanAddr, boneAddr, 58, bonesData.rankle);
                 playerData.bonesData = bonesData;
 
-                // Box - bone head(5) ve rankle(58)'dan hesapla
-                playerData.screen = worldToScreen(objectCoord, pov, screenSize);
-                if (bonesData.head.x > 0 && bonesData.rankle.x > 0) {
-                    float topY    = bonesData.head.y;
-                    float bottomY = bonesData.rankle.y;
-                    // Ekranda baş üstte (y küçük), ayak altta (y büyük)
-                    if (bottomY > topY) {
-                        float boxH = bottomY - topY;
-                        float boxW = boxH / 2.8f;
-                        playerData.screen = ImVec2(bonesData.head.x, topY);
-                        playerData.size.x = boxW / 2.0f;
-                        playerData.size.y = boxH;
+                // Box - worldToScreen ile güvenilir hesap (bone yoksa da çalışır)
+                // Ayak = objectCoord (zemin), Baş = objectCoord.z + 170 (karakter boyu)
+                ImVec2 footScreen = worldToScreen(objectCoord, pov, screenSize);
+                ImVec2 headScreen = worldToScreen(ImVec3(objectCoord.x, objectCoord.y, objectCoord.z + 170.0f), pov, screenSize);
+                playerData.screen = headScreen;
+                float boxH = footScreen.y - headScreen.y;
+                if (boxH > 5.0f) {
+                    playerData.size.x = boxH / 3.0f;
+                    playerData.size.y = boxH;
+                }
+                // Bone head varsa daha hassas üst nokta
+                if (bonesData.head.x > 0 && bonesData.head.y > 0) {
+                    float boneBoxH = footScreen.y - bonesData.head.y;
+                    if (boneBoxH > 5.0f) {
+                        playerData.screen = ImVec2(bonesData.head.x, bonesData.head.y);
+                        playerData.size.x = boneBoxH / 3.0f;
+                        playerData.size.y = boneBoxH;
                     }
                 }
                 playerDataList.push_back(playerData);
