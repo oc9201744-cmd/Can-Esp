@@ -242,31 +242,12 @@ void *readStaticData(void *) {
                     tmpPlayerData.team = team;
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
-                    // Bot tespiti
-                    bool isBot = false;
-                    // 1. ASTExtraBaseCharacter::STExtraPlayerState (0x23B0) -> IsMLAI (0x10F8)
-                    uintptr_t stPS = memoryTools.readPtr(objectAddr + 0x23B0);
-                    if (stPS > 0x100000000 && stPS < 0x2000000000) {
-                        bool stIsMLAI = false;
-                        memoryTools.readMemory(stPS + 0x10F8, 1, &stIsMLAI);
-                        if (stIsMLAI) isBot = true;
-                    }
-                    // 2. APawn::PlayerState (0x4D0) -> AUAEPlayerState::MLAIDisplayUID (0x6D0)
-                    if (!isBot) {
-                        uintptr_t ps = memoryTools.readPtr(objectAddr + 0x4D0);
-                        if (ps > 0x100000000 && ps < 0x2000000000) {
-                            uint64_t mlaiUID = 0;
-                            memoryTools.readMemory(ps + 0x6D0, 8, &mlaiUID);
-                            if (mlaiUID != 0) isBot = true;
-                        }
-                    }
-                    // 3. AUAECharacter::bIsAI (0xA40) + bIsMLAI (0xA41)
-                    if (!isBot) {
-                        bool bIsAI = false, bIsMLAI = false;
-                        memoryTools.readMemory(objectAddr + 0xA40, 1, &bIsAI);
-                        memoryTools.readMemory(objectAddr + 0xA41, 1, &bIsMLAI);
-                        isBot = bIsAI || bIsMLAI;
-                    }
+                    // Bot tespiti - className üzerinden (kesin yöntem)
+                    // FakePlayer_AIPawn ve _PlayerPawn_TPlanAI_C = bot className'leri
+                    bool isBot = (
+                        strstr(className.c_str(), "FakePlayer_AIPawn")     != 0 ||
+                        strstr(className.c_str(), "_PlayerPawn_TPlanAI_C") != 0
+                    );
                     tmpPlayerData.robot = isBot ? 1 : 0;
 
 
