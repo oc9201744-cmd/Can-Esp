@@ -245,10 +245,10 @@ void *readStaticData(void *) {
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
                     // IsBot offset - bool (1 byte)
-                    // kbIsAI=0xa40, kbIsMLAI=0xa41
+                    // bIsAI=0xA40, bIsMLAI=0xA41 (AUAECharacter - AIOHeader doğrulandı)
                     bool isAI = false, isMLAI = false;
-                    memoryTools.readMemory(objectAddr + 0xa40, 1, &isAI);
-                    memoryTools.readMemory(objectAddr + 0xa41, 1, &isMLAI);
+                    memoryTools.readMemory(objectAddr + 0xA40, 1, &isAI);
+                    memoryTools.readMemory(objectAddr + 0xA41, 1, &isMLAI);
                     tmpPlayerData.robot = (isAI || isMLAI) ? 1 : 0;
 
 
@@ -528,21 +528,18 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 getBone2d(pov, screenSize, humanAddr, boneAddr, 58, bonesData.rankle);
                 playerData.bonesData = bonesData;
 
-                // Box hesabı kemiklerden
+                // Box - bone head(5) ve rankle(58)'dan hesapla
                 playerData.screen = worldToScreen(objectCoord, pov, screenSize);
-                if (bonesData.head.x != 0 && bonesData.rankle.x != 0 && bonesData.head.y < bonesData.rankle.y) {
-                    float boxHeight = bonesData.rankle.y - bonesData.head.y;
-                    playerData.screen = ImVec2(bonesData.head.x, bonesData.head.y);
-                    playerData.size.x = boxHeight / 3.0f;
-                    playerData.size.y = boxHeight;
-                } else if (bonesData.head.x != 0) {
-                    // Sadece baş varsa tahmini box
-                    ImVec2 footScreen = worldToScreen(ImVec3(objectCoord.x, objectCoord.y, objectCoord.z), pov, screenSize);
-                    float boxHeight = footScreen.y - bonesData.head.y;
-                    if (boxHeight > 10) {
-                        playerData.screen = ImVec2(bonesData.head.x, bonesData.head.y);
-                        playerData.size.x = boxHeight / 3.0f;
-                        playerData.size.y = boxHeight;
+                if (bonesData.head.x > 0 && bonesData.rankle.x > 0) {
+                    float topY    = bonesData.head.y;
+                    float bottomY = bonesData.rankle.y;
+                    // Ekranda baş üstte (y küçük), ayak altta (y büyük)
+                    if (bottomY > topY) {
+                        float boxH = bottomY - topY;
+                        float boxW = boxH / 2.8f;
+                        playerData.screen = ImVec2(bonesData.head.x, topY);
+                        playerData.size.x = boxW / 2.0f;
+                        playerData.size.y = boxH;
                     }
                 }
                 playerDataList.push_back(playerData);
