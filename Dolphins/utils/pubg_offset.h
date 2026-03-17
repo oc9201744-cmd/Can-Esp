@@ -4,7 +4,7 @@
 namespace PubgOffset {
 
 // PlayerController zinciri: gWorld+0x38->NetDriver, +0x78->ServerConnection, +0x98->PlayerController, +0x30->LocalPlayerController
-int PlayerControllerOffset[4] = {0x38, 0x78, 0x98, 0x30};
+int PlayerControllerOffset[3] = {0x38, 0x78, 0x30};
 
 namespace PlayerControllerParam {
 
