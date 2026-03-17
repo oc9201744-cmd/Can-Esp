@@ -223,9 +223,9 @@ void *readStaticData(void *) {
                     //对象指针地址
 
                     // Oldu mu kontrolu - IsDead (1 byte bool)
-                    bool isDead = false;
-                    memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::DeadOffset, 1, &isDead);
-                    if (isDead) continue;
+                    uint8_t deadByte = 0;
+                    memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::DeadOffset, 1, &deadByte);
+                    if (deadByte & 0x01) continue;
 
 
 
@@ -233,8 +233,6 @@ void *readStaticData(void *) {
 
                     // HP yukarida kontrol edildi
                     // bDead kontrolu kaldirildi - HP ile yapiliyor
-                            uintptr_t statusAddr = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::StatusOffset);
-
                     
 
                     tmpPlayerData.addr = objectAddr;
@@ -508,7 +506,7 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 //屏幕XY
                 uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
                 uintptr_t humanAddr = meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset;
-                uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset) + 48;
+                uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset);
                 BonesData bonesData;
                 // Tüm kemikleri oku
                 getBone2d(pov, screenSize, humanAddr, boneAddr, 5, bonesData.head);
@@ -719,7 +717,7 @@ PlayerData playerData;
                         //骨骼mesh
                         uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
                         uintptr_t humanAddr = meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset;
-                        uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset) + 48;
+                        uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset);
                         //取自瞄部位 0是优先头部,1是优先身体,3是[全自动武器打身体,单发连发打头],4是只打头,5是只打身体
                         switch (moduleControl.aimbotController.aimbotParts) {
                             case 0: {
