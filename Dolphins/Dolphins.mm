@@ -242,25 +242,21 @@ void *readStaticData(void *) {
                     tmpPlayerData.team = team;
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
-                    // Bot tespiti - çok katmanlı
+                    // Bot tespiti - AIOHeader'dan doğrulandı
+                    // 1. AUAEPlayerState::MLAIDisplayUID (0x6D0) - replicate ediliyor, en güvenilir
                     bool isBot = false;
-                    // 1. className içinde AI/Fake geçiyorsa bot
-                    if (strstr(className.c_str(), "FakePlayer") != 0 ||
-                        strstr(className.c_str(), "AIPawn")     != 0 ||
-                        strstr(className.c_str(), "_AI_")       != 0) {
-                        isBot = true;
+                    uintptr_t ps = memoryTools.readPtr(objectAddr + 0x4D0);
+                    if (ps != 0) {
+                        uint64_t mlaiUID = 0;
+                        memoryTools.readMemory(ps + 0x6D0, 8, &mlaiUID);
+                        if (mlaiUID != 0) isBot = true;
                     }
-                    // 2. bIsAI (0xA40) ve bIsMLAI (0xA41) - AUAECharacter
+                    // 2. AUAECharacter::bIsAI (0xA40) + bIsMLAI (0xA41)
                     if (!isBot) {
                         bool bIsAI = false, bIsMLAI = false;
                         memoryTools.readMemory(objectAddr + 0xA40, 1, &bIsAI);
                         memoryTools.readMemory(objectAddr + 0xA41, 1, &bIsMLAI);
                         isBot = bIsAI || bIsMLAI;
-                    }
-                    // 3. FakePlayerAIController pointer (0x4968)
-                    if (!isBot) {
-                        uintptr_t fakeAIC = memoryTools.readPtr(objectAddr + 0x4968);
-                        isBot = (fakeAIC > 0x100000000 && fakeAIC < 0x2000000000);
                     }
                     tmpPlayerData.robot = isBot ? 1 : 0;
 
