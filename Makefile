@@ -1,5 +1,6 @@
 export THEOS = /var/theos
-# arm64e desteği yoksa arm64 en güvenli liman
+
+# Cihazın iPhone 15 Pro Max olsa da kütüphanelerin arm64 olduğu için arm64 kalmalı
 ARCHS = arm64
 DEBUG = 0
 FINALPACKAGE = 1
@@ -9,27 +10,29 @@ include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = Blackshark
 
-# Framework ve Linker Ayarları
+# 1. Framework Ayarları
 Blackshark_FRAMEWORKS = IOKit UIKit Foundation Security QuartzCore CoreGraphics CoreText AVFoundation Accelerate GLKit SystemConfiguration GameController
 Blackshark_EXTRA_FRAMEWORKS = JRMemory
 
-# Path ve Header Ayarları (Dobby.h yolunu buraya ekledik)
-# -I parametresi derleyiciye "buradaki .h dosyalarına bak" der.
+# 2. Header (Başlık Dosyası) Yolları
+# -I. (nokta) mevcut dizinden başla demek, işi garantiye alır.
 Blackshark_CFLAGS = -fno-lto -fobjc-arc -Wno-deprecated-declarations -fvisibility=hidden -fpermissive -fexceptions -w \
                    -F$(THEOS_PROJECT_DIR) \
-                   -I$(THEOS_PROJECT_DIR)/Dolphins/lib
+                   -IDolphins/lib \
+                   -IDolphins/Module
 
 Blackshark_CCFLAGS = -fno-lto -std=c++17 -fno-rtti -fno-exceptions -DNDEBUG -fvisibility=hidden -fpermissive -fexceptions -w \
                     -F$(THEOS_PROJECT_DIR) \
-                    -I$(THEOS_PROJECT_DIR)/Dolphins/lib
+                    -IDolphins/lib \
+                    -IDolphins/Module
 
-# LDFLAGS - Kütüphaneyi bağlama (Linking)
-# -ldobby ifadesi libdobby.a veya dobby.a dosyasını arar.
+# 3. Linker (Kütüphane Bağlama) Ayarları
+# libdobby.a dosyan Dolphins/lib içinde olduğu için yolu netleştiriyoruz
 Blackshark_LDFLAGS = -L$(THEOS_PROJECT_DIR)/Dolphins/lib -ldobby -lc++ -F$(THEOS_PROJECT_DIR)
 
 Blackshark_USE_SUBSTRATE = 0
 
-# Dosya Listesi
+# 4. Dosya Listesi (Wildcard ile otomatik tarama)
 Blackshark_FILES = Dolphins/Dolphins.mm \
                    $(wildcard Dolphins/View/*.m) \
                    $(wildcard Dolphins/Module/*.mm) \
