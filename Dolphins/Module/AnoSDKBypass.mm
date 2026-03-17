@@ -1,5 +1,15 @@
 #import <Foundation/Foundation.h>
+#import <dlfcn.h>      // Bu satır RTLD_NOW, RTLD_GLOBAL ve dlopen'ı tanımlar
 #include "dobby.h"
+
+// Eğer hata devam ederse (bazı Theos sürümlerinde gerekebilir):
+#ifndef RTLD_NOW
+    #define RTLD_NOW 0x2
+#endif
+#ifndef RTLD_GLOBAL
+    #define RTLD_GLOBAL 0x8
+#endif
+
 
 // ─── AnoSDK Function Typedefs ───────────────────────────────────────────────
 
