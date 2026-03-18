@@ -1,102 +1,219 @@
 #import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
+#include <objc/runtime.h>
 #include <dlfcn.h>
 #include <mach-o/dyld.h>
 #include "fishhook.h"
 
+// ─────────────────────────────────────────────────────────────────────────────
+// AnoSDKBypass.mm
+// 1. AnoSDK fonksiyonları → fishhook ile bypass
+// 2. PluginTssSDKLifecycle → ObjC swizzle ile durdur (no Dobby)
+// 3. AceMsgBoxImp → ban popup'ını gizle
+// ─────────────────────────────────────────────────────────────────────────────
+
 // ─── AnoSDK Typedefs ──────────────────────────────────────────────────────────
 
-typedef int   (*AnoSDKInit_t)(void *initInfo);
-typedef int   (*AnoSDKInitEx_t)(void *initInfo, int flags);
-typedef int   (*AnoSDKSetUserInfo_t)(const char *openID, int accountType, int worldID, int roleID, int gameVIP, int bigVIP, int antiAddiction);
-typedef int   (*AnoSDKSetUserInfoWithLicense_t)(const char *openID, int accountType, int worldID, int roleID, int gameVIP, int bigVIP, int antiAddiction, const char *license);
-typedef int   (*AnoSDKIoctl_t)(int cmd, const void *buf, int bufLen);
-typedef int   (*AnoSDKIoctlOld_t)(int cmd, const void *buf, int bufLen);
+typedef int   (*AnoSDKInit_t)(void *);
+typedef int   (*AnoSDKInitEx_t)(void *, int);
+typedef int   (*AnoSDKSetUserInfo_t)(const char *, int, int, int, int, int, int);
+typedef int   (*AnoSDKSetUserInfoWithLicense_t)(const char *, int, int, int, int, int, int, const char *);
+typedef int   (*AnoSDKIoctl_t)(int, const void *, int);
+typedef int   (*AnoSDKIoctlOld_t)(int, const void *, int);
 typedef int   (*AnoSDKOnPause_t)(void);
 typedef int   (*AnoSDKOnResume_t)(void);
-typedef int   (*AnoSDKOnRecvData_t)(const void *data, int dataLen);
-typedef int   (*AnoSDKOnRecvSignature_t)(const void *sig, int sigLen);
-typedef void *(*AnoSDKGetReportData_t)(int *dataLen);
-typedef void *(*AnoSDKGetReportData2_t)(int *dataLen);
-typedef void *(*AnoSDKGetReportData3_t)(int *dataLen);
-typedef void *(*AnoSDKGetReportData4_t)(int *dataLen);
-typedef void  (*AnoSDKDelReportData_t)(void *data);
-typedef void  (*AnoSDKDelReportData3_t)(void *data);
-typedef void  (*AnoSDKDelReportData4_t)(void *data);
-typedef void  (*AnoSDKFree_t)(void *ptr);
-typedef int   (*AnoSDKRegistInfoListener_t)(void *listener);
+typedef int   (*AnoSDKOnRecvData_t)(const void *, int);
+typedef int   (*AnoSDKOnRecvSignature_t)(const void *, int);
+typedef void *(*AnoSDKGetReportData_t)(int *);
+typedef void *(*AnoSDKGetReportData2_t)(int *);
+typedef void *(*AnoSDKGetReportData3_t)(int *);
+typedef void *(*AnoSDKGetReportData4_t)(int *);
+typedef void  (*AnoSDKDelReportData_t)(void *);
+typedef void  (*AnoSDKDelReportData3_t)(void *);
+typedef void  (*AnoSDKDelReportData4_t)(void *);
+typedef void  (*AnoSDKFree_t)(void *);
+typedef int   (*AnoSDKRegistInfoListener_t)(void *);
 
 // ─── Original Pointers ───────────────────────────────────────────────────────
 
-static AnoSDKInit_t                   orig_AnoSDKInit                   = nullptr;
-static AnoSDKInitEx_t                 orig_AnoSDKInitEx                 = nullptr;
-static AnoSDKSetUserInfo_t            orig_AnoSDKSetUserInfo            = nullptr;
-static AnoSDKSetUserInfoWithLicense_t orig_AnoSDKSetUserInfoWithLicense = nullptr;
-static AnoSDKIoctl_t                  orig_AnoSDKIoctl                  = nullptr;
-static AnoSDKIoctlOld_t               orig_AnoSDKIoctlOld               = nullptr;
-static AnoSDKOnPause_t                orig_AnoSDKOnPause                = nullptr;
-static AnoSDKOnResume_t               orig_AnoSDKOnResume               = nullptr;
-static AnoSDKOnRecvData_t             orig_AnoSDKOnRecvData             = nullptr;
-static AnoSDKOnRecvSignature_t        orig_AnoSDKOnRecvSignature        = nullptr;
-static AnoSDKGetReportData_t          orig_AnoSDKGetReportData          = nullptr;
-static AnoSDKGetReportData2_t         orig_AnoSDKGetReportData2         = nullptr;
-static AnoSDKGetReportData3_t         orig_AnoSDKGetReportData3         = nullptr;
-static AnoSDKGetReportData4_t         orig_AnoSDKGetReportData4         = nullptr;
-static AnoSDKDelReportData_t          orig_AnoSDKDelReportData          = nullptr;
-static AnoSDKDelReportData3_t         orig_AnoSDKDelReportData3         = nullptr;
-static AnoSDKDelReportData4_t         orig_AnoSDKDelReportData4         = nullptr;
-static AnoSDKFree_t                   orig_AnoSDKFree                   = nullptr;
-static AnoSDKRegistInfoListener_t     orig_AnoSDKRegistInfoListener     = nullptr;
+static AnoSDKDelReportData_t  orig_AnoSDKDelReportData  = nullptr;
+static AnoSDKDelReportData3_t orig_AnoSDKDelReportData3 = nullptr;
+static AnoSDKDelReportData4_t orig_AnoSDKDelReportData4 = nullptr;
+static AnoSDKFree_t           orig_AnoSDKFree           = nullptr;
 
-// ─── Hook Implementations ────────────────────────────────────────────────────
+// ─── AnoSDK Hooks ─────────────────────────────────────────────────────────────
 
-static int hook_AnoSDKInit(void *initInfo)                             { return 0; }
-static int hook_AnoSDKInitEx(void *initInfo, int flags)                { return 0; }
-static int hook_AnoSDKSetUserInfo(const char *openID, int accountType,
-    int worldID, int roleID, int gameVIP, int bigVIP, int antiAddiction){ return 0; }
-static int hook_AnoSDKSetUserInfoWithLicense(const char *openID, int accountType,
-    int worldID, int roleID, int gameVIP, int bigVIP,
-    int antiAddiction, const char *license)                            { return 0; }
-static int hook_AnoSDKIoctl(int cmd, const void *buf, int bufLen)      { return 0; }
-static int hook_AnoSDKIoctlOld(int cmd, const void *buf, int bufLen)   { return 0; }
-static int hook_AnoSDKOnPause(void)                                    { return 0; }
-static int hook_AnoSDKOnResume(void)                                   { return 0; }
-static int hook_AnoSDKOnRecvData(const void *data, int dataLen)        { return 0; }
-static int hook_AnoSDKOnRecvSignature(const void *sig, int sigLen)     { return 0; }
-static void *hook_AnoSDKGetReportData(int *dataLen)                    { if (dataLen) *dataLen = 0; return nullptr; }
-static void *hook_AnoSDKGetReportData2(int *dataLen)                   { if (dataLen) *dataLen = 0; return nullptr; }
-static void *hook_AnoSDKGetReportData3(int *dataLen)                   { if (dataLen) *dataLen = 0; return nullptr; }
-static void *hook_AnoSDKGetReportData4(int *dataLen)                   { if (dataLen) *dataLen = 0; return nullptr; }
-static void hook_AnoSDKDelReportData(void *data)  { if (orig_AnoSDKDelReportData  && data) orig_AnoSDKDelReportData(data);  }
-static void hook_AnoSDKDelReportData3(void *data) { if (orig_AnoSDKDelReportData3 && data) orig_AnoSDKDelReportData3(data); }
-static void hook_AnoSDKDelReportData4(void *data) { if (orig_AnoSDKDelReportData4 && data) orig_AnoSDKDelReportData4(data); }
-static void hook_AnoSDKFree(void *ptr)            { if (orig_AnoSDKFree && ptr) orig_AnoSDKFree(ptr); }
-static int hook_AnoSDKRegistInfoListener(void *listener)               { return 0; }
+static int   h_AnoSDKInit(void *a)                                               { return 0; }
+static int   h_AnoSDKInitEx(void *a, int b)                                      { return 0; }
+static int   h_AnoSDKSetUserInfo(const char *a, int b, int c, int d, int e, int f, int g) { return 0; }
+static int   h_AnoSDKSetUserInfoWithLicense(const char *a, int b, int c, int d, int e, int f, int g, const char *h) { return 0; }
+static int   h_AnoSDKIoctl(int a, const void *b, int c)                          { return 0; }
+static int   h_AnoSDKIoctlOld(int a, const void *b, int c)                       { return 0; }
+static int   h_AnoSDKOnPause(void)                                               { return 0; }
+static int   h_AnoSDKOnResume(void)                                              { return 0; }
+static int   h_AnoSDKOnRecvData(const void *a, int b)                            { return 0; }
+static int   h_AnoSDKOnRecvSignature(const void *a, int b)                       { return 0; }
+static void *h_AnoSDKGetReportData(int *l)                                       { if (l) *l = 0; return nullptr; }
+static void *h_AnoSDKGetReportData2(int *l)                                      { if (l) *l = 0; return nullptr; }
+static void *h_AnoSDKGetReportData3(int *l)                                      { if (l) *l = 0; return nullptr; }
+static void *h_AnoSDKGetReportData4(int *l)                                      { if (l) *l = 0; return nullptr; }
+static void  h_AnoSDKDelReportData(void *p)  { if (orig_AnoSDKDelReportData  && p) orig_AnoSDKDelReportData(p);  }
+static void  h_AnoSDKDelReportData3(void *p) { if (orig_AnoSDKDelReportData3 && p) orig_AnoSDKDelReportData3(p); }
+static void  h_AnoSDKDelReportData4(void *p) { if (orig_AnoSDKDelReportData4 && p) orig_AnoSDKDelReportData4(p); }
+static void  h_AnoSDKFree(void *p)           { if (orig_AnoSDKFree && p) orig_AnoSDKFree(p); }
+static int   h_AnoSDKRegistInfoListener(void *a)                                 { return 0; }
 
-// ─── Install ─────────────────────────────────────────────────────────────────
+// ─── ObjC Swizzle Helper ──────────────────────────────────────────────────────
+
+static void swizzle(Class cls, SEL original, SEL replacement) {
+    Method origMethod = class_getInstanceMethod(cls, original);
+    Method replMethod = class_getInstanceMethod(cls, replacement);
+    if (origMethod && replMethod)
+        method_exchangeImplementations(origMethod, replMethod);
+}
+
+static void swizzleClass(Class cls, SEL original, SEL replacement) {
+    Method origMethod = class_getClassMethod(cls, original);
+    Method replMethod = class_getClassMethod(cls, replacement);
+    if (origMethod && replMethod)
+        method_exchangeImplementations(origMethod, replMethod);
+}
+
+// ─── PluginTssSDKLifecycle Swizzle ───────────────────────────────────────────
+// AceTss lifecycle metodlarını no-op yap
+
+@interface PluginTssSDKLifecycle : NSObject
+@end
+
+@interface PluginTssSDKLifecycle (Bypass)
+- (void)bypass_applicationDidFinishLaunching:(id)app options:(id)opts;
+- (void)bypass_applicationDidBecomeActive:(id)app;
+- (void)bypass_applicationWillResignActive:(id)app;
+- (void)bypass_applicationDidEnterBackground:(id)app;
+- (void)bypass_applicationWillEnterForeground:(id)app;
+- (void)bypass_applicationWillTerminate:(id)app;
+@end
+
+@implementation PluginTssSDKLifecycle (Bypass)
+
+- (void)bypass_applicationDidFinishLaunching:(id)app options:(id)opts { /* no-op */ }
+- (void)bypass_applicationDidBecomeActive:(id)app                     { /* no-op */ }
+- (void)bypass_applicationWillResignActive:(id)app                    { /* no-op */ }
+- (void)bypass_applicationDidEnterBackground:(id)app                  { /* no-op */ }
+- (void)bypass_applicationWillEnterForeground:(id)app                 { /* no-op */ }
+- (void)bypass_applicationWillTerminate:(id)app                       { /* no-op */ }
+
+@end
+
+// ─── AceMsgBoxImp Swizzle ────────────────────────────────────────────────────
+// Ban/uyarı popup'larını gizle
+
+@interface AceMsgBoxImp : NSObject
+@end
+
+@interface AceMsgBoxImp (Bypass)
+- (void)bypass_showMsgBox:(id)msg;
+- (void)bypass_showAlertView:(id)msg;
+@end
+
+@implementation AceMsgBoxImp (Bypass)
+- (void)bypass_showMsgBox:(id)msg    { /* no-op */ }
+- (void)bypass_showAlertView:(id)msg { /* no-op */ }
+@end
+
+// ─── Swizzle Install ─────────────────────────────────────────────────────────
+
+static void installObjCSwizzles(void) {
+    Class tssClass = NSClassFromString(@"PluginTssSDKLifecycle");
+    if (tssClass) {
+        swizzle(tssClass,
+            @selector(application:didFinishLaunchingWithOptions:),
+            @selector(bypass_applicationDidFinishLaunching:options:));
+        swizzle(tssClass,
+            @selector(applicationDidBecomeActive:),
+            @selector(bypass_applicationDidBecomeActive:));
+        swizzle(tssClass,
+            @selector(applicationWillResignActive:),
+            @selector(bypass_applicationWillResignActive:));
+        swizzle(tssClass,
+            @selector(applicationDidEnterBackground:),
+            @selector(bypass_applicationDidEnterBackground:));
+        swizzle(tssClass,
+            @selector(applicationWillEnterForeground:),
+            @selector(bypass_applicationWillEnterForeground:));
+        swizzle(tssClass,
+            @selector(applicationWillTerminate:),
+            @selector(bypass_applicationWillTerminate:));
+    }
+
+    Class aceBox = NSClassFromString(@"AceMsgBoxImp");
+    if (aceBox) {
+        swizzle(aceBox, @selector(showMsgBox:),    @selector(bypass_showMsgBox:));
+        swizzle(aceBox, @selector(showAlertView:), @selector(bypass_showAlertView:));
+    }
+}
+
+// ─── fishhook Install ────────────────────────────────────────────────────────
+
+static void installFishHooks(void) {
+    static AnoSDKInit_t                   o1  = nullptr;
+    static AnoSDKInitEx_t                 o2  = nullptr;
+    static AnoSDKSetUserInfo_t            o3  = nullptr;
+    static AnoSDKSetUserInfoWithLicense_t o4  = nullptr;
+    static AnoSDKIoctl_t                  o5  = nullptr;
+    static AnoSDKIoctlOld_t               o6  = nullptr;
+    static AnoSDKOnPause_t                o7  = nullptr;
+    static AnoSDKOnResume_t               o8  = nullptr;
+    static AnoSDKOnRecvData_t             o9  = nullptr;
+    static AnoSDKOnRecvSignature_t        o10 = nullptr;
+    static AnoSDKGetReportData_t          o11 = nullptr;
+    static AnoSDKGetReportData2_t         o12 = nullptr;
+    static AnoSDKGetReportData3_t         o13 = nullptr;
+    static AnoSDKGetReportData4_t         o14 = nullptr;
+    static AnoSDKRegistInfoListener_t     o19 = nullptr;
+
+    struct rebinding b[] = {
+        { "AnoSDKInit",                   (void *)h_AnoSDKInit,                   (void **)&o1  },
+        { "AnoSDKInitEx",                 (void *)h_AnoSDKInitEx,                 (void **)&o2  },
+        { "AnoSDKSetUserInfo",            (void *)h_AnoSDKSetUserInfo,            (void **)&o3  },
+        { "AnoSDKSetUserInfoWithLicense", (void *)h_AnoSDKSetUserInfoWithLicense, (void **)&o4  },
+        { "AnoSDKIoctl",                  (void *)h_AnoSDKIoctl,                  (void **)&o5  },
+        { "AnoSDKIoctlOld",               (void *)h_AnoSDKIoctlOld,               (void **)&o6  },
+        { "AnoSDKOnPause",                (void *)h_AnoSDKOnPause,                (void **)&o7  },
+        { "AnoSDKOnResume",               (void *)h_AnoSDKOnResume,               (void **)&o8  },
+        { "AnoSDKOnRecvData",             (void *)h_AnoSDKOnRecvData,             (void **)&o9  },
+        { "AnoSDKOnRecvSignature",        (void *)h_AnoSDKOnRecvSignature,        (void **)&o10 },
+        { "AnoSDKGetReportData",          (void *)h_AnoSDKGetReportData,          (void **)&o11 },
+        { "AnoSDKGetReportData2",         (void *)h_AnoSDKGetReportData2,         (void **)&o12 },
+        { "AnoSDKGetReportData3",         (void *)h_AnoSDKGetReportData3,         (void **)&o13 },
+        { "AnoSDKGetReportData4",         (void *)h_AnoSDKGetReportData4,         (void **)&o14 },
+        { "AnoSDKDelReportData",          (void *)h_AnoSDKDelReportData,          (void **)&orig_AnoSDKDelReportData  },
+        { "AnoSDKDelReportData3",         (void *)h_AnoSDKDelReportData3,         (void **)&orig_AnoSDKDelReportData3 },
+        { "AnoSDKDelReportData4",         (void *)h_AnoSDKDelReportData4,         (void **)&orig_AnoSDKDelReportData4 },
+        { "AnoSDKFree",                   (void *)h_AnoSDKFree,                   (void **)&orig_AnoSDKFree           },
+        { "AnoSDKRegistInfoListener",     (void *)h_AnoSDKRegistInfoListener,     (void **)&o19 },
+    };
+    rebind_symbols(b, sizeof(b) / sizeof(b[0]));
+}
+
+// ─── Main Install ─────────────────────────────────────────────────────────────
 
 void AnoSDKBypassInstall(void) {
-    struct rebinding bindings[] = {
-        { "AnoSDKInit",                   (void *)hook_AnoSDKInit,                   (void **)&orig_AnoSDKInit                   },
-        { "AnoSDKInitEx",                 (void *)hook_AnoSDKInitEx,                 (void **)&orig_AnoSDKInitEx                 },
-        { "AnoSDKSetUserInfo",            (void *)hook_AnoSDKSetUserInfo,            (void **)&orig_AnoSDKSetUserInfo            },
-        { "AnoSDKSetUserInfoWithLicense", (void *)hook_AnoSDKSetUserInfoWithLicense, (void **)&orig_AnoSDKSetUserInfoWithLicense },
-        { "AnoSDKIoctl",                  (void *)hook_AnoSDKIoctl,                  (void **)&orig_AnoSDKIoctl                  },
-        { "AnoSDKIoctlOld",               (void *)hook_AnoSDKIoctlOld,               (void **)&orig_AnoSDKIoctlOld               },
-        { "AnoSDKOnPause",                (void *)hook_AnoSDKOnPause,                (void **)&orig_AnoSDKOnPause                },
-        { "AnoSDKOnResume",               (void *)hook_AnoSDKOnResume,               (void **)&orig_AnoSDKOnResume               },
-        { "AnoSDKOnRecvData",             (void *)hook_AnoSDKOnRecvData,             (void **)&orig_AnoSDKOnRecvData             },
-        { "AnoSDKOnRecvSignature",        (void *)hook_AnoSDKOnRecvSignature,        (void **)&orig_AnoSDKOnRecvSignature        },
-        { "AnoSDKGetReportData",          (void *)hook_AnoSDKGetReportData,          (void **)&orig_AnoSDKGetReportData          },
-        { "AnoSDKGetReportData2",         (void *)hook_AnoSDKGetReportData2,         (void **)&orig_AnoSDKGetReportData2         },
-        { "AnoSDKGetReportData3",         (void *)hook_AnoSDKGetReportData3,         (void **)&orig_AnoSDKGetReportData3         },
-        { "AnoSDKGetReportData4",         (void *)hook_AnoSDKGetReportData4,         (void **)&orig_AnoSDKGetReportData4         },
-        { "AnoSDKDelReportData",          (void *)hook_AnoSDKDelReportData,          (void **)&orig_AnoSDKDelReportData          },
-        { "AnoSDKDelReportData3",         (void *)hook_AnoSDKDelReportData3,         (void **)&orig_AnoSDKDelReportData3         },
-        { "AnoSDKDelReportData4",         (void *)hook_AnoSDKDelReportData4,         (void **)&orig_AnoSDKDelReportData4         },
-        { "AnoSDKFree",                   (void *)hook_AnoSDKFree,                   (void **)&orig_AnoSDKFree                   },
-        { "AnoSDKRegistInfoListener",     (void *)hook_AnoSDKRegistInfoListener,     (void **)&orig_AnoSDKRegistInfoListener     },
-    };
-    rebind_symbols(bindings, sizeof(bindings) / sizeof(bindings[0]));
+    // 1. fishhook — anında kur (GOT tablosu)
+    installFishHooks();
+
+    // 2. ObjC swizzle — framework yüklenince kur
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+        for (int i = 0; i < 100; i++) {
+            if (NSClassFromString(@"PluginTssSDKLifecycle")) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    installObjCSwizzles();
+                });
+                return;
+            }
+            usleep(50000); // 50ms
+        }
+    });
 }
 
 // ─── Auto-install ─────────────────────────────────────────────────────────────
@@ -109,25 +226,7 @@ void AnoSDKBypassInstall(void) {
 + (void)load {
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        // Background thread'de çalıştır — +load ana thread'i bloklamamalı
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
-            // anogs.framework yüklenene kadar bekle
-            for (int i = 0; i < 50; i++) {
-                uint32_t count = _dyld_image_count();
-                for (uint32_t j = 0; j < count; j++) {
-                    const char *name = _dyld_get_image_name(j);
-                    if (name && strstr(name, "anogs")) {
-                        // Framework yüklendi, hook'ları kur
-                        dispatch_async(dispatch_get_main_queue(), ^{
-                            AnoSDKBypassInstall();
-                        });
-                        return;
-                    }
-                }
-                // 100ms bekle, tekrar dene
-                usleep(100000);
-            }
-        });
+        AnoSDKBypassInstall();
     });
 }
 
