@@ -1,153 +1,141 @@
 #import <Foundation/Foundation.h>
-#import <UIKit/UIKit.h>
-#include <objc/runtime.h>
 #include <dlfcn.h>
 #include <mach-o/dyld.h>
+#include <string.h>
 #include "fishhook.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AnoSDKBypass.mm
-// 1. AnoSDK fonksiyonları → fishhook
-// 2. PluginTssSDKLifecycle + AceMsgBoxImp → pure runtime swizzle (linker yok)
+// Sorun: black_module_macho dylib ismimizi görüyor → ban
+// Çözüm: __attribute__((constructor)) ile AnoSDK'dan ÖNCE
+//         _dyld_image_count / _dyld_get_image_name hook'la → dylib'i gizle
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ─── AnoSDK Typedefs ──────────────────────────────────────────────────────────
+// ─── Gizlenecek dylib isimleri ───────────────────────────────────────────────
+// Kendi tweak adını buraya yaz
+static const char *kHidden[] = {
+    "Blackshark",
+    "blackshark",
+    "TweakInject",
+    "MobileSubstrate",
+    "CydiaSubstrate",
+    "substitute",
+    nullptr
+};
 
-typedef int   (*AnoSDKDelReportData_t)(void *);
-typedef int   (*AnoSDKDelReportData3_t)(void *);
-typedef int   (*AnoSDKDelReportData4_t)(void *);
-typedef void  (*AnoSDKFree_t)(void *);
+static bool shouldHide(const char *name) {
+    if (!name) return false;
+    for (int i = 0; kHidden[i]; i++)
+        if (strstr(name, kHidden[i])) return true;
+    return false;
+}
 
-static AnoSDKDelReportData_t  orig_AnoSDKDelReportData  = nullptr;
-static AnoSDKDelReportData3_t orig_AnoSDKDelReportData3 = nullptr;
-static AnoSDKDelReportData4_t orig_AnoSDKDelReportData4 = nullptr;
-static AnoSDKFree_t           orig_AnoSDKFree           = nullptr;
+// ─── dyld Hook originals ──────────────────────────────────────────────────────
+
+static uint32_t           (*orig_image_count)(void)                   = nullptr;
+static const char        *(*orig_image_name)(uint32_t)                = nullptr;
+static const mach_header *(*orig_image_header)(uint32_t)              = nullptr;
+static intptr_t           (*orig_image_slide)(uint32_t)               = nullptr;
+
+// fake index → real index (gizli image'leri atla)
+static uint32_t toReal(uint32_t fake) {
+    uint32_t real = orig_image_count();
+    uint32_t vis = 0;
+    for (uint32_t i = 0; i < real; i++) {
+        if (shouldHide(orig_image_name(i))) continue;
+        if (vis == fake) return i;
+        vis++;
+    }
+    return fake;
+}
+
+static uint32_t hook_image_count(void) {
+    if (!orig_image_count) return _dyld_image_count();
+    uint32_t n = 0;
+    uint32_t real = orig_image_count();
+    for (uint32_t i = 0; i < real; i++)
+        if (!shouldHide(orig_image_name(i))) n++;
+    return n;
+}
+
+static const char *hook_image_name(uint32_t idx) {
+    if (!orig_image_name) return _dyld_get_image_name(idx);
+    return orig_image_name(toReal(idx));
+}
+
+static const mach_header *hook_image_header(uint32_t idx) {
+    if (!orig_image_header) return _dyld_get_image_header(idx);
+    return orig_image_header(toReal(idx));
+}
+
+static intptr_t hook_image_slide(uint32_t idx) {
+    if (!orig_image_slide) return _dyld_get_image_vmaddr_slide(idx);
+    return orig_image_slide(toReal(idx));
+}
 
 // ─── AnoSDK Hooks ─────────────────────────────────────────────────────────────
 
-static int   h_AnoSDKInit(void *a)                                                        { return 0; }
-static int   h_AnoSDKInitEx(void *a, int b)                                               { return 0; }
-static int   h_AnoSDKSetUserInfo(const char *a, int b, int c, int d, int e, int f, int g) { return 0; }
-static int   h_AnoSDKSetUserInfoWithLicense(const char *a, int b, int c, int d, int e, int f, int g, const char *h) { return 0; }
-static int   h_AnoSDKIoctl(int a, const void *b, int c)                                   { return 0; }
-static int   h_AnoSDKIoctlOld(int a, const void *b, int c)                                { return 0; }
-static int   h_AnoSDKOnPause(void)                                                        { return 0; }
-static int   h_AnoSDKOnResume(void)                                                       { return 0; }
-static int   h_AnoSDKOnRecvData(const void *a, int b)                                     { return 0; }
-static int   h_AnoSDKOnRecvSignature(const void *a, int b)                                { return 0; }
-static void *h_AnoSDKGetReportData(int *l)   { if (l) *l = 0; return nullptr; }
-static void *h_AnoSDKGetReportData2(int *l)  { if (l) *l = 0; return nullptr; }
-static void *h_AnoSDKGetReportData3(int *l)  { if (l) *l = 0; return nullptr; }
-static void *h_AnoSDKGetReportData4(int *l)  { if (l) *l = 0; return nullptr; }
-static void  h_AnoSDKDelReportData(void *p)  { if (orig_AnoSDKDelReportData  && p) orig_AnoSDKDelReportData(p);  }
-static void  h_AnoSDKDelReportData3(void *p) { if (orig_AnoSDKDelReportData3 && p) orig_AnoSDKDelReportData3(p); }
-static void  h_AnoSDKDelReportData4(void *p) { if (orig_AnoSDKDelReportData4 && p) orig_AnoSDKDelReportData4(p); }
-static void  h_AnoSDKFree(void *p)           { if (orig_AnoSDKFree && p) orig_AnoSDKFree(p); }
-static int   h_AnoSDKRegistInfoListener(void *a) { return 0; }
+static void (*orig_Del)(void *)  = nullptr;
+static void (*orig_Del3)(void *) = nullptr;
+static void (*orig_Del4)(void *) = nullptr;
+static void (*orig_Free)(void *) = nullptr;
 
-// ─── fishhook Install ────────────────────────────────────────────────────────
+static int   h_Init(void *a)                                                        { return 0; }
+static int   h_InitEx(void *a, int b)                                               { return 0; }
+static int   h_SetUserInfo(const char *a,int b,int c,int d,int e,int f,int g)       { return 0; }
+static int   h_SetUserInfoLic(const char *a,int b,int c,int d,int e,int f,int g,const char *h) { return 0; }
+static int   h_Ioctl(int a, const void *b, int c)                                   { return 0; }
+static int   h_IoctlOld(int a, const void *b, int c)                                { return 0; }
+static int   h_OnPause(void)                                                        { return 0; }
+static int   h_OnResume(void)                                                       { return 0; }
+static int   h_OnRecvData(const void *a, int b)                                     { return 0; }
+static int   h_OnRecvSig(const void *a, int b)                                      { return 0; }
+static void *h_GetReport(int *l)  { if (l) *l = 0; return nullptr; }
+static void *h_GetReport2(int *l) { if (l) *l = 0; return nullptr; }
+static void *h_GetReport3(int *l) { if (l) *l = 0; return nullptr; }
+static void *h_GetReport4(int *l) { if (l) *l = 0; return nullptr; }
+static void  h_Del(void *p)  { if (orig_Del  && p) orig_Del(p);  }
+static void  h_Del3(void *p) { if (orig_Del3 && p) orig_Del3(p); }
+static void  h_Del4(void *p) { if (orig_Del4 && p) orig_Del4(p); }
+static void  h_Free(void *p) { if (orig_Free && p) orig_Free(p); }
+static int   h_RegListener(void *a) { return 0; }
 
-static void installFishHooks(void) {
-    static void *o1,*o2,*o3,*o4,*o5,*o6,*o7,*o8,*o9,*o10,*o11,*o12,*o13,*o14,*o19;
+// ─── __attribute__((constructor)) ───────────────────────────────────────────
+// dyld'dan da önce çalışır — AnoSDK init olmadan dylib gizlenir
 
-    struct rebinding b[] = {
-        { "AnoSDKInit",                   (void *)h_AnoSDKInit,                   &o1  },
-        { "AnoSDKInitEx",                 (void *)h_AnoSDKInitEx,                 &o2  },
-        { "AnoSDKSetUserInfo",            (void *)h_AnoSDKSetUserInfo,            &o3  },
-        { "AnoSDKSetUserInfoWithLicense", (void *)h_AnoSDKSetUserInfoWithLicense, &o4  },
-        { "AnoSDKIoctl",                  (void *)h_AnoSDKIoctl,                  &o5  },
-        { "AnoSDKIoctlOld",               (void *)h_AnoSDKIoctlOld,               &o6  },
-        { "AnoSDKOnPause",                (void *)h_AnoSDKOnPause,                &o7  },
-        { "AnoSDKOnResume",               (void *)h_AnoSDKOnResume,               &o8  },
-        { "AnoSDKOnRecvData",             (void *)h_AnoSDKOnRecvData,             &o9  },
-        { "AnoSDKOnRecvSignature",        (void *)h_AnoSDKOnRecvSignature,        &o10 },
-        { "AnoSDKGetReportData",          (void *)h_AnoSDKGetReportData,          &o11 },
-        { "AnoSDKGetReportData2",         (void *)h_AnoSDKGetReportData2,         &o12 },
-        { "AnoSDKGetReportData3",         (void *)h_AnoSDKGetReportData3,         &o13 },
-        { "AnoSDKGetReportData4",         (void *)h_AnoSDKGetReportData4,         &o14 },
-        { "AnoSDKDelReportData",          (void *)h_AnoSDKDelReportData,          (void **)&orig_AnoSDKDelReportData  },
-        { "AnoSDKDelReportData3",         (void *)h_AnoSDKDelReportData3,         (void **)&orig_AnoSDKDelReportData3 },
-        { "AnoSDKDelReportData4",         (void *)h_AnoSDKDelReportData4,         (void **)&orig_AnoSDKDelReportData4 },
-        { "AnoSDKFree",                   (void *)h_AnoSDKFree,                   (void **)&orig_AnoSDKFree           },
-        { "AnoSDKRegistInfoListener",     (void *)h_AnoSDKRegistInfoListener,     &o19 },
+__attribute__((constructor))
+static void earlyHide(void) {
+    // Önce dyld hook'larını kur (dylib gizleme)
+    struct rebinding dyld_hooks[] = {
+        { "_dyld_image_count",            (void *)hook_image_count,  (void **)&orig_image_count  },
+        { "_dyld_get_image_name",         (void *)hook_image_name,   (void **)&orig_image_name   },
+        { "_dyld_get_image_header",       (void *)hook_image_header, (void **)&orig_image_header },
+        { "_dyld_get_image_vmaddr_slide", (void *)hook_image_slide,  (void **)&orig_image_slide  },
     };
-    rebind_symbols(b, sizeof(b) / sizeof(b[0]));
+    rebind_symbols(dyld_hooks, 4);
+
+    // AnoSDK hook'larını da kur
+    static void *o1,*o2,*o3,*o4,*o5,*o6,*o7,*o8,*o9,*o10,*o11,*o12,*o13,*o14,*o19;
+    struct rebinding ano_hooks[] = {
+        { "AnoSDKInit",                   (void *)h_Init,         &o1  },
+        { "AnoSDKInitEx",                 (void *)h_InitEx,       &o2  },
+        { "AnoSDKSetUserInfo",            (void *)h_SetUserInfo,  &o3  },
+        { "AnoSDKSetUserInfoWithLicense", (void *)h_SetUserInfoLic, &o4 },
+        { "AnoSDKIoctl",                  (void *)h_Ioctl,        &o5  },
+        { "AnoSDKIoctlOld",               (void *)h_IoctlOld,     &o6  },
+        { "AnoSDKOnPause",                (void *)h_OnPause,      &o7  },
+        { "AnoSDKOnResume",               (void *)h_OnResume,     &o8  },
+        { "AnoSDKOnRecvData",             (void *)h_OnRecvData,   &o9  },
+        { "AnoSDKOnRecvSignature",        (void *)h_OnRecvSig,    &o10 },
+        { "AnoSDKGetReportData",          (void *)h_GetReport,    &o11 },
+        { "AnoSDKGetReportData2",         (void *)h_GetReport2,   &o12 },
+        { "AnoSDKGetReportData3",         (void *)h_GetReport3,   &o13 },
+        { "AnoSDKGetReportData4",         (void *)h_GetReport4,   &o14 },
+        { "AnoSDKDelReportData",          (void *)h_Del,          (void **)&orig_Del  },
+        { "AnoSDKDelReportData3",         (void *)h_Del3,         (void **)&orig_Del3 },
+        { "AnoSDKDelReportData4",         (void *)h_Del4,         (void **)&orig_Del4 },
+        { "AnoSDKFree",                   (void *)h_Free,         (void **)&orig_Free },
+        { "AnoSDKRegistInfoListener",     (void *)h_RegListener,  &o19 },
+    };
+    rebind_symbols(ano_hooks, 20);
 }
-
-// ─── ObjC Runtime Swizzle ────────────────────────────────────────────────────
-// Category yok — linker hatası yok
-// method_setImplementation ile direkt no-op IMP yazıyoruz
-
-static void noop_1arg(id self, SEL _cmd, id a)         { }
-static void noop_2arg(id self, SEL _cmd, id a, id b)   { }
-
-static void installObjCSwizzles(void) {
-    // ── PluginTssSDKLifecycle ─────────────────────────────────────────────
-    Class tss = NSClassFromString(@"PluginTssSDKLifecycle");
-    if (tss) {
-        SEL sel1[] = {
-            @selector(applicationDidBecomeActive:),
-            @selector(applicationWillResignActive:),
-            @selector(applicationDidEnterBackground:),
-            @selector(applicationWillEnterForeground:),
-            @selector(applicationWillTerminate:),
-        };
-        for (int i = 0; i < 5; i++) {
-            Method m = class_getInstanceMethod(tss, sel1[i]);
-            if (m) method_setImplementation(m, (IMP)noop_1arg);
-        }
-        // application:didFinishLaunchingWithOptions: 2 argüman
-        Method m2 = class_getInstanceMethod(tss,
-            @selector(application:didFinishLaunchingWithOptions:));
-        if (m2) method_setImplementation(m2, (IMP)noop_2arg);
-    }
-
-    // ── AceMsgBoxImp ─────────────────────────────────────────────────────
-    Class box = NSClassFromString(@"AceMsgBoxImp");
-    if (box) {
-        SEL sel2[] = {
-            @selector(showMsgBox:),
-            @selector(showAlertView:),
-        };
-        for (int i = 0; i < 2; i++) {
-            Method m = class_getInstanceMethod(box, sel2[i]);
-            if (m) method_setImplementation(m, (IMP)noop_1arg);
-        }
-    }
-}
-
-// ─── Main Install ─────────────────────────────────────────────────────────────
-
-void AnoSDKBypassInstall(void) {
-    // fishhook anında kur
-    installFishHooks();
-
-    // ObjC swizzle — PluginTssSDKLifecycle yüklenince
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
-        for (int i = 0; i < 100; i++) {
-            if (NSClassFromString(@"PluginTssSDKLifecycle")) {
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    installObjCSwizzles();
-                });
-                return;
-            }
-            usleep(50000);
-        }
-    });
-}
-
-// ─── Auto-install ─────────────────────────────────────────────────────────────
-
-@interface AnoSDKBypassLoader : NSObject
-@end
-
-@implementation AnoSDKBypassLoader
-
-+ (void)load {
-    static dispatch_once_t once;
-    dispatch_once(&once, ^{
-        AnoSDKBypassInstall();
-    });
-}
-
-@end
