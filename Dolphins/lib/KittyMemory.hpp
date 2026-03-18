@@ -29,22 +29,28 @@ extern "C" kern_return_t mach_vm_protect(
 
 namespace KittyMemory {
 
-// ASLR slide — anogs.framework için
+// Base adres — anogs.framework için
+// dylib'lerde vmaddr=0 olduğundan slide = base
 static uintptr_t getSlide(const char *imageName = nullptr) {
     uint32_t count = _dyld_image_count();
     for (uint32_t i = 0; i < count; i++) {
         const char *name = _dyld_get_image_name(i);
         if (!name) continue;
         if (imageName) {
-            if (strstr(name, imageName))
-                return (uintptr_t)_dyld_get_image_vmaddr_slide(i);
+            if (strstr(name, imageName)) {
+                // slide = base address (dylib vmaddr=0)
+                uintptr_t slide = (uintptr_t)_dyld_get_image_vmaddr_slide(i);
+                const mach_header *hdr = _dyld_get_image_header(i);
+                // Eğer header adresi farklıysa onu kullan (daha güvenilir)
+                uintptr_t headerAddr = (uintptr_t)hdr;
+                return headerAddr;
+            }
         } else {
-            // Ana binary
             if (strstr(name, "/private/var/containers") || strstr(name, "/var/containers"))
-                return (uintptr_t)_dyld_get_image_vmaddr_slide(i);
+                return (uintptr_t)_dyld_get_image_header(i);
         }
     }
-    return (uintptr_t)_dyld_get_image_vmaddr_slide(0);
+    return (uintptr_t)_dyld_get_image_header(0);
 }
 
 // Memory patch: mach_vm_remap ile yazılabilir kopya oluştur, sonra yaz
