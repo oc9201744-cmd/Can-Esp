@@ -1,9 +1,86 @@
 #import <Foundation/Foundation.h>
 #include <dlfcn.h>
 #include <mach-o/dyld.h>
-#include "dobby.h"
+#include <string.h>
+#include "fishhook.h"
 
-// ─── Typedefs ────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// AnoSDKBypass.mm
+// 1. fishhook ile AnoSDK fonksiyonlarını bypass et (opcode patch yok)
+// 2. _dyld_image_count / _dyld_get_image_name hook'la → dylib'i gizle
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─── Gizlenecek dylib isim parçaları ─────────────────────────────────────────
+// Kendi tweak dylib adını buraya ekle
+static const char *kHiddenLibs[] = {
+    "Blackshark",
+    "blackshark",
+    "MobileSubstrate",
+    "CydiaSubstrate",
+    "substitute",
+    "TweakInject",
+    nullptr
+};
+
+static bool shouldHideImage(const char *name) {
+    if (!name) return false;
+    for (int i = 0; kHiddenLibs[i] != nullptr; i++) {
+        if (strstr(name, kHiddenLibs[i])) return true;
+    }
+    return false;
+}
+
+// ─── dyld Hook: image listesini filtrele ──────────────────────────────────────
+
+static uint32_t (*orig_dyld_image_count)(void) = nullptr;
+static const char *(*orig_dyld_get_image_name)(uint32_t) = nullptr;
+static const struct mach_header *(*orig_dyld_get_image_header)(uint32_t) = nullptr;
+static intptr_t (*orig_dyld_get_image_vmaddr_slide)(uint32_t) = nullptr;
+
+// Gizli image'leri atlayarak gerçek index'i bul
+static uint32_t getRealIndex(uint32_t fakeIndex) {
+    if (!orig_dyld_image_count || !orig_dyld_get_image_name) return fakeIndex;
+    uint32_t realCount = orig_dyld_image_count();
+    uint32_t visibleIndex = 0;
+    for (uint32_t i = 0; i < realCount; i++) {
+        const char *name = orig_dyld_get_image_name(i);
+        if (shouldHideImage(name)) continue;
+        if (visibleIndex == fakeIndex) return i;
+        visibleIndex++;
+    }
+    return fakeIndex;
+}
+
+static uint32_t hook_dyld_image_count(void) {
+    if (!orig_dyld_image_count) return _dyld_image_count();
+    uint32_t realCount = orig_dyld_image_count();
+    uint32_t visibleCount = 0;
+    for (uint32_t i = 0; i < realCount; i++) {
+        const char *name = orig_dyld_get_image_name(i);
+        if (!shouldHideImage(name)) visibleCount++;
+    }
+    return visibleCount;
+}
+
+static const char *hook_dyld_get_image_name(uint32_t imageIndex) {
+    return orig_dyld_get_image_name
+        ? orig_dyld_get_image_name(getRealIndex(imageIndex))
+        : _dyld_get_image_name(imageIndex);
+}
+
+static const struct mach_header *hook_dyld_get_image_header(uint32_t imageIndex) {
+    return orig_dyld_get_image_header
+        ? orig_dyld_get_image_header(getRealIndex(imageIndex))
+        : _dyld_get_image_header(imageIndex);
+}
+
+static intptr_t hook_dyld_get_image_vmaddr_slide(uint32_t imageIndex) {
+    return orig_dyld_get_image_vmaddr_slide
+        ? orig_dyld_get_image_vmaddr_slide(getRealIndex(imageIndex))
+        : _dyld_get_image_vmaddr_slide(imageIndex);
+}
+
+// ─── AnoSDK Typedefs ──────────────────────────────────────────────────────────
 
 typedef int   (*AnoSDKInit_t)(void *initInfo);
 typedef int   (*AnoSDKInitEx_t)(void *initInfo, int flags);
@@ -47,7 +124,7 @@ static AnoSDKDelReportData4_t         orig_AnoSDKDelReportData4         = nullpt
 static AnoSDKFree_t                   orig_AnoSDKFree                   = nullptr;
 static AnoSDKRegistInfoListener_t     orig_AnoSDKRegistInfoListener     = nullptr;
 
-// ─── Hook Implementations ────────────────────────────────────────────────────
+// ─── AnoSDK Hook Implementations ─────────────────────────────────────────────
 
 static int hook_AnoSDKInit(void *initInfo)                                      { return 0; }
 static int hook_AnoSDKInitEx(void *initInfo, int flags)                         { return 0; }
@@ -72,68 +149,43 @@ static void hook_AnoSDKDelReportData4(void *data) { if (orig_AnoSDKDelReportData
 static void hook_AnoSDKFree(void *ptr)            { if (orig_AnoSDKFree           && ptr)  orig_AnoSDKFree(ptr);            }
 static int hook_AnoSDKRegistInfoListener(void *listener)                        { return 0; }
 
-// ─── Helper Macro ─────────────────────────────────────────────────────────────
-
-#define DOBBY_HOOK(handle, symbolName, hookFn, origPtr)          \
-    do {                                                          \
-        void *_sym = dlsym(handle, "_" #symbolName);             \
-        if (!_sym) _sym = dlsym(handle, #symbolName);            \
-        if (_sym) DobbyHook(_sym, (void *)(hookFn), (void **)&(origPtr)); \
-    } while (0)
-
-// ─── Framework Loader ────────────────────────────────────────────────────────
-
-static void *openAnoFramework(void) {
-    uint32_t count = _dyld_image_count();
-    for (uint32_t i = 0; i < count; i++) {
-        const char *name = _dyld_get_image_name(i);
-        if (name && strstr(name, "anogs")) {
-            void *h = dlopen(name, RTLD_NOLOAD | RTLD_LAZY);
-            if (h) return h;
-        }
-    }
-    NSString *bundle = [[NSBundle mainBundle] bundlePath];
-    NSArray<NSString *> *paths = @[
-        [bundle stringByAppendingPathComponent:@"Frameworks/anogs.framework/anogs"],
-        [bundle stringByAppendingPathComponent:@"Frameworks/anogs"],
-    ];
-    for (NSString *path in paths) {
-        if ([[NSFileManager defaultManager] fileExistsAtPath:path]) {
-            void *h = dlopen(path.UTF8String, RTLD_LAZY | RTLD_GLOBAL);
-            if (h) return h;
-        }
-    }
-    return nullptr;
-}
-
 // ─── Install ─────────────────────────────────────────────────────────────────
 
 void AnoSDKBypassInstall(void) {
-    void *handle = openAnoFramework();
-    if (!handle) return;
+    struct rebinding bindings[] = {
+        // ── dyld image gizleme ──────────────────────────────────────────────
+        { "_dyld_image_count",            (void *)hook_dyld_image_count,            (void **)&orig_dyld_image_count            },
+        { "_dyld_get_image_name",         (void *)hook_dyld_get_image_name,         (void **)&orig_dyld_get_image_name         },
+        { "_dyld_get_image_header",       (void *)hook_dyld_get_image_header,       (void **)&orig_dyld_get_image_header       },
+        { "_dyld_get_image_vmaddr_slide", (void *)hook_dyld_get_image_vmaddr_slide, (void **)&orig_dyld_get_image_vmaddr_slide },
 
-    DOBBY_HOOK(handle, AnoSDKInit,                   hook_AnoSDKInit,                   orig_AnoSDKInit);
-    DOBBY_HOOK(handle, AnoSDKInitEx,                 hook_AnoSDKInitEx,                 orig_AnoSDKInitEx);
-    DOBBY_HOOK(handle, AnoSDKSetUserInfo,            hook_AnoSDKSetUserInfo,            orig_AnoSDKSetUserInfo);
-    DOBBY_HOOK(handle, AnoSDKSetUserInfoWithLicense, hook_AnoSDKSetUserInfoWithLicense, orig_AnoSDKSetUserInfoWithLicense);
-    DOBBY_HOOK(handle, AnoSDKIoctl,                  hook_AnoSDKIoctl,                  orig_AnoSDKIoctl);
-    DOBBY_HOOK(handle, AnoSDKIoctlOld,               hook_AnoSDKIoctlOld,               orig_AnoSDKIoctlOld);
-    DOBBY_HOOK(handle, AnoSDKOnPause,                hook_AnoSDKOnPause,                orig_AnoSDKOnPause);
-    DOBBY_HOOK(handle, AnoSDKOnResume,               hook_AnoSDKOnResume,               orig_AnoSDKOnResume);
-    DOBBY_HOOK(handle, AnoSDKOnRecvData,             hook_AnoSDKOnRecvData,             orig_AnoSDKOnRecvData);
-    DOBBY_HOOK(handle, AnoSDKOnRecvSignature,        hook_AnoSDKOnRecvSignature,        orig_AnoSDKOnRecvSignature);
-    DOBBY_HOOK(handle, AnoSDKGetReportData,          hook_AnoSDKGetReportData,          orig_AnoSDKGetReportData);
-    DOBBY_HOOK(handle, AnoSDKGetReportData2,         hook_AnoSDKGetReportData2,         orig_AnoSDKGetReportData2);
-    DOBBY_HOOK(handle, AnoSDKGetReportData3,         hook_AnoSDKGetReportData3,         orig_AnoSDKGetReportData3);
-    DOBBY_HOOK(handle, AnoSDKGetReportData4,         hook_AnoSDKGetReportData4,         orig_AnoSDKGetReportData4);
-    DOBBY_HOOK(handle, AnoSDKDelReportData,          hook_AnoSDKDelReportData,          orig_AnoSDKDelReportData);
-    DOBBY_HOOK(handle, AnoSDKDelReportData3,         hook_AnoSDKDelReportData3,         orig_AnoSDKDelReportData3);
-    DOBBY_HOOK(handle, AnoSDKDelReportData4,         hook_AnoSDKDelReportData4,         orig_AnoSDKDelReportData4);
-    DOBBY_HOOK(handle, AnoSDKFree,                   hook_AnoSDKFree,                   orig_AnoSDKFree);
-    DOBBY_HOOK(handle, AnoSDKRegistInfoListener,     hook_AnoSDKRegistInfoListener,     orig_AnoSDKRegistInfoListener);
+        // ── AnoSDK bypass ───────────────────────────────────────────────────
+        { "AnoSDKInit",                   (void *)hook_AnoSDKInit,                   (void **)&orig_AnoSDKInit                   },
+        { "AnoSDKInitEx",                 (void *)hook_AnoSDKInitEx,                 (void **)&orig_AnoSDKInitEx                 },
+        { "AnoSDKSetUserInfo",            (void *)hook_AnoSDKSetUserInfo,            (void **)&orig_AnoSDKSetUserInfo            },
+        { "AnoSDKSetUserInfoWithLicense", (void *)hook_AnoSDKSetUserInfoWithLicense, (void **)&orig_AnoSDKSetUserInfoWithLicense },
+        { "AnoSDKIoctl",                  (void *)hook_AnoSDKIoctl,                  (void **)&orig_AnoSDKIoctl                  },
+        { "AnoSDKIoctlOld",               (void *)hook_AnoSDKIoctlOld,               (void **)&orig_AnoSDKIoctlOld               },
+        { "AnoSDKOnPause",                (void *)hook_AnoSDKOnPause,                (void **)&orig_AnoSDKOnPause                },
+        { "AnoSDKOnResume",               (void *)hook_AnoSDKOnResume,               (void **)&orig_AnoSDKOnResume               },
+        { "AnoSDKOnRecvData",             (void *)hook_AnoSDKOnRecvData,             (void **)&orig_AnoSDKOnRecvData             },
+        { "AnoSDKOnRecvSignature",        (void *)hook_AnoSDKOnRecvSignature,        (void **)&orig_AnoSDKOnRecvSignature        },
+        { "AnoSDKGetReportData",          (void *)hook_AnoSDKGetReportData,          (void **)&orig_AnoSDKGetReportData          },
+        { "AnoSDKGetReportData2",         (void *)hook_AnoSDKGetReportData2,         (void **)&orig_AnoSDKGetReportData2         },
+        { "AnoSDKGetReportData3",         (void *)hook_AnoSDKGetReportData3,         (void **)&orig_AnoSDKGetReportData3         },
+        { "AnoSDKGetReportData4",         (void *)hook_AnoSDKGetReportData4,         (void **)&orig_AnoSDKGetReportData4         },
+        { "AnoSDKDelReportData",          (void *)hook_AnoSDKDelReportData,          (void **)&orig_AnoSDKDelReportData          },
+        { "AnoSDKDelReportData3",         (void *)hook_AnoSDKDelReportData3,         (void **)&orig_AnoSDKDelReportData3         },
+        { "AnoSDKDelReportData4",         (void *)hook_AnoSDKDelReportData4,         (void **)&orig_AnoSDKDelReportData4         },
+        { "AnoSDKFree",                   (void *)hook_AnoSDKFree,                   (void **)&orig_AnoSDKFree                   },
+        { "AnoSDKRegistInfoListener",     (void *)hook_AnoSDKRegistInfoListener,     (void **)&orig_AnoSDKRegistInfoListener     },
+    };
+
+    rebind_symbols(bindings, sizeof(bindings) / sizeof(bindings[0]));
 }
 
-// ─── Auto-install ─────────────────────────────────────────────────────────────
+// ─── Auto-install — +load'da hemen kur, gecikme yok ─────────────────────────
+// AnoSDK'dan ÖNCE yüklenmesi kritik
 
 @interface AnoSDKBypassLoader : NSObject
 @end
@@ -143,11 +195,8 @@ void AnoSDKBypassInstall(void) {
 + (void)load {
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        dispatch_after(
-            dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)),
-            dispatch_get_main_queue(),
-            ^{ AnoSDKBypassInstall(); }
-        );
+        // Gecikme yok — AnoSDK init olmadan önce hook'ları kur
+        AnoSDKBypassInstall();
     });
 }
 
