@@ -210,14 +210,12 @@ void *readStaticData(void *) {
                     StaticPlayerData tmpPlayerData;
                     //对象指针地址
 
-                    bool bDead = memoryTools.readPtr(staticData.selfAddr + PubgOffset::ObjectParam::DeadOffset);
+                    bool bDead = memoryTools.readByte(objectAddr + PubgOffset::ObjectParam::DeadOffset);
                     if(bDead) continue;
 
-
-
-                    float hp = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::HpOffset);
-                            if(bDead) continue;
-                            uintptr_t statusAddr = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::StatusOffset);
+                    float hp = memoryTools.readFloat(objectAddr + PubgOffset::ObjectParam::HpOffset);
+                    if(hp <= 0) continue;
+                    uint64_t statusAddr = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::StatusOffset);
 
                     
 
@@ -229,7 +227,7 @@ void *readStaticData(void *) {
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
                     //人机
-                    tmpPlayerData.robot = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::RobotOffset);
+                    tmpPlayerData.robot = memoryTools.readByte(objectAddr + PubgOffset::ObjectParam::RobotOffset);
                     
                     tmpPlayerData.status = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::StatusOffset);
                     
@@ -475,7 +473,8 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 
                 
                 //取对手手持武器
-                uintptr_t weaponAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::WeaponOneOffset);
+                uintptr_t weaponMgrAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::WeaponManagerComponentOffset);
+                uintptr_t weaponAddr = weaponMgrAddr ? memoryTools.readPtr(weaponMgrAddr + PubgOffset::ObjectParam::WeaponOneOffset) : 0;
                 if (weaponAddr == 0) {
                     playerData.weaponName = "FIST";
                 } else {
@@ -489,6 +488,10 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 }
                 //对象名字
                 playerData.name = staticPlayerData.name;
+                // Bot/gerçek oyuncu ayrımı
+                if (staticPlayerData.robot == 1) {
+                    playerData.name = "[BOT] " + playerData.name;
+                }
                 //屏幕XY
                 playerData.screen = worldToScreen(objectCoord, pov, screenSize);//X
                 //宽度和高度
@@ -498,7 +501,7 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 playerData.size.y = playerData.screen.y - height.y;
                 
                 uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
-                uintptr_t humanAddr = meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset;
+                uintptr_t humanAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset);
                 uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset) + 48;
                 //判断是否需要骨骼掩体判断
                 BonesData bonesData;
@@ -614,32 +617,33 @@ void *silenceAimbot(void *) {
     while (true) {
         usleep(16666);
         if (moduleControl.systemStatus == TransmissionNormal && moduleControl.mainSwitch.aimbotStatus/* && softWareData.loginStatus*/) {
-            //武器指针
-            uintptr_t weaponAddr = memoryTools.readPtr(staticData.selfAddr + PubgOffset::ObjectParam::WeaponOneOffset);
+            //武器指针 - WeaponManagerComponent üzerinden oku
+            uintptr_t weaponMgrAddr = memoryTools.readPtr(staticData.selfAddr + PubgOffset::ObjectParam::WeaponManagerComponentOffset);
+            uintptr_t weaponAddr = weaponMgrAddr ? memoryTools.readPtr(weaponMgrAddr + PubgOffset::ObjectParam::WeaponOneOffset) : 0;
             //自瞄开关
             bool enabledAimbot = false;
             //判断自瞄启动模式
             switch (moduleControl.aimbotController.aimbotMode) {
                 case 0:
                     //开镜自瞄
-                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 257 || memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
+                    enabledAimbot = memoryTools.readByte(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
                     break;
                 case 1:
                     //开火自瞄
-                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1;
+                    enabledAimbot = memoryTools.readByte(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1;
                     break;
                 case 2:
                     //开镜开火自瞄
-                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 257 || memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1 || memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1;
+                    enabledAimbot = memoryTools.readByte(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1 || memoryTools.readByte(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1;
                     break;
                 case 3:
                     //判断枪械是单发还是全自动
                     if (memoryTools.readInt(weaponAddr + PubgOffset::ObjectParam::WeaponParam::ShootModeOffset) >= 1024) {
                         //全自动用开火
-                        enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1;
+                        enabledAimbot = memoryTools.readByte(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1;
                     } else {
                         //单发连发用开镜
-                        enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 257 || memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
+                        enabledAimbot = memoryTools.readByte(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
                     }
                     break;
             }
@@ -686,7 +690,6 @@ void *silenceAimbot(void *) {
 
 
                 
-PlayerData playerData;
 
 
 
@@ -696,7 +699,7 @@ PlayerData playerData;
                     if ((screenDistance = get2dDistance(screenSize,playerScreen)) < aimbotRadius) {
                         //骨骼mesh
                         uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
-                        uintptr_t humanAddr = meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset;
+                        uintptr_t humanAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset);
                         uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset) + 48;
                         //取自瞄部位 0是优先头部,1是优先身体,3是[全自动武器打身体,单发连发打头],4是只打头,5是只打身体
                         switch (moduleControl.aimbotController.aimbotParts) {
@@ -904,7 +907,7 @@ PlayerData playerData;
                     }
                     
                     //压枪
-                    if (memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1) {
+                    if (memoryTools.readByte(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1) {
                         //距离运算,压枪的幅度
                         float recoilTimes = 4.5 - get3dDistance(selfCoord, aimbotCoord, 10000);
                         recoilTimes += get3dDistance(selfCoord, aimbotCoord, 10000) * 0.2;
