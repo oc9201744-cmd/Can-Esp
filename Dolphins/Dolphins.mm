@@ -5,93 +5,54 @@
 //  Created by XBK on 2022/4/24.
 //
 #import "Dolphins/crossoffsets.h"
-
 #import <Foundation/Foundation.h>
-
 #import "Dolphins/View/FloatView.h"
-
 #import "Dolphins/View/OverlayView.h"
-
 #include "Dolphins/dolphins.h"
-
 #import <mach-o/dyld.h>
-
 #include <stdio.h>
-
 #include <vector>
-
 #include <iostream>
-
 #include "Dolphins/utils/module_tools.h"
-
 #include "Dolphins/utils/pubg_offset.h"
-
 #include "Dolphins/utils/memory_tools.h"
-
 //#include "Dolphins/utils/module_tools.h"
-
 //#include "dobby.h"
-
 #include "Dolphins/utils/log.h"
-
-
-
 //#import "Gzb.h"
-
 #define CJID "com.tencent.tmgp.pubgmhd"
-
-
 #define kWidth  [UIScreen mainScreen].bounds.size.width
 #define kHeight [UIScreen mainScreen].bounds.size.height
 #define screenHeight [UIScreen mainScreen].bounds.size.height
 #define screenWidth [UIScreen mainScreen].bounds.size.width
-
 using namespace std;
-
 //模块功能控制器
 ModuleControl moduleControl;
 //内存读写
 MemoryTools memoryTools;
-
-
 //OffsetSet currentOffsetSet = GL;
-
 OffsetValues offsets[] = {
     { 0x102A62208, 0x10A566E00, 0x104bd8740, 0x10a1178b0 },  // GL
     { 0x10273B9FC, 0x1091A67B8, 0x104252D04, 0x108DF6A30 },  // VNG
     { 0x102953B7C, 0x109456EB8, 0x10446AE84, 0x1090A6EE0 },  // KR
     { 0x10296F9BC, 0x10948C638, 0x104486CC4, 0x1090DC630 }   // TW
 };
-
-
 //掩体判断函数原型
 bool (*LineOfSightTo)(void *controller, void *actor, ImVec3 bone_point, bool ischeck);
-
 //移动X轴
 void (*AddControllerYawInput)(void *actot, float val);
-
 //移动Y轴
 void (*AddControllerRollInput)(void *actot, float val);
-
 //旋转
 void (*AddControllerPitchInput)(void *actot, float val);
-
-
-
 long gWorld() {
     OffsetValues offsetsForBundle = [OffsetsManager getOffsetsForBundleID:[[NSBundle mainBundle] bundleIdentifier]];
     return reinterpret_cast<long(__fastcall*)(long)>((long)_dyld_get_image_vmaddr_slide(0) + offsetsForBundle.gWorldFun)((long)_dyld_get_image_vmaddr_slide(0) + offsetsForBundle.gWorldData);
 }
-
 long gName() {
     OffsetValues offsetsForBundle = [OffsetsManager getOffsetsForBundleID:[[NSBundle mainBundle] bundleIdentifier]];
     return reinterpret_cast<long(__fastcall*)(long)>((long)_dyld_get_image_vmaddr_slide(0) + offsetsForBundle.gNameFun)((long)_dyld_get_image_vmaddr_slide(0) + offsetsForBundle.gNameData);
 }
-
-
-
-
-
 struct {
     //ue4入口
     uintptr_t libAddr = 0;
@@ -115,10 +76,8 @@ struct {
     //可视烟雾弹列表
     vector<StaticMaterialData> smokeList;
 } staticData;
-
 //UI入口函数
 static void didFinishLaunching(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef info) {
- 
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
     //Esp绘制
     mao* drawWindow = [[mao alloc] initWithFrame:&moduleControl];
@@ -130,14 +89,8 @@ static void didFinishLaunching(CFNotificationCenterRef center, void *observer, C
     //小按钮
     FloatView* floatView = [[FloatView alloc] initWithFrame:CGRectMake(489, 58, 45, 45):&moduleControl];
     [[UIApplication sharedApplication].keyWindow addSubview:floatView];
-
          });
-
      }
-
-
-                   
-
 //库入口函数
 __attribute__((constructor)) static void initialize() {
     //加载视图
@@ -150,9 +103,7 @@ __attribute__((constructor)) static void initialize() {
     //自瞄线程
     pthread_t silenceAimbotThread;
     pthread_create(&silenceAimbotThread, nullptr, silenceAimbot, nullptr);
-   
 }
-
 // 固定数据函数
 void *readStaticData(void *) {
     while (true) {
@@ -178,7 +129,6 @@ void *readStaticData(void *) {
             AddControllerPitchInput = (void (*)(void *, float)) (memoryTools.readPtr(selfFunction + PubgOffset::ObjectParam::PlayerFunction::AddControllerPitchInputOffset));//0x780
             //相机管理器
             staticData.cameraManager = memoryTools.readPtr(staticData.playerController + PubgOffset::PlayerControllerParam::CameraManagerOffset);
-            
             //清空列表
             vector<StaticPlayerData> tmpPlayerDataList;
             vector<StaticMaterialData> tmpMaterialDataList;
@@ -196,10 +146,8 @@ void *readStaticData(void *) {
                 if (objectAddr <= 0x100000000 || objectAddr >= 0x2000000000 || objectAddr % 8 != 0) {
                     continue;
                 }
-                
                 //对象坐标指针
                 uintptr_t coordAddr = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::CoordOffset);
-                
                 string className = getClassName(memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::ClassIdOffset));
                 //人 - gerçek oyuncu veya bot
                 bool isPlayer = strstr(className.c_str(), "STExtraPlayerCharacter") != 0 ||
@@ -210,7 +158,6 @@ void *readStaticData(void *) {
                              strstr(className.c_str(), "FakePlayerAIPawn") != 0 ||
                              strstr(className.c_str(), "_PlayerPawn_TPlanAI_C") != 0 ||
                              strstr(className.c_str(), "FakePlayer") != 0;
-
                 if ((isPlayer || isBot) && moduleControl.mainSwitch.playerStatus) {
                     //队伍ID
                     int team = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::TeamOffset);
@@ -218,16 +165,11 @@ void *readStaticData(void *) {
                     if (team == TeamID) continue;
                     StaticPlayerData tmpPlayerData;
                     //对象指针地址
-
                     bool bDead = (memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::DeadOffset) & 0x1) != 0;
                     if(bDead) continue;
-
                     float hp = memoryTools.readFloat(objectAddr + PubgOffset::ObjectParam::HpOffset);
                     if(hp <= 0) continue;
                     uint64_t statusAddr = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::StatusOffset);
-
-                    
-
                     tmpPlayerData.addr = objectAddr;
                     //坐标地址
                     tmpPlayerData.coordAddr = coordAddr;
@@ -236,13 +178,11 @@ void *readStaticData(void *) {
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
                     //人机
-                    // Bot tespiti: class adına göre
-                    tmpPlayerData.robot = isBot ? 1 : 0;
-                    
+                    // Bot tespiti
+                    bool isAI = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::RobotOffset) == 1;
+                    tmpPlayerData.robot = isAI ? 1 : 0;
                     tmpPlayerData.status = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::StatusOffset);
-                    
                     tmpPlayerDataList.push_back(tmpPlayerData);
-                    
                 } else if (strstr(className.c_str(), "ProjSmoke_BP_C)") != 0) {
                     StaticMaterialData tmpMaterialData;
                     //物资类型
@@ -255,7 +195,6 @@ void *readStaticData(void *) {
                     tmpMaterialData.addr = objectAddr;
                     //坐标地址
                     tmpMaterialData.coordAddr = coordAddr;
-                    
                     tmpSmokeList.push_back(tmpMaterialData);
                 } else if (moduleControl.mainSwitch.materialStatus) {
                     MaterialStruct material = isMaterial(className.c_str());
@@ -274,7 +213,6 @@ void *readStaticData(void *) {
                         tmpMaterialData.addr = objectAddr;
                         //坐标地址
                         tmpMaterialData.coordAddr = coordAddr;
-                        
                         if ((material.type == Rifle || material.type == Sniper || material.type == Missile) && memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::WeaponParam::MasterOffset) != 0) {
                             continue;
                         }
@@ -290,7 +228,6 @@ void *readStaticData(void *) {
     }
     return nullptr;
 }
-
 //获取帧数据
 void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<MaterialData> &materialDataList) {
     playerDataList.clear();
@@ -310,7 +247,6 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
         //读取矩阵
         if (moduleControl.mainSwitch.playerStatus) {
             for (auto staticPlayerData: staticData.playerDataList) {
-
                 //坐标
                 ImVec3 objectCoord;
                 memoryTools.readMemory(staticPlayerData.coordAddr + PubgOffset::ObjectParam::CoordParam::CoordOffset, sizeof(ImVec3), &objectCoord);
@@ -334,12 +270,10 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 //人机
                 playerData.robot = staticPlayerData.robot;
                 //掩体判断
-                
                 playerData.visibility = isCoordVisibility(objectCoord);
                 if (playerData.visibility && isOnSmoke(objectCoord)) {
                     playerData.visibility = false;
                 }
-                
                 //判断一下高度
               if (objectHeight < 50) {
                     objectHeight -= 18;
@@ -353,7 +287,6 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 if (playerData.hp > 100) playerData.hp = 100;
                 //取敌人动作
                 uint64_t statusAddr = memoryTools.readInt(staticPlayerData.addr + PubgOffset::ObjectParam::StatusOffset);
-                
                 if (statusAddr == 2097168) {
                 playerData.statusName = "DRIVE";
                 }
@@ -477,9 +410,6 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 if (statusAddr == 17) {
                 playerData.statusName = "WALK";
                                }
-                
-                
-                
                 //取对手手持武器
                 uintptr_t weaponMgrAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::WeaponManagerComponentOffset);
                 uintptr_t weaponAddr = weaponMgrAddr ? memoryTools.readPtr(weaponMgrAddr + PubgOffset::ObjectParam::WeaponOneOffset) : 0;
@@ -507,7 +437,6 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 ImVec2 height = worldToScreen(ImVec3(objectCoord.x,objectCoord.y,objectCoord.z + objectHeight), pov,screenSize);
                 playerData.size.x = (playerData.screen.y - width.y) / 2;
                 playerData.size.y = playerData.screen.y - height.y;
-                
                 uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
                 uintptr_t humanAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset);
                 uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset) + 48;
@@ -517,22 +446,22 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 }
                 //判断是否需要骨骼掩体判断
                 BonesData bonesData;
-                if (getBone2d(pov, screenSize,humanAddr, boneAddr, 5, bonesData.head))//头
-                    if (getBone2d(pov,screenSize, humanAddr, boneAddr, 4, bonesData.pit))//胸口
-                        if (getBone2d(pov,screenSize, humanAddr, boneAddr, 1, bonesData.pelvis))//屁股
-                            if (getBone2d(pov,screenSize, humanAddr, boneAddr, 11, bonesData.lcollar))//左肩
-                                if (getBone2d(pov, screenSize,humanAddr, boneAddr, 32, bonesData.rcollar))//右肩
-                                    if (getBone2d(pov,screenSize, humanAddr, boneAddr, 12, bonesData.lelbow))//左手肘
-                                        if (getBone2d(pov,screenSize, humanAddr, boneAddr, 33, bonesData.relbow))//右手肘
-                                            if (getBone2d(pov,screenSize, humanAddr, boneAddr, 63, bonesData.lwrist))//左手腕
-                                                if (getBone2d(pov,screenSize, humanAddr, boneAddr, 62, bonesData.rwrist))//右手腕
-                                                    if (getBone2d(pov, screenSize,humanAddr, boneAddr, 52, bonesData.lthigh))//左大腿
-                                                        if (getBone2d(pov,screenSize, humanAddr, boneAddr, 56, bonesData.rthigh))//右大腿
-                                                            if (getBone2d(pov,screenSize, humanAddr, boneAddr, 53, bonesData.lknee))//左膝盖
-                                                                if (getBone2d(pov,screenSize, humanAddr, boneAddr, 57, bonesData.rknee))//右膝盖
-                                                                    if (getBone2d(pov,screenSize, humanAddr, boneAddr, 54, bonesData.lankle))//左脚腕
-                                                                        if (getBone2d(pov,screenSize, humanAddr, boneAddr, 58, bonesData.rankle))//右脚腕
-                                                                            playerData.bonesData = bonesData;
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 5, bonesData.head);    //头
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 4, bonesData.pit);     //胸口
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 1, bonesData.pelvis);  //屁股
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 11, bonesData.lcollar);//左肩
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 32, bonesData.rcollar);//右肩
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 12, bonesData.lelbow); //左手肘
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 33, bonesData.relbow); //右手肘
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 63, bonesData.lwrist); //左手腕
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 62, bonesData.rwrist); //右手腕
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 52, bonesData.lthigh); //左大腿
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 56, bonesData.rthigh); //右大腿
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 53, bonesData.lknee);  //左膝盖
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 57, bonesData.rknee);  //右膝盖
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 54, bonesData.lankle); //左脚腕
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 58, bonesData.rankle); //右脚腕
+                playerData.bonesData = bonesData;
                 playerDataList.push_back(playerData);
             }
         }
@@ -569,13 +498,10 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 materialData.distance = objectDistance;
                 //屏幕坐标
                 materialData.screen = worldToScreen(objectCoord, pov, screenSize);//X
-                
                 materialDataList.push_back(materialData);
-                
                 if (staticMaterialData.type == Airdrop) {
                     //屏幕坐标
                     ImVec2 goodsListScreen = worldToScreen(objectCoord, pov, screenSize);//X
-                    
                     if (get2dDistance(screenSize, goodsListScreen) < 150) {
                         int goodsListValidCount = 0;
                         //盒子遍历
@@ -589,14 +515,11 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                             }
                             //对象ID
                             int goodsListId = memoryTools.readInt(goodsListArray + 0x4 + index * PubgOffset::ObjectParam::GoodsListParam::DataBase);
-                            
                             MaterialStruct goods = isBoxMaterial(goodsListId);
                             if (goods.type == -1) {
                                 continue;
                             }
-                            
                             memset(&materialData, 0, sizeof(materialData));
-                            
                             goodsListValidCount++;
                             //物资类型
                             materialData.type = goods.type;
@@ -609,21 +532,15 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                             //屏幕坐标
                             materialData.screen.x = goodsListScreen.x;
                             materialData.screen.y = goodsListScreen.y - 32 * (goodsListValidCount);
-                            
                             materialDataList.push_back(materialData);
                         }
                     }
                 }
             }
         }
-        
     }
 }
-
 //自瞄
-
-
-
 void *silenceAimbot(void *) {
     ImVec2 screenSize = ImVec2([UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height);
     while (true) {
@@ -676,7 +593,6 @@ void *silenceAimbot(void *) {
                 ImVec3 aimbotCoord = ImVec3(0,0,0);
                 //循环人物对象列表
                 for (auto staticPlayerData: staticData.playerDataList) {
-
                     //坐标
                     ImVec3 objectCoord;
                     memoryTools.readMemory(staticPlayerData.coordAddr + PubgOffset::ObjectParam::CoordParam::CoordOffset, sizeof(ImVec3), &objectCoord);
@@ -701,15 +617,6 @@ void *silenceAimbot(void *) {
                     ImVec2 screenCenter = ImVec2(screenSize.x / 2, screenSize.y / 2);
                     float screenDistance;
                     //判断自瞄对象是否在指定屏幕范围
-
-
-                
-
-
-
-
-
-
                     if ((screenDistance = get2dDistance(screenCenter, playerScreen)) < aimbotRadius) {
                         //骨骼mesh
                         uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
@@ -839,7 +746,6 @@ void *silenceAimbot(void *) {
                         aimbotCoord.y += moveCoord.y * bulletFlyTime;
                         aimbotCoord.z += moveCoord.z * bulletFlyTime;
                     }
-                    
                     //旋转坐标,计算当前自己位置和自瞄对象位置的角度
                     ImVec2 aimbotMouse = rotateAngleView(selfCoord, aimbotCoord);
                     //判断下蹲
@@ -847,8 +753,6 @@ void *silenceAimbot(void *) {
                     //获取武器的类名
                     string className = getClassName(memoryTools.readInt(weaponAddr + PubgOffset::ObjectParam::ClassIdOffset));
                     //用自己的高度来判断是否是站立
-
-
                     if (selfStatus > 47) {
                         //不同武器调整准星
                         if (strstr(className.c_str(), "BP_Sniper_AWM_Wrapper_C") != 0) {
@@ -881,7 +785,6 @@ void *silenceAimbot(void *) {
                         } else if (strstr(className.c_str(), "BP_Sniper_Mini14_Wrapper_C") != 0) {
                             aimbotMouse.x += 0.015;
                             aimbotMouse.y -= 0.05;
-                            
                         } else if (strstr(className.c_str(), "BP_Rifle_QBZ_Wrapper_C") != 0) {
                             aimbotMouse.x += 0.045;
                             aimbotMouse.y -= 0.09;
@@ -920,7 +823,6 @@ void *silenceAimbot(void *) {
                             aimbotMouse.y -= 0.095;
                         }
                     }
-                    
                     //压枪
                     if (memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1) {
                         //距离运算,压枪的幅度
@@ -960,7 +862,6 @@ void *silenceAimbot(void *) {
                         //压枪
                         aimbotMouse.y -= recoilTimes * recoil;
                     }
-                    
                     //判断是否是有效数
                     if (!isfinite(aimbotMouse.x) || !isfinite(aimbotMouse.y)) {
                         continue;
@@ -993,7 +894,6 @@ void *silenceAimbot(void *) {
         }
     }
 }
-
 //isVisiblePoint
 bool isCoordVisibility(ImVec3 coord) {
     if (LineOfSightTo == nullptr || !isfinite(coord.x) || !isfinite(coord.y) || !isfinite(coord.z)) {
@@ -1004,7 +904,6 @@ bool isCoordVisibility(ImVec3 coord) {
     }
     return false;
 }
-
 bool isOnSmoke(ImVec3 coord) {
     for (StaticMaterialData smoke: staticData.smokeList) {
         //坐标
@@ -1016,7 +915,6 @@ bool isOnSmoke(ImVec3 coord) {
     }
     return false;
 }
-
 //获取玩家名字
 char *getPlayerName(uintptr_t addr) {
     char *buf = (char *) malloc(448);
@@ -1054,26 +952,20 @@ char *getClassName(int classId) {
     }
     return buf;
 }
-
 //取骨骼3d坐标
 ImVec3 getBone(uintptr_t human, uintptr_t bones, int part) {
     Ue4Transform actorftf;
     memoryTools.readMemory(human, sizeof(ImVec4), &actorftf.rotation);
     memoryTools.readMemory(human + 0x10, sizeof(ImVec3), &actorftf.translation);
     memoryTools.readMemory(human + 0x20, sizeof(ImVec3), &actorftf.scale3d);
-    
     Ue4Matrix actormatrix = transformToMatrix(actorftf);
-    
     Ue4Transform boneftf;
     memoryTools.readMemory(bones + part * 48, sizeof(ImVec4), &boneftf.rotation);
     memoryTools.readMemory(bones + part * 48 + 0x10, sizeof(ImVec3), &boneftf.translation);
     memoryTools.readMemory(bones + part * 48 + 0x20, sizeof(ImVec3), &boneftf.scale3d);
-    
     Ue4Matrix bonematrix = transformToMatrix(boneftf);
-    
     return matrixToVector(matrixMulti(bonematrix, actormatrix));
 }
-
 //骨骼3d转换屏幕
 bool getBone2d(MinimalViewInfo pov,ImVec2 screen, uintptr_t human, uintptr_t bones, int part,ImVec2 &buf) {
     //取世界坐标
