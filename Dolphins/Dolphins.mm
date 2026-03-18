@@ -706,7 +706,7 @@ void *silenceAimbot(void *) {
 
 
 
-                    if ((screenDistance = sqrtf(powf(playerScreen.x - screenCenter.x, 2) + powf(playerScreen.y - screenCenter.y, 2))) < aimbotRadius) {
+                    if ((screenDistance = get2dDistance(screenCenter, playerScreen)) < aimbotRadius) {
                         //骨骼mesh
                         uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
                         uintptr_t humanAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset);
