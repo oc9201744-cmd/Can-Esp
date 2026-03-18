@@ -1,21 +1,22 @@
 #import <Foundation/Foundation.h>
 #include <dlfcn.h>
 #include <mach-o/dyld.h>
-#include "fishhook.h"
+#include "dobby.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AnoSDKBypass.mm
-// fishhook tabanlı — iOS 17 / arm64e / PAC uyumlu
-// Dobby bağımlılığı yok
+// Dobby + dlsym tabanlı — semboller export trie'de doğrulandı
+// Verified offsets: AnoSDKInit=0xf0fd0 AnoSDKInitEx=0xf0ffc ...
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ─── AnoSDK Function Typedefs ─────────────────────────────────────────────────
+// ─── Typedefs ────────────────────────────────────────────────────────────────
 
 typedef int   (*AnoSDKInit_t)(void *initInfo);
 typedef int   (*AnoSDKInitEx_t)(void *initInfo, int flags);
 typedef int   (*AnoSDKSetUserInfo_t)(const char *openID, int accountType, int worldID, int roleID, int gameVIP, int bigVIP, int antiAddiction);
 typedef int   (*AnoSDKSetUserInfoWithLicense_t)(const char *openID, int accountType, int worldID, int roleID, int gameVIP, int bigVIP, int antiAddiction, const char *license);
 typedef int   (*AnoSDKIoctl_t)(int cmd, const void *buf, int bufLen);
+typedef int   (*AnoSDKIoctlOld_t)(int cmd, const void *buf, int bufLen);
 typedef int   (*AnoSDKOnPause_t)(void);
 typedef int   (*AnoSDKOnResume_t)(void);
 typedef int   (*AnoSDKOnRecvData_t)(const void *data, int dataLen);
@@ -30,13 +31,14 @@ typedef void  (*AnoSDKDelReportData4_t)(void *data);
 typedef void  (*AnoSDKFree_t)(void *ptr);
 typedef int   (*AnoSDKRegistInfoListener_t)(void *listener);
 
-// ─── Original Function Pointers ──────────────────────────────────────────────
+// ─── Original Pointers ───────────────────────────────────────────────────────
 
 static AnoSDKInit_t                   orig_AnoSDKInit                   = nullptr;
 static AnoSDKInitEx_t                 orig_AnoSDKInitEx                 = nullptr;
 static AnoSDKSetUserInfo_t            orig_AnoSDKSetUserInfo            = nullptr;
 static AnoSDKSetUserInfoWithLicense_t orig_AnoSDKSetUserInfoWithLicense = nullptr;
 static AnoSDKIoctl_t                  orig_AnoSDKIoctl                  = nullptr;
+static AnoSDKIoctlOld_t               orig_AnoSDKIoctlOld               = nullptr;
 static AnoSDKOnPause_t                orig_AnoSDKOnPause                = nullptr;
 static AnoSDKOnResume_t               orig_AnoSDKOnResume               = nullptr;
 static AnoSDKOnRecvData_t             orig_AnoSDKOnRecvData             = nullptr;
@@ -51,7 +53,7 @@ static AnoSDKDelReportData4_t         orig_AnoSDKDelReportData4         = nullpt
 static AnoSDKFree_t                   orig_AnoSDKFree                   = nullptr;
 static AnoSDKRegistInfoListener_t     orig_AnoSDKRegistInfoListener     = nullptr;
 
-// ─── Hook Implementations ─────────────────────────────────────────────────────
+// ─── Hook Implementations ────────────────────────────────────────────────────
 
 static int hook_AnoSDKInit(void *initInfo) {
     NSLog(@"[AnoBypass] AnoSDKInit → 0");
@@ -81,6 +83,11 @@ static int hook_AnoSDKIoctl(int cmd, const void *buf, int bufLen) {
     return 0;
 }
 
+static int hook_AnoSDKIoctlOld(int cmd, const void *buf, int bufLen) {
+    NSLog(@"[AnoBypass] AnoSDKIoctlOld cmd=%d → 0", cmd);
+    return 0;
+}
+
 static int hook_AnoSDKOnPause(void) {
     NSLog(@"[AnoBypass] AnoSDKOnPause → 0");
     return 0;
@@ -102,7 +109,6 @@ static int hook_AnoSDKOnRecvSignature(const void *sig, int sigLen) {
 }
 
 static void *hook_AnoSDKGetReportData(int *dataLen) {
-    NSLog(@"[AnoBypass] AnoSDKGetReportData → nullptr");
     if (dataLen) *dataLen = 0;
     return nullptr;
 }
@@ -122,48 +128,57 @@ static void *hook_AnoSDKGetReportData4(int *dataLen) {
     return nullptr;
 }
 
-// ⚠️ Del / Free hook'larında orijinali çağır — memory corruption önlenir
-static void hook_AnoSDKDelReportData(void *data) {
-    if (orig_AnoSDKDelReportData && data) orig_AnoSDKDelReportData(data);
-}
-
-static void hook_AnoSDKDelReportData3(void *data) {
-    if (orig_AnoSDKDelReportData3 && data) orig_AnoSDKDelReportData3(data);
-}
-
-static void hook_AnoSDKDelReportData4(void *data) {
-    if (orig_AnoSDKDelReportData4 && data) orig_AnoSDKDelReportData4(data);
-}
-
-static void hook_AnoSDKFree(void *ptr) {
-    if (orig_AnoSDKFree && ptr) orig_AnoSDKFree(ptr);
-}
+// Del/Free → orijinali çağır, memory corruption önlenir
+static void hook_AnoSDKDelReportData(void *data)  { if (orig_AnoSDKDelReportData  && data) orig_AnoSDKDelReportData(data);  }
+static void hook_AnoSDKDelReportData3(void *data) { if (orig_AnoSDKDelReportData3 && data) orig_AnoSDKDelReportData3(data); }
+static void hook_AnoSDKDelReportData4(void *data) { if (orig_AnoSDKDelReportData4 && data) orig_AnoSDKDelReportData4(data); }
+static void hook_AnoSDKFree(void *ptr)            { if (orig_AnoSDKFree           && ptr)  orig_AnoSDKFree(ptr);            }
 
 static int hook_AnoSDKRegistInfoListener(void *listener) {
     NSLog(@"[AnoBypass] AnoSDKRegistInfoListener → 0");
     return 0;
 }
 
-// ─── Framework Loader ─────────────────────────────────────────────────────────
+// ─── Helper Macro ─────────────────────────────────────────────────────────────
+// dlsym underscore prefix ile arar (_AnoSDKInit),
+// bulamazsa underscore'suz dener (AnoSDKInit)
 
-static bool loadAnoFrameworkIfNeeded(void) {
-    // 1. Zaten dyld'a yüklenmiş mi? (En hızlı kontrol)
+#define DOBBY_HOOK(handle, symbolName, hookFn, origPtr)                              \
+    do {                                                                              \
+        void *_sym = dlsym(handle, "_" #symbolName);                                 \
+        if (!_sym) _sym = dlsym(handle, #symbolName);                                \
+        if (_sym) {                                                                   \
+            int _ret = DobbyHook(_sym, (void *)(hookFn), (void **)&(origPtr));       \
+            if (_ret == 0)                                                            \
+                NSLog(@"[AnoBypass] ✓ " #symbolName);                               \
+            else                                                                      \
+                NSLog(@"[AnoBypass] ✗ DobbyHook failed: " #symbolName " ret=%d", _ret); \
+        } else {                                                                      \
+            NSLog(@"[AnoBypass] ✗ dlsym null: " #symbolName);                       \
+        }                                                                             \
+    } while (0)
+
+// ─── Framework Loader ────────────────────────────────────────────────────────
+
+static void *openAnoFramework(void) {
+    // 1. dyld'da zaten yüklü mü?
     uint32_t count = _dyld_image_count();
     for (uint32_t i = 0; i < count; i++) {
         const char *name = _dyld_get_image_name(i);
-        if (name && (strstr(name, "anogs") || strstr(name, "AnoSDK"))) {
-            NSLog(@"[AnoBypass] Framework zaten yüklü: %s", name);
-            return true;
+        if (name && strstr(name, "anogs")) {
+            void *h = dlopen(name, RTLD_NOLOAD | RTLD_LAZY);
+            if (h) {
+                NSLog(@"[AnoBypass] Framework zaten yüklü: %s", name);
+                return h;
+            }
         }
     }
 
-    // 2. Manuel yükle — olası path'leri dene
+    // 2. Manuel yükle
     NSString *bundle = [[NSBundle mainBundle] bundlePath];
     NSArray<NSString *> *paths = @[
         [bundle stringByAppendingPathComponent:@"Frameworks/anogs.framework/anogs"],
-        [bundle stringByAppendingPathComponent:@"Frameworks/AnoSDK.framework/AnoSDK"],
         [bundle stringByAppendingPathComponent:@"Frameworks/anogs"],
-        [bundle stringByAppendingPathComponent:@"Frameworks/AnoSDK"],
     ];
 
     for (NSString *path in paths) {
@@ -171,73 +186,48 @@ static bool loadAnoFrameworkIfNeeded(void) {
             void *h = dlopen(path.UTF8String, RTLD_LAZY | RTLD_GLOBAL);
             if (h) {
                 NSLog(@"[AnoBypass] Framework yüklendi: %@", path);
-                return true;
+                return h;
             }
-            NSLog(@"[AnoBypass] dlopen başarısız (%@): %s", path, dlerror());
+            NSLog(@"[AnoBypass] dlopen failed (%@): %s", path, dlerror());
         }
     }
 
-    NSLog(@"[AnoBypass] ❌ Framework bulunamadı!");
-    return false;
+    NSLog(@"[AnoBypass] ❌ anogs.framework bulunamadı!");
+    return nullptr;
 }
 
-// ─── Install All Hooks (fishhook) ─────────────────────────────────────────────
+// ─── Install Hooks ────────────────────────────────────────────────────────────
 
 void AnoSDKBypassInstall(void) {
+    void *handle = openAnoFramework();
+    if (!handle) return;
 
-    if (!loadAnoFrameworkIfNeeded()) {
-        // Framework yok ama yine de rebind dene — bazı durumlarda
-        // semboller ana binary'de resolve edilmiş olabilir.
-        NSLog(@"[AnoBypass] ⚠️  Framework yüklenemedi, yine de rebind deneniyor...");
-    }
+    NSLog(@"[AnoBypass] Installing hooks via Dobby + dlsym...");
 
-    // fishhook rebinding tablosu
-    // rebind_symbols PLT/GOT tablosunu yazar — PAC bypass gerekmez
-    struct rebinding bindings[] = {
-        { "AnoSDKInit",                   (void *)hook_AnoSDKInit,                   (void **)&orig_AnoSDKInit                   },
-        { "AnoSDKInitEx",                 (void *)hook_AnoSDKInitEx,                 (void **)&orig_AnoSDKInitEx                 },
-        { "AnoSDKSetUserInfo",            (void *)hook_AnoSDKSetUserInfo,            (void **)&orig_AnoSDKSetUserInfo            },
-        { "AnoSDKSetUserInfoWithLicense", (void *)hook_AnoSDKSetUserInfoWithLicense, (void **)&orig_AnoSDKSetUserInfoWithLicense },
-        { "AnoSDKIoctl",                  (void *)hook_AnoSDKIoctl,                  (void **)&orig_AnoSDKIoctl                  },
-        { "AnoSDKOnPause",                (void *)hook_AnoSDKOnPause,                (void **)&orig_AnoSDKOnPause                },
-        { "AnoSDKOnResume",               (void *)hook_AnoSDKOnResume,               (void **)&orig_AnoSDKOnResume               },
-        { "AnoSDKOnRecvData",             (void *)hook_AnoSDKOnRecvData,             (void **)&orig_AnoSDKOnRecvData             },
-        { "AnoSDKOnRecvSignature",        (void *)hook_AnoSDKOnRecvSignature,        (void **)&orig_AnoSDKOnRecvSignature        },
-        { "AnoSDKGetReportData",          (void *)hook_AnoSDKGetReportData,          (void **)&orig_AnoSDKGetReportData          },
-        { "AnoSDKGetReportData2",         (void *)hook_AnoSDKGetReportData2,         (void **)&orig_AnoSDKGetReportData2         },
-        { "AnoSDKGetReportData3",         (void *)hook_AnoSDKGetReportData3,         (void **)&orig_AnoSDKGetReportData3         },
-        { "AnoSDKGetReportData4",         (void *)hook_AnoSDKGetReportData4,         (void **)&orig_AnoSDKGetReportData4         },
-        { "AnoSDKDelReportData",          (void *)hook_AnoSDKDelReportData,          (void **)&orig_AnoSDKDelReportData          },
-        { "AnoSDKDelReportData3",         (void *)hook_AnoSDKDelReportData3,         (void **)&orig_AnoSDKDelReportData3         },
-        { "AnoSDKDelReportData4",         (void *)hook_AnoSDKDelReportData4,         (void **)&orig_AnoSDKDelReportData4         },
-        { "AnoSDKFree",                   (void *)hook_AnoSDKFree,                   (void **)&orig_AnoSDKFree                   },
-        { "AnoSDKRegistInfoListener",     (void *)hook_AnoSDKRegistInfoListener,     (void **)&orig_AnoSDKRegistInfoListener     },
-    };
+    DOBBY_HOOK(handle, AnoSDKInit,                   hook_AnoSDKInit,                   orig_AnoSDKInit);
+    DOBBY_HOOK(handle, AnoSDKInitEx,                 hook_AnoSDKInitEx,                 orig_AnoSDKInitEx);
+    DOBBY_HOOK(handle, AnoSDKSetUserInfo,            hook_AnoSDKSetUserInfo,            orig_AnoSDKSetUserInfo);
+    DOBBY_HOOK(handle, AnoSDKSetUserInfoWithLicense, hook_AnoSDKSetUserInfoWithLicense, orig_AnoSDKSetUserInfoWithLicense);
+    DOBBY_HOOK(handle, AnoSDKIoctl,                  hook_AnoSDKIoctl,                  orig_AnoSDKIoctl);
+    DOBBY_HOOK(handle, AnoSDKIoctlOld,               hook_AnoSDKIoctlOld,               orig_AnoSDKIoctlOld);
+    DOBBY_HOOK(handle, AnoSDKOnPause,                hook_AnoSDKOnPause,                orig_AnoSDKOnPause);
+    DOBBY_HOOK(handle, AnoSDKOnResume,               hook_AnoSDKOnResume,               orig_AnoSDKOnResume);
+    DOBBY_HOOK(handle, AnoSDKOnRecvData,             hook_AnoSDKOnRecvData,             orig_AnoSDKOnRecvData);
+    DOBBY_HOOK(handle, AnoSDKOnRecvSignature,        hook_AnoSDKOnRecvSignature,        orig_AnoSDKOnRecvSignature);
+    DOBBY_HOOK(handle, AnoSDKGetReportData,          hook_AnoSDKGetReportData,          orig_AnoSDKGetReportData);
+    DOBBY_HOOK(handle, AnoSDKGetReportData2,         hook_AnoSDKGetReportData2,         orig_AnoSDKGetReportData2);
+    DOBBY_HOOK(handle, AnoSDKGetReportData3,         hook_AnoSDKGetReportData3,         orig_AnoSDKGetReportData3);
+    DOBBY_HOOK(handle, AnoSDKGetReportData4,         hook_AnoSDKGetReportData4,         orig_AnoSDKGetReportData4);
+    DOBBY_HOOK(handle, AnoSDKDelReportData,          hook_AnoSDKDelReportData,          orig_AnoSDKDelReportData);
+    DOBBY_HOOK(handle, AnoSDKDelReportData3,         hook_AnoSDKDelReportData3,         orig_AnoSDKDelReportData3);
+    DOBBY_HOOK(handle, AnoSDKDelReportData4,         hook_AnoSDKDelReportData4,         orig_AnoSDKDelReportData4);
+    DOBBY_HOOK(handle, AnoSDKFree,                   hook_AnoSDKFree,                   orig_AnoSDKFree);
+    DOBBY_HOOK(handle, AnoSDKRegistInfoListener,     hook_AnoSDKRegistInfoListener,     orig_AnoSDKRegistInfoListener);
 
-    int bindingCount = sizeof(bindings) / sizeof(bindings[0]);
-    int result = rebind_symbols(bindings, bindingCount);
-
-    if (result == 0) {
-        NSLog(@"[AnoBypass] ✅ fishhook: %d sembol başarıyla rebind edildi", bindingCount);
-    } else {
-        NSLog(@"[AnoBypass] ❌ fishhook rebind_symbols başarısız: %d", result);
-    }
-
-    // Hangi semboller gerçekten yakalandı — kontrol logu
-    for (int i = 0; i < bindingCount; i++) {
-        if (*(bindings[i].replaced)) {
-            NSLog(@"[AnoBypass] ✓ %s yakalandı", bindings[i].name);
-        } else {
-            NSLog(@"[AnoBypass] ✗ %s bulunamadı (sembol yok olabilir)", bindings[i].name);
-        }
-    }
+    NSLog(@"[AnoBypass] ✅ Done!");
 }
 
-// ─── Auto-install via +load ───────────────────────────────────────────────────
-// AppDelegate'den manuel çağırmak istersen:
-//   #import "AnoSDKBypass.h"
-//   AnoSDKBypassInstall();
-// Otomatik için aşağıdaki +load kullanılır.
+// ─── Auto-install ─────────────────────────────────────────────────────────────
 
 @interface AnoSDKBypassLoader : NSObject
 @end
@@ -247,7 +237,6 @@ void AnoSDKBypassInstall(void) {
 + (void)load {
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        // Framework'ün dyld'a map edilmesini bekle
         dispatch_after(
             dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)),
             dispatch_get_main_queue(),
