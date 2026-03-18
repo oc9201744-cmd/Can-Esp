@@ -16,14 +16,13 @@ Blackshark_EXTRA_FRAMEWORKS = JRMemory
 Blackshark_CFLAGS = -fno-lto -fobjc-arc -Wno-deprecated-declarations -fvisibility=hidden -fpermissive -fexceptions -w -F$(THEOS_PROJECT_DIR) -I$(THEOS_PROJECT_DIR)/Dolphins/lib
 Blackshark_CCFLAGS = -fno-lto -std=c++17 -fno-rtti -fno-exceptions -DNDEBUG -fvisibility=hidden -fpermissive -fexceptions -w -F$(THEOS_PROJECT_DIR) -I$(THEOS_PROJECT_DIR)/Dolphins/lib
 
-# LDFLAGS - Dobby korundu, fishhook statik olarak derleniyor
+# LDFLAGS - Dobby
 Blackshark_LDFLAGS = -L$(THEOS_PROJECT_DIR)/Dolphins/lib -ldobby -lc++ -F$(THEOS_PROJECT_DIR)
 
 Blackshark_USE_SUBSTRATE = 0
 
 # Dosya Listesi
 Blackshark_FILES = Dolphins/Dolphins.mm \
-                   Dolphins/lib/fishhook.c \
                    $(wildcard Dolphins/View/*.m) \
                    $(wildcard Dolphins/Module/*.mm) \
                    $(wildcard Dolphins/utils/*.mm) \
