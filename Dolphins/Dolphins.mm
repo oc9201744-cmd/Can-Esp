@@ -201,8 +201,13 @@ void *readStaticData(void *) {
                 uintptr_t coordAddr = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::CoordOffset);
                 
                 string className = getClassName(memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::ClassIdOffset));
-                //人
-                if (strstr(className.c_str(), "PlayerPawn") || (strstr(className.c_str(), "PlayerCharacter") || (strstr(className.c_str(), "PlayerControllertSl") || (strstr(className.c_str(), "_PlayerPawn_TPlanAI_C")|| (strstr(className.c_str(), "CharacterModelTaget")|| (strstr(className.c_str(), "FakePlayer_AIPawn")!= 0 && moduleControl.mainSwitch.playerStatus)) )))) {
+                //人 - gerçek oyuncu veya bot
+                bool isPlayer = strstr(className.c_str(), "STExtraPlayerCharacter") != 0;
+                bool isBot = strstr(className.c_str(), "NewFakePlayerAIPawn") != 0 ||
+                             strstr(className.c_str(), "FakePlayer_AIPawn") != 0 ||
+                             strstr(className.c_str(), "_PlayerPawn_TPlanAI_C") != 0;
+
+                if ((isPlayer || isBot) && moduleControl.mainSwitch.playerStatus) {
                     //队伍ID
                     int team = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::TeamOffset);
                     int TeamID = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::TeamOffset);
@@ -227,9 +232,8 @@ void *readStaticData(void *) {
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
                     //人机
-                    // Bot tespiti: FakePlayerAIController pointer 0 ise gerçek oyuncu, değilse bot
-                    uintptr_t fakeAIController = memoryTools.readPtr(objectAddr + 0x4968);
-                    tmpPlayerData.robot = (fakeAIController != 0) ? 1 : 0;
+                    // Bot tespiti: class adına göre
+                    tmpPlayerData.robot = isBot ? 1 : 0;
                     
                     tmpPlayerData.status = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::StatusOffset);
                     
@@ -342,11 +346,9 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 playerData.team = staticPlayerData.team;
                 //血量
                 playerData.hp = memoryTools.readFloat(staticPlayerData.addr + PubgOffset::ObjectParam::HpOffset);
-                playerData.hp = memoryTools.readFloat(staticPlayerData.addr + PubgOffset::ObjectParam::HpOffset);
-                               if (playerData.hp > 100) playerData.hp = 100;
+                if (playerData.hp > 100) playerData.hp = 100;
                 //取敌人动作
-             //   NSLog(@"****： %id",statusName);
-                uintptr_t statusAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::StatusOffset);
+                uint64_t statusAddr = memoryTools.readInt(staticPlayerData.addr + PubgOffset::ObjectParam::StatusOffset);
                 
                 if (statusAddr == 2097168) {
                 playerData.statusName = "DRIVE";
@@ -505,6 +507,10 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
                 uintptr_t humanAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset);
                 uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset) + 48;
+                if (!humanAddr || !boneAddr) {
+                    playerDataList.push_back(playerData);
+                    continue;
+                }
                 //判断是否需要骨骼掩体判断
                 BonesData bonesData;
                 if (getBone2d(pov, screenSize,humanAddr, boneAddr, 5, bonesData.head))//头
@@ -686,7 +692,9 @@ void *silenceAimbot(void *) {
                     }
                     //屏幕坐标
                     ImVec2 playerScreen = worldToScreen(objectCoord, pov, screenSize);
-                    //模糊自瞄对象
+                    if (playerScreen.x == 0 && playerScreen.y == 0) continue;
+                    //模糊自瞄对象 - ekran merkezinden mesafe
+                    ImVec2 screenCenter = ImVec2(screenSize.x / 2, screenSize.y / 2);
                     float screenDistance;
                     //判断自瞄对象是否在指定屏幕范围
 
@@ -698,11 +706,12 @@ void *silenceAimbot(void *) {
 
 
 
-                    if ((screenDistance = get2dDistance(screenSize,playerScreen)) < aimbotRadius) {
+                    if ((screenDistance = sqrtf(powf(playerScreen.x - screenCenter.x, 2) + powf(playerScreen.y - screenCenter.y, 2))) < aimbotRadius) {
                         //骨骼mesh
                         uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
                         uintptr_t humanAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset);
                         uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset) + 48;
+                        if (!humanAddr || !boneAddr) continue;
                         //取自瞄部位 0是优先头部,1是优先身体,3是[全自动武器打身体,单发连发打头],4是只打头,5是只打身体
                         switch (moduleControl.aimbotController.aimbotParts) {
                             case 0: {
