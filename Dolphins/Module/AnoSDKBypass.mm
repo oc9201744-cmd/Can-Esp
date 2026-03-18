@@ -1,65 +1,83 @@
 #import <Foundation/Foundation.h>
-#include <dlfcn.h>
-#include <mach-o/dyld.h>
-#include "fishhook.h"
+#include "KittyMemory.hpp"
 
-static void (*orig_Del)(void *)  = nullptr;
-static void (*orig_Del3)(void *) = nullptr;
-static void (*orig_Del4)(void *) = nullptr;
-static void (*orig_Free)(void *) = nullptr;
+// ─────────────────────────────────────────────────────────────────────────────
+// AnoSDKBypass.mm — KittyMemory ile
+// Offset'ler binary analizinden doğrulandı (anogs.framework)
+// RET0 = MOV W0,#0 + RET → fonksiyon 0 döner, hiçbir şey yapmaz
+// ─────────────────────────────────────────────────────────────────────────────
 
-static int   h_Init(void *a)                                                               { return 0; }
-static int   h_InitEx(void *a, int b)                                                      { return 0; }
-static int   h_SetUserInfo(const char *a,int b,int c,int d,int e,int f,int g)              { return 0; }
-static int   h_SetUserInfoLic(const char *a,int b,int c,int d,int e,int f,int g,const char *h) { return 0; }
-static int   h_Ioctl(int a, const void *b, int c)                                          { return 0; }
-static int   h_IoctlOld(int a, const void *b, int c)                                       { return 0; }
-static int   h_OnPause(void)                                                               { return 0; }
-static int   h_OnResume(void)                                                              { return 0; }
-static int   h_OnRecvData(const void *a, int b)                                            { return 0; }
-static int   h_OnRecvSig(const void *a, int b)                                             { return 0; }
-static void *h_GetReport(int *l)  { if (l) *l = 0; return nullptr; }
-static void *h_GetReport2(int *l) { if (l) *l = 0; return nullptr; }
-static void *h_GetReport3(int *l) { if (l) *l = 0; return nullptr; }
-static void *h_GetReport4(int *l) { if (l) *l = 0; return nullptr; }
-static void  h_Del(void *p)  { if (orig_Del  && p) orig_Del(p);  }
-static void  h_Del3(void *p) { if (orig_Del3 && p) orig_Del3(p); }
-static void  h_Del4(void *p) { if (orig_Del4 && p) orig_Del4(p); }
-static void  h_Free(void *p) { if (orig_Free && p) orig_Free(p); }
-static int   h_RegListener(void *a) { return 0; }
+// Verified offsets from export trie:
+#define OFF_AnoSDKInit                   0xf0fd0
+#define OFF_AnoSDKInitEx                 0xf0ffc
+#define OFF_AnoSDKSetUserInfo            0xf1000
+#define OFF_AnoSDKSetUserInfoWithLicense 0xf104c
+#define OFF_AnoSDKOnPause                0xf109c
+#define OFF_AnoSDKOnResume               0xf10bc
+#define OFF_AnoSDKGetReportData          0xf10dc
+#define OFF_AnoSDKDelReportData          0xf10f8
+#define OFF_AnoSDKGetReportData2         0xf1174
+#define OFF_AnoSDKFree                   0xf1170
+#define OFF_AnoSDKIoctlOld               0xf1168
+#define OFF_AnoSDKIoctl                  0xf116c
+#define OFF_AnoSDKOnRecvData             0xf1114
+#define OFF_AnoSDKGetReportData3         0xf1178
+#define OFF_AnoSDKDelReportData3         0xf117c
+#define OFF_AnoSDKGetReportData4         0xf1180
+#define OFF_AnoSDKDelReportData4         0xf1184
+#define OFF_AnoSDKOnRecvSignature        0xf1188
+#define OFF_AnoSDKRegistInfoListener     0xf118c
+
+void AnoSDKBypassInstall(void) {
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+
+        // anogs.framework ASLR slide
+        uintptr_t slide = KittyMemory::getSlide("anogs");
+
+        // int dönen fonksiyonlar → RET0 (return 0)
+        uintptr_t intFuncs[] = {
+            OFF_AnoSDKInit,
+            OFF_AnoSDKInitEx,
+            OFF_AnoSDKSetUserInfo,
+            OFF_AnoSDKSetUserInfoWithLicense,
+            OFF_AnoSDKOnPause,
+            OFF_AnoSDKOnResume,
+            OFF_AnoSDKDelReportData,
+            OFF_AnoSDKDelReportData3,
+            OFF_AnoSDKDelReportData4,
+            OFF_AnoSDKIoctlOld,
+            OFF_AnoSDKIoctl,
+            OFF_AnoSDKOnRecvData,
+            OFF_AnoSDKOnRecvSignature,
+            OFF_AnoSDKRegistInfoListener,
+        };
+
+        for (uintptr_t off : intFuncs)
+            KittyMemory::patchRet0(slide + off);
+
+        // void* dönen fonksiyonlar → RETNULL (return nullptr)
+        uintptr_t ptrFuncs[] = {
+            OFF_AnoSDKGetReportData,
+            OFF_AnoSDKGetReportData2,
+            OFF_AnoSDKGetReportData3,
+            OFF_AnoSDKGetReportData4,
+        };
+
+        for (uintptr_t off : ptrFuncs)
+            KittyMemory::patchRetNull(slide + off);
+
+        // AnoSDKFree — NOP yap (memory'yi serbest bırakmak için orijinali çağır olmaz,
+        // çünkü zaten bypass yapıyoruz ve GetReportData nullptr dönüyor)
+        KittyMemory::patchNop(slide + OFF_AnoSDKFree);
+    });
+}
 
 @interface AnoSDKBypassLoader : NSObject
 @end
 
 @implementation AnoSDKBypassLoader
-
 + (void)load {
-    static dispatch_once_t once;
-    dispatch_once(&once, ^{
-        static void *o1,*o2,*o3,*o4,*o5,*o6,*o7,*o8,*o9,*o10,*o11,*o12,*o13,*o14,*o19;
-        struct rebinding b[] = {
-            { "AnoSDKInit",                   (void *)h_Init,           &o1  },
-            { "AnoSDKInitEx",                 (void *)h_InitEx,         &o2  },
-            { "AnoSDKSetUserInfo",            (void *)h_SetUserInfo,    &o3  },
-            { "AnoSDKSetUserInfoWithLicense", (void *)h_SetUserInfoLic, &o4  },
-            { "AnoSDKIoctl",                  (void *)h_Ioctl,          &o5  },
-            { "AnoSDKIoctlOld",               (void *)h_IoctlOld,       &o6  },
-            { "AnoSDKOnPause",                (void *)h_OnPause,        &o7  },
-            { "AnoSDKOnResume",               (void *)h_OnResume,       &o8  },
-            { "AnoSDKOnRecvData",             (void *)h_OnRecvData,     &o9  },
-            { "AnoSDKOnRecvSignature",        (void *)h_OnRecvSig,      &o10 },
-            { "AnoSDKGetReportData",          (void *)h_GetReport,      &o11 },
-            { "AnoSDKGetReportData2",         (void *)h_GetReport2,     &o12 },
-            { "AnoSDKGetReportData3",         (void *)h_GetReport3,     &o13 },
-            { "AnoSDKGetReportData4",         (void *)h_GetReport4,     &o14 },
-            { "AnoSDKDelReportData",          (void *)h_Del,  (void **)&orig_Del  },
-            { "AnoSDKDelReportData3",         (void *)h_Del3, (void **)&orig_Del3 },
-            { "AnoSDKDelReportData4",         (void *)h_Del4, (void **)&orig_Del4 },
-            { "AnoSDKFree",                   (void *)h_Free, (void **)&orig_Free },
-            { "AnoSDKRegistInfoListener",     (void *)h_RegListener,    &o19 },
-        };
-        rebind_symbols(b, sizeof(b) / sizeof(b[0]));
-    });
+    AnoSDKBypassInstall();
 }
-
 @end
