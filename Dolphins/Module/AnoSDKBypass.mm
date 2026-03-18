@@ -1,95 +1,96 @@
 #import <Foundation/Foundation.h>
 #include <dlfcn.h>
 #include <mach-o/dyld.h>
-#include "fishhook.h"
+#include <mach/mach.h>
+#include <sys/mman.h>
+#include <string.h>
 
-struct AnoSDKInitInfo {
-    int   size_;
-    int   game_id_;
-    void *tss_sdk_send_data_to_svr;
-};
+// ─────────────────────────────────────────────────────────────────────────────
+// AnoSDKBypass.mm — Direkt GOT patch
+//
+// anogs binary analizi sonucu:
+// __la_symbol_ptr section offset'leri (vmaddr bazlı):
+//   _send    → 0x2849a8  [231]
+//   _connect → 0x284588  [99]
+//   _recv    → 0x284948  [219]
+//   _write   → 0x284b58  [285]
+//   _dlsym   → 0x2845d0  [108]  (AnoSDK dlsym ile hook detect eder)
+//
+// Strateji: anogs'un kendi GOT tablosundaki network fonksiyonlarını
+// fake versiyonlarla değiştir → sunucuya hiçbir şey gidemez → ban yok
+// Opcode patch yok, fishhook yok → detection yok
+// ─────────────────────────────────────────────────────────────────────────────
 
-static int fakeSend(void *data, int len) { return 0; }
+// Fake network fonksiyonları — hepsi başarı döndürür ama hiçbir şey yapmaz
+static int      fake_connect(int s, const void *addr, unsigned int len) { return 0; }
+static long     fake_send(int s, const void *buf, size_t len, int flags) { return (long)len; }
+static long     fake_recv(int s, void *buf, size_t len, int flags)       { return 0; }
+static long     fake_write(int fd, const void *buf, size_t nbyte)        { return (long)nbyte; }
 
-static int (*orig_Init)(AnoSDKInitInfo *)        = nullptr;
-static int (*orig_InitEx)(AnoSDKInitInfo *, int) = nullptr;
-static void (*orig_Del)(void *)                  = nullptr;
-static void (*orig_Del3)(void *)                 = nullptr;
-static void (*orig_Del4)(void *)                 = nullptr;
-static void (*orig_Free)(void *)                 = nullptr;
+// GOT entry'sini güvenli şekilde yaz — mach_vm_remap kullanır
+static bool patchGOT(uintptr_t gotAddr, void *newFunc) {
+    if (!gotAddr || !newFunc) return false;
 
-static int h_Init(AnoSDKInitInfo *info) {
-    if (info) info->tss_sdk_send_data_to_svr = (void *)fakeSend;
-    return orig_Init ? orig_Init(info) : 0;
+    vm_size_t pageSize = vm_page_size;
+    uintptr_t pageAddr = gotAddr & ~(pageSize - 1);
+    uintptr_t pageOff  = gotAddr - pageAddr;
+    mach_port_t task   = mach_task_self();
+
+    // Sayfayı yazılabilir yap
+    kern_return_t kr = vm_protect(task, pageAddr, pageSize, false,
+                                  VM_PROT_READ | VM_PROT_WRITE);
+    if (kr != KERN_SUCCESS) {
+        // vm_protect başarısız olursa mach_vm_remap dene
+        mach_vm_address_t newAddr = 0;
+        vm_prot_t cur, max;
+        kr = mach_vm_remap(task, &newAddr, pageSize, 0,
+                           VM_FLAGS_ANYWHERE | VM_FLAGS_RETURN_DATA_ADDR,
+                           task, pageAddr, false, &cur, &max, VM_INHERIT_SHARE);
+        if (kr != KERN_SUCCESS) return false;
+
+        kr = vm_protect(task, newAddr, pageSize, false,
+                        VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY);
+        if (kr != KERN_SUCCESS) return false;
+
+        // Yeni adrese yaz
+        *((void **)(newAddr + pageOff)) = newFunc;
+        vm_protect(task, newAddr, pageSize, false, VM_PROT_READ);
+        return true;
+    }
+
+    // Direkt yaz
+    *((void **)gotAddr) = newFunc;
+    vm_protect(task, pageAddr, pageSize, false, VM_PROT_READ);
+    return true;
 }
-static int h_InitEx(AnoSDKInitInfo *info, int flags) {
-    if (info) info->tss_sdk_send_data_to_svr = (void *)fakeSend;
-    return orig_InitEx ? orig_InitEx(info, flags) : 0;
-}
-static int   h_SUI(const char *a,int b,int c,int d,int e,int f,int g)                { return 0; }
-static int   h_SUIL(const char *a,int b,int c,int d,int e,int f,int g,const char *h) { return 0; }
-static int   h_Ioctl(int a, const void *b, int c)    { return 0; }
-static int   h_IoctlOld(int a, const void *b, int c) { return 0; }
-static int   h_Pause(void)                           { return 0; }
-static int   h_Resume(void)                          { return 0; }
-static int   h_RecvData(const void *a, int b)        { return 0; }
-static int   h_RecvSig(const void *a, int b)         { return 0; }
-static void *h_GRD(int *l)  { if (l) *l = 0; return nullptr; }
-static void *h_GRD2(int *l) { if (l) *l = 0; return nullptr; }
-static void *h_GRD3(int *l) { if (l) *l = 0; return nullptr; }
-static void *h_GRD4(int *l) { if (l) *l = 0; return nullptr; }
-static void  h_Del(void *p)  { if (orig_Del  && p) orig_Del(p);  }
-static void  h_Del3(void *p) { if (orig_Del3 && p) orig_Del3(p); }
-static void  h_Del4(void *p) { if (orig_Del4 && p) orig_Del4(p); }
-static void  h_Free(void *p) { if (orig_Free && p) orig_Free(p); }
-static int   h_Reg(void *a)  { return 0; }
 
 void AnoSDKBypassInstall(void) {
     static dispatch_once_t once;
     dispatch_once(&once, ^{
 
-        // rebind_symbols yerine rebind_symbols_image kullan
-        // dyld callback kaydetmiyor → crash yok
+        // anogs.framework base adresini bul
+        uintptr_t base = 0;
         uint32_t count = _dyld_image_count();
         for (uint32_t i = 0; i < count; i++) {
             const char *name = _dyld_get_image_name(i);
-            if (!name) continue;
-
-            // Sadece anogs.framework'te rebind yap
-            if (!strstr(name, "anogs")) continue;
-
-            const struct mach_header *hdr  = _dyld_get_image_header(i);
-            intptr_t                  slide = _dyld_get_image_vmaddr_slide(i);
-
-            static void *_1,*_2,*_3,*_4,*_5,*_6,*_7,*_8,*_9,*_10,*_11,*_12,*_13;
-            struct rebinding b[] = {
-                {"AnoSDKInit",                   (void*)h_Init,     (void**)&orig_Init  },
-                {"AnoSDKInitEx",                 (void*)h_InitEx,   (void**)&orig_InitEx},
-                {"AnoSDKSetUserInfo",            (void*)h_SUI,      &_1 },
-                {"AnoSDKSetUserInfoWithLicense", (void*)h_SUIL,     &_2 },
-                {"AnoSDKIoctl",                  (void*)h_Ioctl,    &_3 },
-                {"AnoSDKIoctlOld",               (void*)h_IoctlOld, &_4 },
-                {"AnoSDKOnPause",                (void*)h_Pause,    &_5 },
-                {"AnoSDKOnResume",               (void*)h_Resume,   &_6 },
-                {"AnoSDKOnRecvData",             (void*)h_RecvData, &_7 },
-                {"AnoSDKOnRecvSignature",        (void*)h_RecvSig,  &_8 },
-                {"AnoSDKGetReportData",          (void*)h_GRD,      &_9 },
-                {"AnoSDKGetReportData2",         (void*)h_GRD2,     &_10},
-                {"AnoSDKGetReportData3",         (void*)h_GRD3,     &_11},
-                {"AnoSDKGetReportData4",         (void*)h_GRD4,     &_12},
-                {"AnoSDKDelReportData",          (void*)h_Del,      (void**)&orig_Del  },
-                {"AnoSDKDelReportData3",         (void*)h_Del3,     (void**)&orig_Del3 },
-                {"AnoSDKDelReportData4",         (void*)h_Del4,     (void**)&orig_Del4 },
-                {"AnoSDKFree",                   (void*)h_Free,     (void**)&orig_Free },
-                {"AnoSDKRegistInfoListener",     (void*)h_Reg,      &_13},
-            };
-
-            rebind_symbols_image(
-                (void *)hdr, slide,
-                b, sizeof(b)/sizeof(b[0])
-            );
-            break;
+            if (name && strstr(name, "anogs")) {
+                base = (uintptr_t)_dyld_get_image_header(i);
+                break;
+            }
         }
+        if (!base) return;
+
+        // __la_symbol_ptr GOT adresleri (vmaddr=0 → base=slide)
+        // Binary analizinden doğrulandı
+        struct { uintptr_t offset; void *replacement; } patches[] = {
+            { 0x284588, (void *)fake_connect },  // _connect
+            { 0x2849a8, (void *)fake_send    },  // _send
+            { 0x284948, (void *)fake_recv    },  // _recv
+            { 0x284b58, (void *)fake_write   },  // _write
+        };
+
+        for (auto &p : patches)
+            patchGOT(base + p.offset, p.replacement);
     });
 }
 
@@ -98,7 +99,7 @@ void AnoSDKBypassInstall(void) {
 @implementation AnoSDKBypassLoader
 + (void)load {
     dispatch_after(
-        dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)),
+        dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)),
         dispatch_get_main_queue(),
         ^{ AnoSDKBypassInstall(); }
     );
