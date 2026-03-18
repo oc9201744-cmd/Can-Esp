@@ -6,7 +6,7 @@ FINALPACKAGE = 1
 FOR_RELEASE = 1
 include $(THEOS)/makefiles/common.mk
 
-TWEAK_NAME = PluginFoundation
+TWEAK_NAME = Blackshark
 
 # Framework ve Linker Ayarları
 Blackshark_FRAMEWORKS = IOKit UIKit Foundation Security QuartzCore CoreGraphics CoreText AVFoundation Accelerate GLKit SystemConfiguration GameController
