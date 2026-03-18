@@ -177,10 +177,10 @@ void *readStaticData(void *) {
                     tmpPlayerData.team = team;
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
-                    //人机
-                    // Bot tespiti
+                    //人机 - FakePlayerAIController pointer ile tespit (en güvenilir yöntem)
+                    uintptr_t fakeAICtrl = memoryTools.readPtr(objectAddr + 0x4968);
                     bool isAI = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::RobotOffset) == 1;
-                    tmpPlayerData.robot = isAI ? 1 : 0;
+                    tmpPlayerData.robot = (fakeAICtrl != 0 || isBot || isAI) ? 1 : 0;
                     tmpPlayerData.status = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::StatusOffset);
                     tmpPlayerDataList.push_back(tmpPlayerData);
                 } else if (strstr(className.c_str(), "ProjSmoke_BP_C)") != 0) {
