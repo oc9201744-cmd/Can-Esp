@@ -202,10 +202,14 @@ void *readStaticData(void *) {
                 
                 string className = getClassName(memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::ClassIdOffset));
                 //人 - gerçek oyuncu veya bot
-                bool isPlayer = strstr(className.c_str(), "STExtraPlayerCharacter") != 0;
+                bool isPlayer = strstr(className.c_str(), "STExtraPlayerCharacter") != 0 ||
+                                strstr(className.c_str(), "PlayerCharacter") != 0 ||
+                                strstr(className.c_str(), "PlayerPawn") != 0;
                 bool isBot = strstr(className.c_str(), "NewFakePlayerAIPawn") != 0 ||
                              strstr(className.c_str(), "FakePlayer_AIPawn") != 0 ||
-                             strstr(className.c_str(), "_PlayerPawn_TPlanAI_C") != 0;
+                             strstr(className.c_str(), "FakePlayerAIPawn") != 0 ||
+                             strstr(className.c_str(), "_PlayerPawn_TPlanAI_C") != 0 ||
+                             strstr(className.c_str(), "FakePlayer") != 0;
 
                 if ((isPlayer || isBot) && moduleControl.mainSwitch.playerStatus) {
                     //队伍ID
@@ -215,7 +219,7 @@ void *readStaticData(void *) {
                     StaticPlayerData tmpPlayerData;
                     //对象指针地址
 
-                    bool bDead = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::DeadOffset);
+                    bool bDead = (memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::DeadOffset) & 0x1) != 0;
                     if(bDead) continue;
 
                     float hp = memoryTools.readFloat(objectAddr + PubgOffset::ObjectParam::HpOffset);
