@@ -225,7 +225,7 @@ void AnoSDKBypassInstall(void) {
 
     // Hangi semboller gerçekten yakalandı — kontrol logu
     for (int i = 0; i < bindingCount; i++) {
-        if (*(bindings[i].rebinding)) {
+        if (*(bindings[i].replaced)) {
             NSLog(@"[AnoBypass] ✓ %s yakalandı", bindings[i].name);
         } else {
             NSLog(@"[AnoBypass] ✗ %s bulunamadı (sembol yok olabilir)", bindings[i].name);
