@@ -210,7 +210,7 @@ void *readStaticData(void *) {
                     StaticPlayerData tmpPlayerData;
                     //对象指针地址
 
-                    bool bDead = memoryTools.readByte(objectAddr + PubgOffset::ObjectParam::DeadOffset);
+                    bool bDead = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::DeadOffset);
                     if(bDead) continue;
 
                     float hp = memoryTools.readFloat(objectAddr + PubgOffset::ObjectParam::HpOffset);
@@ -227,7 +227,7 @@ void *readStaticData(void *) {
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
                     //人机
-                    tmpPlayerData.robot = memoryTools.readByte(objectAddr + PubgOffset::ObjectParam::RobotOffset);
+                    tmpPlayerData.robot = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::RobotOffset);
                     
                     tmpPlayerData.status = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::StatusOffset);
                     
@@ -626,24 +626,24 @@ void *silenceAimbot(void *) {
             switch (moduleControl.aimbotController.aimbotMode) {
                 case 0:
                     //开镜自瞄
-                    enabledAimbot = memoryTools.readByte(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
+                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
                     break;
                 case 1:
                     //开火自瞄
-                    enabledAimbot = memoryTools.readByte(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1;
+                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1;
                     break;
                 case 2:
                     //开镜开火自瞄
-                    enabledAimbot = memoryTools.readByte(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1 || memoryTools.readByte(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1;
+                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1 || memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1;
                     break;
                 case 3:
                     //判断枪械是单发还是全自动
                     if (memoryTools.readInt(weaponAddr + PubgOffset::ObjectParam::WeaponParam::ShootModeOffset) >= 1024) {
                         //全自动用开火
-                        enabledAimbot = memoryTools.readByte(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1;
+                        enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1;
                     } else {
                         //单发连发用开镜
-                        enabledAimbot = memoryTools.readByte(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
+                        enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
                     }
                     break;
             }
@@ -907,7 +907,7 @@ void *silenceAimbot(void *) {
                     }
                     
                     //压枪
-                    if (memoryTools.readByte(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1) {
+                    if (memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1) {
                         //距离运算,压枪的幅度
                         float recoilTimes = 4.5 - get3dDistance(selfCoord, aimbotCoord, 10000);
                         recoilTimes += get3dDistance(selfCoord, aimbotCoord, 10000) * 0.2;
