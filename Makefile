@@ -1,39 +1,30 @@
 export THEOS = /var/theos
-
-# Cihazın iPhone 15 Pro Max olsa da kütüphanelerin arm64 olduğu için arm64 kalmalı
+# arm64e'yi kaldırıyoruz çünkü kütüphanelerin desteklemiyor
 ARCHS = arm64
 DEBUG = 0
 FINALPACKAGE = 1
 FOR_RELEASE = 1
-
 include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = Blackshark
 
-# 1. Framework Ayarları
+# Framework ve Linker Ayarları
 Blackshark_FRAMEWORKS = IOKit UIKit Foundation Security QuartzCore CoreGraphics CoreText AVFoundation Accelerate GLKit SystemConfiguration GameController
 Blackshark_EXTRA_FRAMEWORKS = JRMemory
 
-# 2. Header (Başlık Dosyası) Yolları
-# -I. (nokta) mevcut dizinden başla demek, işi garantiye alır.
-Blackshark_CFLAGS = -fno-lto -fobjc-arc -Wno-deprecated-declarations -fvisibility=hidden -fpermissive -fexceptions -w \
-                   -F$(THEOS_PROJECT_DIR) \
-                   -IDolphins/lib \
-                   -IDolphins/Module
+# Path Ayarları
+Blackshark_CFLAGS = -fno-lto -fobjc-arc -Wno-deprecated-declarations -fvisibility=hidden -fpermissive -fexceptions -w -F$(THEOS_PROJECT_DIR)
+Blackshark_CCFLAGS = -fno-lto -std=c++17 -fno-rtti -fno-exceptions -DNDEBUG -fvisibility=hidden -fpermissive -fexceptions -w -F$(THEOS_PROJECT_DIR)
 
-Blackshark_CCFLAGS = -fno-lto -std=c++17 -fno-rtti -fno-exceptions -DNDEBUG -fvisibility=hidden -fpermissive -fexceptions -w \
-                    -F$(THEOS_PROJECT_DIR) \
-                    -IDolphins/lib \
-                    -IDolphins/Module
-
-# 3. Linker (Kütüphane Bağlama) Ayarları
-# libdobby.a dosyan Dolphins/lib içinde olduğu için yolu netleştiriyoruz
+# LDFLAGS - Dobby korundu, fishhook statik olarak derleniyor
 Blackshark_LDFLAGS = -L$(THEOS_PROJECT_DIR)/Dolphins/lib -ldobby -lc++ -F$(THEOS_PROJECT_DIR)
 
 Blackshark_USE_SUBSTRATE = 0
 
-# 4. Dosya Listesi (Wildcard ile otomatik tarama)
+# Dosya Listesi
 Blackshark_FILES = Dolphins/Dolphins.mm \
+                   Dolphins/fishhook.c \
+                   Dolphins/AnoSDKBypass.mm \
                    $(wildcard Dolphins/View/*.m) \
                    $(wildcard Dolphins/Module/*.mm) \
                    $(wildcard Dolphins/utils/*.mm) \
