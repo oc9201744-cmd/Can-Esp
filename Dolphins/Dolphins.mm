@@ -227,7 +227,9 @@ void *readStaticData(void *) {
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
                     //人机
-                    tmpPlayerData.robot = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::RobotOffset);
+                    // Bot tespiti: FakePlayerAIController pointer 0 ise gerçek oyuncu, değilse bot
+                    uintptr_t fakeAIController = memoryTools.readPtr(objectAddr + 0x4968);
+                    tmpPlayerData.robot = (fakeAIController != 0) ? 1 : 0;
                     
                     tmpPlayerData.status = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::StatusOffset);
                     
