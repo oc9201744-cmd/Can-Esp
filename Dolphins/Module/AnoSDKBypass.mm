@@ -2,7 +2,7 @@
 #include <mach-o/dyld.h>
 #include <mach/mach.h>
 #include <string.h>
-#include "Header.h"
+#import <JRMemory/MemScan.h>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AnoSDKBypass.mm — JRMemory ile GOT patch
