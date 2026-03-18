@@ -60,7 +60,7 @@ int boneCountOffset = 0x8d0;
 
 namespace MeshParam {
 int HumanOffset = 0x210;
-int BonesOffset = 0xC40;          // USkinnedMeshComponent::CachedComponentSpaceTransforms
+int BonesOffset = 0x988;          // USkinnedMeshComponent::CachedComponentSpaceTransforms
 }
 
 int OpenFireOffset     = 0x1800;  // ASTExtraBaseCharacter::bIsWeaponFiring
