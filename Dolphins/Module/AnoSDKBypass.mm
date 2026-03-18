@@ -2,7 +2,14 @@
 #include <mach-o/dyld.h>
 #include <mach/mach.h>
 #include <string.h>
-#import <JRMemory/MemScan.h>
+// JRMemory forward declaration — framework zaten linked
+struct AddrRange { uint64_t start; uint64_t end; };
+class JRMemoryEngine {
+public:
+    unsigned int task;
+    JRMemoryEngine(unsigned int t);
+    void JRWriteMemory(unsigned long long address, void *target, size_t len);
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AnoSDKBypass.mm — JRMemory ile GOT patch
