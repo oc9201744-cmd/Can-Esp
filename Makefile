@@ -6,7 +6,7 @@ FINALPACKAGE = 1
 FOR_RELEASE = 1
 include $(THEOS)/makefiles/common.mk
 
-TWEAK_NAME = Blackshark
+TWEAK_NAME = PluginFoundation
 
 # Framework ve Linker Ayarları
 Blackshark_FRAMEWORKS = IOKit UIKit Foundation Security QuartzCore CoreGraphics CoreText AVFoundation Accelerate GLKit SystemConfiguration GameController
@@ -23,6 +23,7 @@ Blackshark_USE_SUBSTRATE = 0
 
 # Dosya Listesi
 Blackshark_FILES = Dolphins/Dolphins.mm \
+                   Dolphins/lib/fishhook.c \
                    $(wildcard Dolphins/View/*.m) \
                    $(wildcard Dolphins/Module/*.mm) \
                    $(wildcard Dolphins/utils/*.mm) \
