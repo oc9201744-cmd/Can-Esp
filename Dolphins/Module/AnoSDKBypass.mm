@@ -32,8 +32,10 @@ void AnoSDKBypassInstall(void) {
     static dispatch_once_t once;
     dispatch_once(&once, ^{
 
-        // anogs.framework ASLR slide
+        // anogs.framework base adresi
+        // dylib'lerde vmaddr=0 olduğu için base = slide
         uintptr_t slide = KittyMemory::getSlide("anogs");
+        if (slide == 0) return;
 
         // int dönen fonksiyonlar → RET0 (return 0)
         uintptr_t intFuncs[] = {
