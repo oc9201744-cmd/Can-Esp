@@ -24,7 +24,6 @@ Blackshark_USE_SUBSTRATE = 0
 # Dosya Listesi
 Blackshark_FILES = Dolphins/Dolphins.mm \
                    Dolphins/lib/fishhook.c \
-                   Dolphins/AnoSDKBypass.mm \
                    $(wildcard Dolphins/View/*.m) \
                    $(wildcard Dolphins/Module/*.mm) \
                    $(wildcard Dolphins/utils/*.mm) \
