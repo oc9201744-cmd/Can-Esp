@@ -438,9 +438,15 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 playerData.size.x = (playerData.screen.y - width.y) / 2;
                 playerData.size.y = playerData.screen.y - height.y;
                 uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
-                uintptr_t humanAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset);
-                uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset) + 48;
-                if (!humanAddr || !boneAddr) {
+                if (!meshAddr) {
+                    playerDataList.push_back(playerData);
+                    continue;
+                }
+                // human: mesh world transform (direkt offset, readPtr değil)
+                uintptr_t humanAddr = meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset;
+                // bones: CachedBoneSpaceTransforms TArray data pointer (0xC30)
+                uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset);
+                if (!boneAddr) {
                     playerDataList.push_back(playerData);
                     continue;
                 }
@@ -620,9 +626,9 @@ void *silenceAimbot(void *) {
                     if ((screenDistance = get2dDistance(screenCenter, playerScreen)) < aimbotRadius) {
                         //骨骼mesh
                         uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
-                        uintptr_t humanAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset);
-                        uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset) + 48;
-                        if (!humanAddr || !boneAddr) continue;
+                        uintptr_t humanAddr = meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset;
+                        uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset);
+                        if (!meshAddr || !boneAddr) continue;
                         //取自瞄部位 0是优先头部,1是优先身体,3是[全自动武器打身体,单发连发打头],4是只打头,5是只打身体
                         switch (moduleControl.aimbotController.aimbotParts) {
                             case 0: {
