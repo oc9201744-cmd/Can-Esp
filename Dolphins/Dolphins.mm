@@ -242,30 +242,9 @@ void *readStaticData(void *) {
                     tmpPlayerData.team = team;
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
-
-                    // Bot tespiti
-                    // dump'tan: ASTExtraPlayerCharacter::FakePlayerAIController = 0x4968
-                    // null = gercek oyuncu, dolu = bot (NetMulticast RPC ile set ediliyor)
+                    // IsBot offset - bool (1 byte)
                     bool isBot = false;
-                    uintptr_t fakeAIC = memoryTools.readPtr(objectAddr + 0x4968);
-                    isBot = (fakeAIC > 0x100000000 && fakeAIC < 0x2000000000);
-                    // Fallback: bIsAI(0xa40) + bIsMLAI(0xa41) - AUAECharacter
-                    if (!isBot) {
-                        uint8_t bIsAI = 0, bIsMLAI = 0;
-                        memoryTools.readMemory(objectAddr + 0xa40, 1, &bIsAI);
-                        memoryTools.readMemory(objectAddr + 0xa41, 1, &bIsMLAI);
-                        isBot = (bIsAI & 0x01) || (bIsMLAI & 0x01);
-                    }
-                    // Fallback2: STExtraPlayerState::MLAIDisplayUID(0x6d0)
-                    // 0x23b0 = ASTExtraBaseCharacter::STExtraPlayerState (direkt cast)
-                    if (!isBot) {
-                        uintptr_t stPS = memoryTools.readPtr(objectAddr + 0x23b0);
-                        if (stPS > 0x100000000 && stPS < 0x2000000000) {
-                            uint64_t uid = 0;
-                            memoryTools.readMemory(stPS + 0x6d0, 8, &uid);
-                            isBot = (uid != 0);
-                        }
-                    }
+                    memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::RobotOffset, 1, &isBot);
                     tmpPlayerData.robot = isBot ? 1 : 0;
 
 
@@ -515,8 +494,7 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 
                 
                 //取对手手持武器
-                uintptr_t weaponMgr1 = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::WeaponManagerComponentOffset);
-                uintptr_t weaponAddr = memoryTools.readPtr(weaponMgr1 + PubgOffset::ObjectParam::WeaponOneOffset);
+                uintptr_t weaponAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::WeaponOneOffset);
                 if (weaponAddr == 0) {
                     playerData.weaponName = "FIST";
                 } else {
@@ -540,7 +518,7 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 
                 uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
                 uintptr_t humanAddr = meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset;
-                uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset);
+                uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset) + 48;
                 //判断是否需要骨骼掩体判断
                 BonesData bonesData;
                 if (getBone2d(pov, screenSize,humanAddr, boneAddr, 5, bonesData.head))//头
@@ -656,8 +634,7 @@ void *silenceAimbot(void *) {
         usleep(16666);
         if (moduleControl.systemStatus == TransmissionNormal && moduleControl.mainSwitch.aimbotStatus/* && softWareData.loginStatus*/) {
             //武器指针
-            uintptr_t weaponMgr2 = memoryTools.readPtr(staticData.selfAddr + PubgOffset::ObjectParam::WeaponManagerComponentOffset);
-            uintptr_t weaponAddr = memoryTools.readPtr(weaponMgr2 + PubgOffset::ObjectParam::WeaponOneOffset);
+            uintptr_t weaponAddr = memoryTools.readPtr(staticData.selfAddr + PubgOffset::ObjectParam::WeaponOneOffset);
             //自瞄开关
             bool enabledAimbot = false;
             //判断自瞄启动模式
@@ -739,25 +716,43 @@ PlayerData playerData;
                         //骨骼mesh
                         uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
                         uintptr_t humanAddr = meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset;
-                        uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset);
+                        uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset) + 48;
                         //取自瞄部位 0是优先头部,1是优先身体,3是[全自动武器打身体,单发连发打头],4是只打头,5是只打身体
                         switch (moduleControl.aimbotController.aimbotParts) {
                             case 0: {
-                                // Priority head - direkt head bone (5)
-                                aimbotCoord = getBone(humanAddr, boneAddr, 5);
-                                if (aimbotCoord.x != 0 || aimbotCoord.y != 0 || aimbotCoord.z != 0) {
-                                    aimbotPlayerData = staticPlayerData;
-                                    aimbotRadius = screenDistance;
+                                //判断骨点是否可见
+                                int boneIds[] = {5, 3, 1, 11, 12, 32, 33, 52, 53, 54, 56, 57, 58, 62, 63};
+                                for (int boneId = 0; boneId < end(boneIds) - begin(boneIds); ++boneId) {
+                                    //取骨点
+                                    aimbotCoord = getBone(humanAddr, boneAddr, boneIds[boneId]);
+                                    //是否可见,可见则赋值给上面的变量
+                                    if (isCoordVisibility(aimbotCoord)) {
+                                        //自瞄对象数据
+                                        aimbotPlayerData = staticPlayerData;
+                                        //当前对象所在的屏幕范围
+                                        aimbotRadius = screenDistance;
+                                        //跳出循环
+                                        break;
+                                    } else {
+                                        //对象坐标置0
+                                        aimbotCoord = {0, 0, 0};
+                                    }
                                 }
                             }
                                 //跳出switch
                                 break;
                             case 1: {
-                                // Priority body - chest bone (4)
-                                aimbotCoord = getBone(humanAddr, boneAddr, 4);
-                                if (aimbotCoord.x != 0 || aimbotCoord.y != 0 || aimbotCoord.z != 0) {
-                                    aimbotPlayerData = staticPlayerData;
-                                    aimbotRadius = screenDistance;
+                                int boneIds[] = {11, 3, 5, 1, 11, 32, 12, 33, 63, 62, 52, 56, 53, 57, 54, 58};
+                                for (int boneId = 0; boneId < end(boneIds) - begin(boneIds); ++boneId) {
+                                    //取骨点
+                                    aimbotCoord = getBone(humanAddr, boneAddr, boneIds[boneId]);
+                                    if (isCoordVisibility(aimbotCoord)) {
+                                        aimbotPlayerData = staticPlayerData;
+                                        aimbotRadius = screenDistance;
+                                        break;
+                                    } else {
+                                        aimbotCoord = {0, 0, 0};
+                                    }
                                 }
                             }
                                 break;
@@ -792,19 +787,26 @@ PlayerData playerData;
                             }
                                 break;
                             case 3: {
-                                // Fixed head - bone 5
+                                //取骨点
                                 aimbotCoord = getBone(humanAddr, boneAddr, 5);
-                                if (aimbotCoord.x != 0 || aimbotCoord.y != 0 || aimbotCoord.z != 0) {
+                                if (isCoordVisibility(aimbotCoord)) {
                                     aimbotPlayerData = staticPlayerData;
                                     aimbotRadius = screenDistance;
+                                    break;
+                                } else {
+                                    aimbotCoord = {0, 0, 0};
                                 }
                             }
                                 break;
                             case 4: {
+                                //坐标
                                 aimbotCoord = getBone(humanAddr, boneAddr, 3);
-                                if (aimbotCoord.x != 0 || aimbotCoord.y != 0 || aimbotCoord.z != 0) {
+                                if (isCoordVisibility(aimbotCoord)) {
                                     aimbotPlayerData = staticPlayerData;
                                     aimbotRadius = screenDistance;
+                                    break;
+                                } else {
+                                    aimbotCoord = {0, 0, 0};
                                 }
                             }
                                 break;
