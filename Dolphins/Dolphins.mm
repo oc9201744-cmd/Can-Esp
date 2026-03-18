@@ -57,7 +57,7 @@ MemoryTools memoryTools;
 //OffsetSet currentOffsetSet = GL;
 
 OffsetValues offsets[] = {
-    { 0x1027D7C50, 0x1092B4738, 0x1042EEF58, 0x108F049B0 },  // GL
+    { 0x102a62208, 0x10a566e00, 0x102a62208, 0x10a1178b0 },  // GL
     { 0x10273B9FC, 0x1091A67B8, 0x104252D04, 0x108DF6A30 },  // VNG
     { 0x102953B7C, 0x109456EB8, 0x10446AE84, 0x1090A6EE0 },  // KR
     { 0x10296F9BC, 0x10948C638, 0x104486CC4, 0x1090DC630 }   // TW
