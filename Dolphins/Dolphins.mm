@@ -30,9 +30,10 @@
 
 //#include "Dolphins/utils/module_tools.h"
 
-//#include "dobby.h"
 
 #include "Dolphins/utils/log.h"
+
+#include "dobby.h"
 
 
 
