@@ -37,7 +37,21 @@ ModuleControl moduleControl;
 //内存读写
 MemoryTools memoryTools;
 
-// DYLIB FIX: Thread synchronization mutexes
+// ============================================
+// FORWARD DECLARATIONS (for isBotPlayer)
+// ============================================
+
+char *getClassName(int classId);
+char *getPlayerName(uintptr_t addr);
+bool isCoordVisibility(ImVec3 coord);
+bool isOnSmoke(ImVec3 coord);
+ImVec3 getBone(uintptr_t human, uintptr_t bones, int part);
+bool getBone2d(MinimalViewInfo pov, ImVec2 screen, uintptr_t human, uintptr_t bones, int part, ImVec2 &buf);
+
+// ============================================
+// DYLIB: Thread synchronization mutexes
+// ============================================
+
 pthread_mutex_t aimbot_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t data_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -804,4 +818,95 @@ void *silenceAimbot(void *) {
         pthread_mutex_unlock(&aimbot_mutex);
     }
     return nullptr;
+}
+
+//isVisiblePoint
+bool isCoordVisibility(ImVec3 coord) {
+    if (!isfinite(coord.x) || !isfinite(coord.y) || !isfinite(coord.z)) {
+        return false;
+    }
+    // LineOfSightTo null ise görünür say
+    if (LineOfSightTo == nullptr) {
+        return true;
+    }
+    if (strstr(staticData.cameraManagerClassName.c_str(), "PlayerCameraManager") != 0 && strstr(staticData.playerControllerClassName.c_str(), "PlayerController") != 0) {
+        return LineOfSightTo(reinterpret_cast<void *>(staticData.playerController), reinterpret_cast<void *>(staticData.cameraManager), coord, false);
+    }
+    return true;
+}
+
+bool isOnSmoke(ImVec3 coord) {
+    for (StaticMaterialData smoke: staticData.smokeList) {
+        //坐标
+        ImVec3 smokeCoord;
+        memoryTools.readMemory(smoke.coordAddr + PubgOffset::ObjectParam::CoordParam::CoordOffset, 30, &smokeCoord);
+        if (get3dDistance(smokeCoord, coord, 100) < 4) {
+            return true;
+        }
+    }
+    return false;
+}
+
+//获取玩家名字
+char *getPlayerName(uintptr_t addr) {
+    char *buf = (char *) malloc(448);
+    unsigned short buf16[16] = {0};
+    memoryTools.readMemory(addr, 28, buf16);
+    unsigned short *tempbuf16 = buf16;
+    char *tempbuf8 = buf;
+    char *buf8 = tempbuf8 + 32;
+    while (tempbuf16 < tempbuf16 + 28) {
+        if (*tempbuf16 <= 0x007F && tempbuf8 + 1 < buf8) {
+            *tempbuf8++ = (char) *tempbuf16;
+        } else if (*tempbuf16 >= 0x0080 && *tempbuf16 <= 0x07FF && tempbuf8 + 2 < buf8) {
+            *tempbuf8++ = (*tempbuf16 >> 6) | 0xC0;
+            *tempbuf8++ = (*tempbuf16 & 0x3F) | 0x80;
+        } else if (*tempbuf16 >= 0x0800 && *tempbuf16 <= 0xFFFF && tempbuf8 + 3 < buf8) {
+            *tempbuf8++ = (*tempbuf16 >> 12) | 0xE0;
+            *tempbuf8++ = ((*tempbuf16 >> 6) & 0x3F) | 0x80;
+            *tempbuf8++ = (*tempbuf16 & 0x3F) | 0x80;
+        } else {
+            break;
+        }
+        tempbuf16++;
+    }
+    return buf;
+}
+
+//获取类名
+char *getClassName(int classId) {
+    char *buf = (char *) malloc(64);
+    if (classId > 0 && classId < 2000000) {
+        int page = classId / 16384;
+        int index = classId % 16384;
+        uintptr_t pageAddr = memoryTools.readPtr(staticData.gnameAddr + page * sizeof(uintptr_t));
+        uintptr_t nameAddr = memoryTools.readPtr(pageAddr + index * sizeof(uintptr_t)) + PubgOffset::ObjectParam::ClassNameOffset;
+        memoryTools.readMemory(nameAddr, 64, buf);
+    }
+    return buf;
+}
+
+//取骨骼3d坐标
+ImVec3 getBone(uintptr_t human, uintptr_t bones, int part) {
+    Ue4Transform actorftf;
+    memoryTools.readMemory(human, sizeof(ImVec4), &actorftf.rotation);
+    memoryTools.readMemory(human + 0x10, sizeof(ImVec3), &actorftf.translation);
+    memoryTools.readMemory(human + 0x20, sizeof(ImVec3), &actorftf.scale3d);
+    Ue4Matrix actormatrix = transformToMatrix(actorftf);
+    Ue4Transform boneftf;
+    memoryTools.readMemory(bones + part * 48, sizeof(ImVec4), &boneftf.rotation);
+    memoryTools.readMemory(bones + part * 48 + 0x10, sizeof(ImVec3), &boneftf.translation);
+    memoryTools.readMemory(bones + part * 48 + 0x20, sizeof(ImVec3), &boneftf.scale3d);
+    Ue4Matrix bonematrix = transformToMatrix(boneftf);
+    return matrixToVector(matrixMulti(bonematrix, actormatrix));
+}
+
+//骨骼3d转换屏幕
+bool getBone2d(MinimalViewInfo pov,ImVec2 screen, uintptr_t human, uintptr_t bones, int part,ImVec2 &buf) {
+    //取世界坐标
+    ImVec3 newmatrix = getBone(human, bones, part);
+    //转屏幕坐标
+    buf = worldToScreen(newmatrix, pov, screen);
+    //范围
+    return buf.x != 0 && buf.y != 0;
 }
