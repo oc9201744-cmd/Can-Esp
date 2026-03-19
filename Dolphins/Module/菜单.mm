@@ -15,8 +15,9 @@
 #import <UIKit/UIKit.h>
 #import <mach-o/dyld.h>
 #include <stdint.h>
-#import <substrate.h>
 #import <sys/sysctl.h>
+
+#import <substrate.h>
 
 @implementation mi
 
@@ -728,161 +729,40 @@ ImGui::Spacing();
 
 
 // ----------------------------------
-//          IDA OFFSETS
+// HOOK INFRASTRUCTURE (No bypass addresses)
 // ----------------------------------
-#define TARGET_OFFSET       0x1A278          // AnoSDK
-#define ACEWORKER_OFFSET    0x88610          // AceWorker offset
-
 static int (*orig_AnoSDKOnRecvData)();
 static int (*orig_AceWorker)();
 
-
-// 
-//        HOOK
-// 
 int hook_AnoSDKOnRecvData() {
+    if (orig_AnoSDKOnRecvData) {
+        return orig_AnoSDKOnRecvData();
+    }
     return 1;
 }
 
 int hook_AceWorker() {
-    return 1;   // AceWorker
-}
-
-
-// ----------------------------------
-//        STAGE TOAST
-// ----------------------------------
-void showStageToast() {
-    dispatch_async(dispatch_get_main_queue(), ^{
-
-        UIWindow *window = [UIApplication sharedApplication].windows.firstObject;
-        if (!window) return;
-
-        CGFloat width = window.frame.size.width;
-        CGFloat height = window.frame.size.height;
-        CGFloat toastWidth = width - 80;
-        CGFloat toastHeight = 50;
-        CGFloat safeBottom = window.safeAreaInsets.bottom;
-
-        UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(
-            40,
-            height - toastHeight - 40 - safeBottom,
-            toastWidth,
-            toastHeight
-        )];
-
-        label.textAlignment = NSTextAlignmentCenter;
-        label.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.85];
-        label.textColor = [UIColor greenColor];
-        label.layer.cornerRadius = 12;
-        label.clipsToBounds = YES;
-        label.font = [UIFont boldSystemFontOfSize:16];
-        label.alpha = 0;
-
-        [window addSubview:label];
-
-        [UIView animateWithDuration:0.4 animations:^{
-            label.alpha = 1;
-        }];
-
-        label.text = @"Anti-cheat ...";
-
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,1*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-            label.text = @"Stage 1 ...";
-        });
-
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,2*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-            label.text = @"Stage 2 ...";
-        });
-
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,3*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-            label.text = @"Stage 3 ...";
-        });
-
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,4*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-            label.textColor = [UIColor systemGreenColor];
-            label.text = @"Completed ✓";
-        });
-
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,6*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-            [UIView animateWithDuration:0.5 animations:^{
-                label.alpha = 0;
-            } completion:^(BOOL finished) {
-                [label removeFromSuperview];
-            }];
-        });
-    });
-}
-
-
-// ----------------------------------
-
-// ----------------------------------
-void perform_offset_hook() {
-
-    uintptr_t base = (uintptr_t)_dyld_get_image_header(0);
-
-    uintptr_t ano_addr  = base + TARGET_OFFSET;
-    uintptr_t ace_addr  = base + ACEWORKER_OFFSET;
-
-    if (ano_addr > 0x1000 && ace_addr > 0x1000) {
-
-
-        MSHookFunction((void *)ano_addr,
-                       (void *)hook_AnoSDKOnRecvData,
-                       (void **)&orig_AnoSDKOnRecvData);
-
-        // 2) AceWorker Hook 
-        MSHookFunction((void *)ace_addr,
-                       (void *)hook_AceWorker,
-                       (void **)&orig_AceWorker);
-
-        // 
-        showStageToast();
-
-    } else {
-
-        dispatch_async(dispatch_get_main_queue(), ^{
-            UIWindow *window = [UIApplication sharedApplication].windows.firstObject;
-            if (!window) return;
-
-            UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(
-                40,
-                window.frame.size.height-120,
-                window.frame.size.width-80,
-                45
-            )];
-
-            label.text = @"Error: Base address not found!";
-            label.textAlignment = NSTextAlignmentCenter;
-            label.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.85];
-            label.textColor = [UIColor redColor];
-            label.layer.cornerRadius = 12;
-            label.clipsToBounds = YES;
-            label.font = [UIFont boldSystemFontOfSize:16];
-
-            [window addSubview:label];
-
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW,3*NSEC_PER_SEC),
-                           dispatch_get_main_queue(), ^{
-                [label removeFromSuperview];
-            });
-        });
+    if (orig_AceWorker) {
+        return orig_AceWorker();
     }
+    return 1;
 }
 
+// Hook execution (without hardcoded offsets)
+void perform_offset_hook() {
+    // Addresses removed - manual hooking required
+    // Users must provide bypass addresses if needed
+}
 
-// 
-
-// 
 __attribute__((constructor))
 static void init_hook() {
-
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,5*NSEC_PER_SEC),
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5*NSEC_PER_SEC),
                    dispatch_get_main_queue(), ^{
-        perform_offset_hook();
+        // Hook initialization - disabled
+        // perform_offset_hook();
     });
 }
+
 
 
 
