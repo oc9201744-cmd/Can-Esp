@@ -17,8 +17,6 @@
 #include <stdint.h>
 #import <sys/sysctl.h>
 
-#import <substrate.h>
-
 @implementation mi
 
 INI* config;
@@ -728,43 +726,6 @@ ImGui::Spacing();
 
 
 
-// ----------------------------------
-// HOOK INFRASTRUCTURE (No bypass addresses)
-// ----------------------------------
-static int (*orig_AnoSDKOnRecvData)();
-static int (*orig_AceWorker)();
 
-int hook_AnoSDKOnRecvData() {
-    if (orig_AnoSDKOnRecvData) {
-        return orig_AnoSDKOnRecvData();
-    }
-    return 1;
-}
-
-int hook_AceWorker() {
-    if (orig_AceWorker) {
-        return orig_AceWorker();
-    }
-    return 1;
-}
-
-// Hook execution (without hardcoded offsets)
-void perform_offset_hook() {
-    // Addresses removed - manual hooking required
-    // Users must provide bypass addresses if needed
-}
-
-__attribute__((constructor))
-static void init_hook() {
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5*NSEC_PER_SEC),
-                   dispatch_get_main_queue(), ^{
-        // Hook initialization - disabled
-        // perform_offset_hook();
-    });
-}
-
-
-
-
-
+@end
 @end
