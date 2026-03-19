@@ -170,7 +170,7 @@ id<MTLTexture> thuoTexture;
     
     imDrawList = ImGui::GetWindowDrawList();
     
-    //拉取一帧的数 - Get frame data (imDrawList obtained inside readFrameData)
+    //拉取一帧的数
     readFrameData(ImVec2(screenSize.width / 2,screenSize.height / 2),playerDataList, materialDataList);
     for (MaterialData materialData:materialDataList) {
             //判断是否在屏幕内
