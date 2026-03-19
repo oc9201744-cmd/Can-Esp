@@ -177,10 +177,9 @@ void *readStaticData(void *) {
                     tmpPlayerData.team = team;
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
-                    //人机 - FakePlayerAIController pointer ile tespit (en güvenilir yöntem)
+                    //人机 - FakePlayerAIController pointer ile tespit
                     uintptr_t fakeAICtrl = memoryTools.readPtr(objectAddr + 0x4968);
-                    bool isAI = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::RobotOffset) == 1;
-                    tmpPlayerData.robot = (fakeAICtrl != 0 || isBot || isAI) ? 1 : 0;
+                    tmpPlayerData.robot = (fakeAICtrl != 0) ? 1 : 0;
                     tmpPlayerData.status = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::StatusOffset);
                     tmpPlayerDataList.push_back(tmpPlayerData);
                 } else if (strstr(className.c_str(), "ProjSmoke_BP_C)") != 0) {
@@ -438,18 +437,12 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 playerData.size.x = (playerData.screen.y - width.y) / 2;
                 playerData.size.y = playerData.screen.y - height.y;
                 uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
-                if (!meshAddr) {
-                    playerDataList.push_back(playerData);
-                    continue;
-                }
-                // human: mesh world transform (direkt offset, readPtr değil)
-                uintptr_t humanAddr = meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset;
-                // bones: CachedBoneSpaceTransforms TArray data pointer (0xC30)
+                if (!meshAddr) { playerDataList.push_back(playerData); continue; }
+                // CachedComponentSpaceTransforms TArray data pointer
+                uintptr_t humanAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset);
+                // CachedBoneSpaceTransforms TArray data pointer
                 uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset);
-                if (!boneAddr) {
-                    playerDataList.push_back(playerData);
-                    continue;
-                }
+                if (!humanAddr || !boneAddr) { playerDataList.push_back(playerData); continue; }
                 //判断是否需要骨骼掩体判断
                 BonesData bonesData;
                 getBone2d(pov, screenSize, humanAddr, boneAddr, 5, bonesData.head);    //头
@@ -626,9 +619,9 @@ void *silenceAimbot(void *) {
                     if ((screenDistance = get2dDistance(screenCenter, playerScreen)) < aimbotRadius) {
                         //骨骼mesh
                         uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
-                        uintptr_t humanAddr = meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset;
+                        uintptr_t humanAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset);
                         uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset);
-                        if (!meshAddr || !boneAddr) continue;
+                        if (!meshAddr || !humanAddr || !boneAddr) continue;
                         //取自瞄部位 0是优先头部,1是优先身体,3是[全自动武器打身体,单发连发打头],4是只打头,5是只打身体
                         switch (moduleControl.aimbotController.aimbotParts) {
                             case 0: {
