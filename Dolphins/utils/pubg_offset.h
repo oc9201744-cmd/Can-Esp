@@ -75,7 +75,7 @@ namespace MeshParam {
 // CachedComponentSpaceTransforms (absolute)
 int HumanOffset = 0xC40;
 // USkinnedMeshComponent::CachedBoneSpaceTransforms
-int BonesOffset = 0x988;
+int BonesOffset = 0xC30;
 }
 
 // ASTExtraBaseCharacter::bIsWeaponFiring
