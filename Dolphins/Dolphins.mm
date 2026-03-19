@@ -30,10 +30,9 @@
 
 //#include "Dolphins/utils/module_tools.h"
 
+//#include "dobby.h"
 
 #include "Dolphins/utils/log.h"
-
-//#include "dobby.h"
 
 
 
@@ -58,10 +57,10 @@ MemoryTools memoryTools;
 //OffsetSet currentOffsetSet = GL;
 
 OffsetValues offsets[] = {
-    { 0x102A62208, 0x10A566E00, 0x104bd8740, 0x10a1178b0, 0x10A34E980 },  // Güncellenmiş
-    { 0x102A62208, 0x10A566E00, 0x104bd8740, 0x10a1178b0, 0x10A34E980 },  // Güncellenmiş
-    { 0x102A62208, 0x10A566E00, 0x104bd8740, 0x10a1178b0, 0x10A34E980 },  // Güncellenmiş
-    { 0x102A62208, 0x10A566E00, 0x104bd8740, 0x10a1178b0, 0x10A34E980 }   // Güncellenmiş
+    { 0x102A5125C, 0x10A4A1960, 0x104C0F1E8, 0x10A0557E0 },  // GL
+    { 0x1028791CC, 0x10A171A00, 0x104510EF0, 0x109AAA1A0 },  // VNG
+    { 0x102AD71F8, 0x10A47D400, 0x10476F14C, 0x109DB5940 },  // KR
+    { 0x102AAAB0C, 0x10A453300, 0x104742830, 0x109D8B830 }   // TW
 };
 
 
