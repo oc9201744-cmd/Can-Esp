@@ -714,8 +714,8 @@ void *silenceAimbot(void *) {
                                 //判断骨点是否可见
                                 int boneIds[] = {9, 7, 0, 10, 11, 12, 14, 15, 16, 4, 5, 6, 8, 22, 23}; // DYLIB bone IDs
                                 for (int boneId = 0; boneId < end(boneIds) - begin(boneIds); ++boneId) {
-                                    //取骨点 - DYLIB: Use new function
-                                    aimbotCoord = getBoneWorldPosition(humanAddr, boneAddr, boneIds[boneId]);
+                                    //取骨点 - Use getBone (original working function)
+                                    aimbotCoord = getBone(humanAddr, boneAddr, boneIds[boneId]);
                                     //是否可见,可见则赋值给上面的变量
                                     if (isCoordVisibility(aimbotCoord)) {
                                         //自瞄对象数据
@@ -736,7 +736,7 @@ void *silenceAimbot(void *) {
                                 int boneIds[] = {11, 7, 9, 0, 10, 12, 14, 15, 16, 4, 5, 6, 8, 22, 23};
                                 for (int boneId = 0; boneId < end(boneIds) - begin(boneIds); ++boneId) {
                                     //取骨点
-                                    aimbotCoord = getBoneWorldPosition(humanAddr, boneAddr, boneIds[boneId]);
+                                    aimbotCoord = getBone(humanAddr, boneAddr, boneIds[boneId]);
                                     if (isCoordVisibility(aimbotCoord)) {
                                         aimbotPlayerData = staticPlayerData;
                                         aimbotRadius = screenDistance;
@@ -748,7 +748,7 @@ void *silenceAimbot(void *) {
                             case 2: {
                                 int boneIds[] = {9};
                                 for (int boneId = 0; boneId < end(boneIds) - begin(boneIds); ++boneId) {
-                                    aimbotCoord = getBoneWorldPosition(humanAddr, boneAddr, boneIds[boneId]);
+                                    aimbotCoord = getBone(humanAddr, boneAddr, boneIds[boneId]);
                                     if (isCoordVisibility(aimbotCoord)) {
                                         aimbotPlayerData = staticPlayerData;
                                         aimbotRadius = screenDistance;
@@ -759,7 +759,7 @@ void *silenceAimbot(void *) {
                                 break;
                             case 3: {
                                 //坐标
-                                aimbotCoord = getBoneWorldPosition(humanAddr, boneAddr, 9); // Head
+                                aimbotCoord = getBone(humanAddr, boneAddr, 9); // Head
                                 if (isCoordVisibility(aimbotCoord)) {
                                     aimbotPlayerData = staticPlayerData;
                                     aimbotRadius = screenDistance;
