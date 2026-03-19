@@ -146,7 +146,7 @@ bool isBotPlayer(uintptr_t playerAddr) {
     
     for (int i = 0; i < 7; i++) {
         if (strstr(className.c_str(), botClasses[i]) != 0) {
-            LOGI("BOT DETECTED (ClassMethod): %s", className.c_str());
+            // DYLIB: Bot detected via class name
             return true;
         }
     }
@@ -160,7 +160,7 @@ bool isBotPlayer(uintptr_t playerAddr) {
             string ctrlName = getClassName(ctrlClass);
             
             if (strstr(ctrlName.c_str(), "AIController") != 0) {
-                LOGI("BOT DETECTED (ControllerMethod): %s", ctrlName.c_str());
+                // DYLIB: Bot detected via AI controller
                 return true;
             }
         }
@@ -169,7 +169,7 @@ bool isBotPlayer(uintptr_t playerAddr) {
     // Method 3: Robot offset check (bIsAI)
     int isRobot = memoryTools.readInt(playerAddr + PubgOffset::ObjectParam::RobotOffset);
     if (isRobot == 1) {
-        LOGI("BOT DETECTED (RobotOffset)");
+        // DYLIB: Bot detected via robot offset
         return true;
     }
     
@@ -213,7 +213,7 @@ ImVec3 getBoneWorldPosition(uintptr_t meshAddr, uintptr_t skeletonCacheAddr, int
 
 void performAimInput(ImVec3 targetBone) {
     if (!AddControllerPitchInput || !AddControllerYawInput) {
-        LOGE("AddController functions not initialized!");
+        // AddController functions not initialized
         return;
     }
     
@@ -256,11 +256,9 @@ void performAimInput(ImVec3 targetBone) {
     // Apply smoothing (50%)
     float smoothness = 0.5f;
     
-    // Send controller input
-    AddControllerYawInput(staticData.playerController, yaw * sensitivity * smoothness);
-    AddControllerPitchInput(staticData.playerController, pitch * sensitivity * smoothness);
-    
-    LOGI("Aimbot: P=%.1f Y=%.1f S=%.2f", pitch, yaw, sensitivity);
+    // Send controller input - CAST to void*
+    AddControllerYawInput((void *)(staticData.playerController), yaw * sensitivity * smoothness);
+    AddControllerPitchInput((void *)(staticData.playerController), pitch * sensitivity * smoothness);
 }
 
 // ============================================
@@ -278,10 +276,14 @@ void drawPlayerSkeleton(ImDrawList* drawList, const StaticPlayerData& player, Im
     uintptr_t skeleton = memoryTools.readPtr(mesh + 0xC40);
     if (skeleton == 0) return;
     
-    // World to screen lambda
-    auto w2s = [](ImVec3 worldPos) -> ImVec2 {
-        ImVec3 screenPos = projectWorldToScreen(worldPos);
-        return ImVec2(screenPos.x, screenPos.y);
+    // Get camera POV for world to screen conversion
+    MinimalViewInfo pov;
+    memoryTools.readMemory(staticData.cameraManager + PubgOffset::PlayerControllerParam::CameraManagerParam::PovOffset, sizeof(pov), &pov);
+    ImVec2 screenSize = ImVec2(screenWidth, screenHeight);
+    
+    // World to screen lambda - using original worldToScreen function
+    auto w2s = [&](ImVec3 worldPos) -> ImVec2 {
+        return worldToScreen(worldPos, pov, screenSize);
     };
     
     ImU32 col = ImGui::GetColorU32(color);
