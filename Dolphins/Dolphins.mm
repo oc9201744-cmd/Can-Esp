@@ -230,8 +230,8 @@ void *readStaticData(void *) {
     }
     return nullptr;
 }
-//获取帧数据
-void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<MaterialData> &materialDataList) {
+// 获取帧数据
+void readFrameData(ImVec2 screenSize, vector<PlayerData> &playerDataList, vector<MaterialData> &materialDataList, ImDrawList* drawList = nullptr) {
     playerDataList.clear();
     materialDataList.clear();
     if (moduleControl.systemStatus == TransmissionNormal) {
@@ -461,6 +461,14 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                                                                         if (getBone2d(pov, screenSize, humanAddr, boneAddr, 58, bonesData.rankle))
                                                                             playerData.bonesData = bonesData;
                 playerDataList.push_back(playerData);
+                
+                // SKELETON DRAWING - draw at frame data time
+                if (drawList != nullptr && moduleControl.playerSwitch.skeletonStatus) {
+                    ImVec4 skeletonColor = staticPlayerData.robot ? 
+                        ImVec4(1, 1, 0, 1) :              // Yellow = Bot
+                        ImVec4(0, 1, 0, 1);               // Green = Real Player
+                    drawPlayerSkeleton(drawList, staticPlayerData, skeletonColor);
+                }
             }
         }
         if (moduleControl.mainSwitch.materialStatus) {
@@ -982,7 +990,13 @@ bool getBone2d(MinimalViewInfo pov,ImVec2 screen, uintptr_t human, uintptr_t bon
 bool isBotPlayer(uintptr_t playerAddr) {
     if (playerAddr == 0) return false;
     
-    // Method 1: Class name check
+    // Method 1: Original offset 0x4968 - FakePlayerAIController pointer
+    uintptr_t fakeAICtrl = memoryTools.readPtr(playerAddr + 0x4968);
+    if (fakeAICtrl != 0) {
+        return true;
+    }
+    
+    // Method 2: Class name check
     int classId = memoryTools.readInt(playerAddr + PubgOffset::ObjectParam::ClassIdOffset);
     string className = getClassName(classId);
     
@@ -1000,26 +1014,6 @@ bool isBotPlayer(uintptr_t playerAddr) {
         if (strstr(className.c_str(), botClasses[i]) != 0) {
             return true;
         }
-    }
-    
-    // Method 2: AI Controller check
-    uintptr_t playerState = memoryTools.readPtr(playerAddr + 0x400);
-    if (playerState != 0) {
-        uintptr_t controller = memoryTools.readPtr(playerState + 0x28);
-        if (controller != 0) {
-            int ctrlClass = memoryTools.readInt(controller);
-            string ctrlName = getClassName(ctrlClass);
-            
-            if (strstr(ctrlName.c_str(), "AIController") != 0) {
-                return true;
-            }
-        }
-    }
-    
-    // Method 3: Robot offset check
-    int isRobot = memoryTools.readInt(playerAddr + PubgOffset::ObjectParam::RobotOffset);
-    if (isRobot == 1) {
-        return true;
     }
     
     return false;
