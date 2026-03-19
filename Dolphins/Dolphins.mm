@@ -194,33 +194,6 @@ bool isBotPlayer(uintptr_t playerAddr) {
 // DYLIB FIX #3: BONE POSITION READING
 // ============================================
 
-ImVec3 getBoneWorldPosition(uintptr_t meshAddr, uintptr_t skeletonCacheAddr, int boneIndex) {
-    if (meshAddr == 0 || skeletonCacheAddr == 0) {
-        return ImVec3(0, 0, 0);
-    }
-    
-    // DYLIB: Each bone is FTransform (0x30 bytes)
-    // Bone array: skeleton_cache + (boneIndex * 0x30)
-    uintptr_t boneTransformAddr = memoryTools.readPtr(
-        skeletonCacheAddr + (boneIndex * 0x30)
-    );
-    
-    if (boneTransformAddr < 0x100000) {
-        return ImVec3(0, 0, 0);
-    }
-    
-    // DYLIB: FVector at offset +0x00 (X), +0x04 (Y), +0x08 (Z)
-    float x = memoryTools.readFloat(boneTransformAddr + 0x00);
-    float y = memoryTools.readFloat(boneTransformAddr + 0x04);
-    float z = memoryTools.readFloat(boneTransformAddr + 0x08);
-    
-    if (isnan(x) || isnan(y) || isnan(z)) {
-        return ImVec3(0, 0, 0);
-    }
-    
-    return ImVec3(x, y, z);
-}
-
 // ============================================
 // DYLIB FIX #1: AIMBOT INPUT FUNCTION
 // ============================================
@@ -286,9 +259,13 @@ void drawPlayerSkeleton(ImDrawList* drawList, const StaticPlayerData& player, Im
     uintptr_t mesh = memoryTools.readPtr(player.addr + PubgOffset::ObjectParam::MeshOffset);
     if (mesh == 0) return;
     
-    // DYLIB: Get skeleton cache (HumanBoneOffset = 0xC40)
-    uintptr_t skeleton = memoryTools.readPtr(mesh + 0xC40);
-    if (skeleton == 0) return;
+    // DYLIB: Get skeleton cache (HumanOffset = 0xC40)
+    uintptr_t humanAddr = memoryTools.readPtr(mesh + 0xC40);
+    
+    // DYLIB: Get bones array (BonesOffset = 0x988) 
+    uintptr_t boneAddr = memoryTools.readPtr(mesh + 0x988);
+    
+    if (humanAddr == 0 || boneAddr == 0) return;
     
     // Get camera POV for world to screen conversion
     MinimalViewInfo pov;
@@ -303,61 +280,62 @@ void drawPlayerSkeleton(ImDrawList* drawList, const StaticPlayerData& player, Im
     ImU32 col = ImGui::GetColorU32(color);
     float thickness = 2.0f;
     
-    // DYLIB: Bone IDs (from dylib)
+    // DYLIB: Bone IDs - Use getBone() instead of getBoneWorldPosition()
+    // getBone() = original function from Dolphins.mm that works correctly
     ImVec3 bones[15];
-    bones[0] = getBoneWorldPosition(mesh, skeleton, 9);    // Head
-    bones[1] = getBoneWorldPosition(mesh, skeleton, 7);    // Spine
-    bones[2] = getBoneWorldPosition(mesh, skeleton, 0);    // Pelvis
-    bones[3] = getBoneWorldPosition(mesh, skeleton, 10);   // LShoulder
-    bones[4] = getBoneWorldPosition(mesh, skeleton, 14);   // RShoulder
-    bones[5] = getBoneWorldPosition(mesh, skeleton, 11);   // LElbow
-    bones[6] = getBoneWorldPosition(mesh, skeleton, 15);   // RElbow
-    bones[7] = getBoneWorldPosition(mesh, skeleton, 12);   // LWrist
-    bones[8] = getBoneWorldPosition(mesh, skeleton, 16);   // RWrist
-    bones[9] = getBoneWorldPosition(mesh, skeleton, 4);    // LHip
-    bones[10] = getBoneWorldPosition(mesh, skeleton, 8);   // RHip
-    bones[11] = getBoneWorldPosition(mesh, skeleton, 5);   // LKnee
-    bones[12] = getBoneWorldPosition(mesh, skeleton, 22);  // RKnee
-    bones[13] = getBoneWorldPosition(mesh, skeleton, 6);   // LAnkle
-    bones[14] = getBoneWorldPosition(mesh, skeleton, 23);  // RAnkle
+    bones[0] = getBone(humanAddr, boneAddr, 3);    // Head
+    bones[1] = getBone(humanAddr, boneAddr, 7);    // Spine
+    bones[2] = getBone(humanAddr, boneAddr, 0);    // Pelvis
+    bones[3] = getBone(humanAddr, boneAddr, 10);   // LShoulder
+    bones[4] = getBone(humanAddr, boneAddr, 14);   // RShoulder
+    bones[5] = getBone(humanAddr, boneAddr, 11);   // LElbow
+    bones[6] = getBone(humanAddr, boneAddr, 15);   // RElbow
+    bones[7] = getBone(humanAddr, boneAddr, 12);   // LWrist
+    bones[8] = getBone(humanAddr, boneAddr, 16);   // RWrist
+    bones[9] = getBone(humanAddr, boneAddr, 4);    // LHip
+    bones[10] = getBone(humanAddr, boneAddr, 8);   // RHip
+    bones[11] = getBone(humanAddr, boneAddr, 5);   // LKnee
+    bones[12] = getBone(humanAddr, boneAddr, 22);  // RKnee
+    bones[13] = getBone(humanAddr, boneAddr, 6);   // LAnkle
+    bones[14] = getBone(humanAddr, boneAddr, 23);  // RAnkle
     
     // Draw skeleton connections
-    drawList->AddLine(w2s(bones[0]), w2s(bones[1]), col, thickness);   // Head-Spine
-    drawList->AddLine(w2s(bones[1]), w2s(bones[2]), col, thickness);   // Spine-Pelvis
+    if (bones[0].x != 0) drawList->AddLine(w2s(bones[0]), w2s(bones[1]), col, thickness);   // Head-Spine
+    if (bones[1].x != 0) drawList->AddLine(w2s(bones[1]), w2s(bones[2]), col, thickness);   // Spine-Pelvis
     
     // Left arm
-    drawList->AddLine(w2s(bones[3]), w2s(bones[5]), col, thickness);   // LShoulder-LElbow
-    drawList->AddLine(w2s(bones[5]), w2s(bones[7]), col, thickness);   // LElbow-LWrist
+    if (bones[3].x != 0) drawList->AddLine(w2s(bones[3]), w2s(bones[5]), col, thickness);   // LShoulder-LElbow
+    if (bones[5].x != 0) drawList->AddLine(w2s(bones[5]), w2s(bones[7]), col, thickness);   // LElbow-LWrist
     
     // Right arm
-    drawList->AddLine(w2s(bones[4]), w2s(bones[6]), col, thickness);   // RShoulder-RElbow
-    drawList->AddLine(w2s(bones[6]), w2s(bones[8]), col, thickness);   // RElbow-RWrist
+    if (bones[4].x != 0) drawList->AddLine(w2s(bones[4]), w2s(bones[6]), col, thickness);   // RShoulder-RElbow
+    if (bones[6].x != 0) drawList->AddLine(w2s(bones[6]), w2s(bones[8]), col, thickness);   // RElbow-RWrist
     
     // Shoulders
-    drawList->AddLine(w2s(bones[3]), w2s(bones[4]), col, thickness);   // LShoulder-RShoulder
+    if (bones[3].x != 0) drawList->AddLine(w2s(bones[3]), w2s(bones[4]), col, thickness);   // LShoulder-RShoulder
     
     // Left leg
-    drawList->AddLine(w2s(bones[9]), w2s(bones[11]), col, thickness);  // LHip-LKnee
-    drawList->AddLine(w2s(bones[11]), w2s(bones[13]), col, thickness); // LKnee-LAnkle
+    if (bones[9].x != 0) drawList->AddLine(w2s(bones[9]), w2s(bones[11]), col, thickness);  // LHip-LKnee
+    if (bones[11].x != 0) drawList->AddLine(w2s(bones[11]), w2s(bones[13]), col, thickness); // LKnee-LAnkle
     
     // Right leg
-    drawList->AddLine(w2s(bones[10]), w2s(bones[12]), col, thickness); // RHip-RKnee
-    drawList->AddLine(w2s(bones[12]), w2s(bones[14]), col, thickness); // RKnee-RAnkle
+    if (bones[10].x != 0) drawList->AddLine(w2s(bones[10]), w2s(bones[12]), col, thickness); // RHip-RKnee
+    if (bones[12].x != 0) drawList->AddLine(w2s(bones[12]), w2s(bones[14]), col, thickness); // RKnee-RAnkle
     
     // Hips
-    drawList->AddLine(w2s(bones[9]), w2s(bones[10]), col, thickness);  // LHip-RHip
+    if (bones[9].x != 0) drawList->AddLine(w2s(bones[9]), w2s(bones[10]), col, thickness);  // LHip-RHip
     
     // Hip to spine
-    drawList->AddLine(w2s(bones[9]), w2s(bones[1]), col, thickness);   // LHip-Spine
-    drawList->AddLine(w2s(bones[10]), w2s(bones[1]), col, thickness);  // RHip-Spine
+    if (bones[9].x != 0) drawList->AddLine(w2s(bones[9]), w2s(bones[1]), col, thickness);   // LHip-Spine
+    if (bones[10].x != 0) drawList->AddLine(w2s(bones[10]), w2s(bones[1]), col, thickness);  // RHip-Spine
     
     // Joint dots
     float dotRadius = 3.0f;
-    drawList->AddCircle(w2s(bones[0]), dotRadius, col);   // Head
-    drawList->AddCircle(w2s(bones[7]), dotRadius, col);   // LWrist
-    drawList->AddCircle(w2s(bones[8]), dotRadius, col);   // RWrist
-    drawList->AddCircle(w2s(bones[13]), dotRadius, col);  // LAnkle
-    drawList->AddCircle(w2s(bones[14]), dotRadius, col);  // RAnkle
+    if (bones[0].x != 0) drawList->AddCircle(w2s(bones[0]), dotRadius, col);   // Head
+    if (bones[7].x != 0) drawList->AddCircle(w2s(bones[7]), dotRadius, col);   // LWrist
+    if (bones[8].x != 0) drawList->AddCircle(w2s(bones[8]), dotRadius, col);   // RWrist
+    if (bones[13].x != 0) drawList->AddCircle(w2s(bones[13]), dotRadius, col);  // LAnkle
+    if (bones[14].x != 0) drawList->AddCircle(w2s(bones[14]), dotRadius, col);  // RAnkle
 }
 
 // 固定数据函数
