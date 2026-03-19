@@ -1,115 +1,100 @@
 #include <stdio.h>
-#include <string.h>
+#include <string>
 
-#define kLineOfSightTo "0x7B0"
+namespace PubgOffset {
 
-#define kGObject "0x10A34E980"
+int PlayerControllerOffset[3] = {0x38, 0x78, 0x30};
+uintptr_t gObject = 0x10A34E980;  // Global Object pointer
 
-#define kPersistentLevel "0x30"        
-#define kActorList "0xA0"
-#define kNetDriver "0x38"                
-#define kServerConnection "0x78"          
-#define kPlayerController "0x98"          
-#define klocalPlayerController "0x30"
+namespace PlayerControllerParam {
 
-#define kPawn "0x4b8"                   
-#define kCharacter "0x4c8"            
-#define kControlRotation "0x4e0"         
+int SelfOffset = 0x28e0;
+int MouseOffset = 0x4e0;
+int CameraManagerOffset = 0x548;
+int AngleOffset = 0x558;
 
-#define kMyTeam "0x940"                   
+namespace CameraManagerParam {
+int PovOffset = 0x10a0 + 0x10;
+}
 
-#define kCameraCache "0x520"            
-#define kViewTarget "0x10a0"              
+namespace ControllerFunction {
+int LineOfSightToOffset = 0x7B0;
+}
 
-#define kPlayerCameraManager "0x548"      
+}
 
-#define kSizeX "0x40"
-#define kSizeY "0x44"
+int ULevelOffset = 0x30;
 
-#define kHealth "0xe60"                    
-#define kHealthMax "0xe64"                  
-#define kNearDeathBreath "0x1b60"
-#define kbDead "0xe7c"                      
-#define kbHidden "0xe8"                    
-#define kCurrentVehicle "0xeb0"             
-#define kCurrentStates "0x1058"
-#define kNearDeatchComponent "0x1be8" //struct USTCharacterNearDeathComp* NearDeatchComponent;
+namespace ULevelParam {
+int ObjectArrayOffset = 0xA0;
+int ObjectCountOffset = 0xA8;
+}
 
-#define kRootComponent "0x208"    //struct USceneComponent* RootComponent;
-#define kRepMovement "0x110"               
+namespace ObjectParam {
 
-#define kPlayerName "0x960"                 
-#define kPlayerUID "0x988"                  
-#define kNation "0x970"                     
-#define kTeamID "0x998"                     
-#define kbIsAI "0xa40"                         
-#define kbIsMLAI "0xa41"                    
-#define kMesh "0x510"                       
-#define kStaticMesh "0x988"                 
-#define kLastRenderTime "0x490"             
-#define kVelocity "0x18c"                   
+int ClassIdOffset = 0x18;
+int ClassNameOffset = 0xC;
 
-#define kRelativeRotation "0x1f0"
-#define kRelativeLocation "0x1e4"           
-#define kRelativeScale3D "0x1fc"            
-#define kComponentVelocity "0x2c0"          
+namespace PlayerFunction {
+int AddControllerYawInputOffset = 0x890;
+int AddControllerRollInputOffset = 0x888;
+int AddControllerPitchInputOffset = 0x898;
+}
 
-#define kbIsWeaponFiring "0x1800"           
-#define kWeaponManagerComponent "0x25b8"    
-#define kPoseState "0x1810"                 
-#define kScopeFov "0x1c54"                  
+int StatusOffset = 0x1018;
+int TeamOffset = 0x998;
+int NameOffset = 0x960;
+int RobotOffset = 0xa40;
+int HpOffset = 0xe60;
+int HpmaxOffset = 0xe64;
+int DeadOffset = 0xe7c;
 
-#define kCurrentWeaponReplicated "0x5c8"    
-#define kShootWeaponEntityComponent "0x398"
-#define kWeaponId "0x1e0"                   
+int VehicleCommonComponentOffset = 0xc00;
+int VehicleHPOffset = 0x354;
+int VehicleHPMaxOffset = 0x350;
+int VehicleFuelOffset = 0x43c;
+int VehicleFuelMaxOffset = 0x438;
 
-#define kBulletFireSpeed "0x560"            
-#define kRecoilKickADS "0xcf0"              
-#define kGameDeviationFactor "0xc2c"        
+int MoveCoordOffset = 0x110;
+int MeshOffset = 0x510;
+int boneCountOffset = 0x8d0;
 
-#define kShootWeaponComponent "0xf30"       
-#define kShootWeaponEntityComp "0x1360"     
-#define kShootMode "0x10d9"
-#define kbIsGunADS "0x1134"                 
+namespace MeshParam {
+int HumanOffset = 0x210;
+int BonesOffset = 0x988;
+}
 
-#define kVehicleCommon "0xc00"              
-#define kHP "0x354"                         
-#define kHPMax "0x350"                      
-#define kFuel "0x43c"                       
-#define kFuelMax "0x438"                    
+int OpenFireOffset = 0x1800;
+int OpenTheSightOffset = 0x10e1;
 
-#define kPickUpDataList "0x940"             
-#define kGoodsID "0x38"
-#define kTableName "0x8a0"                  
+int WeaponOneOffset = 0x2a30 + 0x20;
 
-#define kFPS "0x1c4"
-#define kSTBaseCharacter "0x28E0"
-#define kCoord "0x1dc"
-#define kHeight "0x1c8"
+namespace WeaponParam {
 
-#define kBP_MapUIMarkManager_C "0x4270"     
-#define kpExtraGameState "0x338"            
-#define kAlivePlayerNum "0xb34"             
-#define kPlayerNum "0x7a8"              
-#define kelapsedSeconds "0x4a8"           
+int MasterOffset = 0x110;
+int ShootModeOffset = 0x10d9;
+int WeaponAttrOffset = 0x12c0;
 
-#define kPlayerState "0x2308"             
-#define kKill "0x6c8"                       
+namespace WeaponAttrParam {
+int BulletSpeedOffset = 0x560;
+int RecoilOffset = 0xcf0;
+}
 
-#define kTPP "0x1c50"                       
-#define kFPP "0x1c60"                      
+}
 
-#define kGameReplayType "0x944"
-#define kPickUpAnim "0x1e28"
+int GoodsListOffset = 0x940;
 
-#define kPressingFireBtn "0x33d0"
+namespace GoodsListParam {
+int DataBase = 0x38;
+}
 
-#define kCurrentReloadWeapon "0x2b58"
-#define kCachedBulletTrackComponent "0xe28"
-#define wuhou "0x190"
+int CoordOffset = 0x208;
 
-#define kYaw "0x890"                  
-#define kRoll "0x888"                 
-#define kPitch "0x888"
+namespace CoordParam {
+int HeightOffset = 0x1dc;
+int CoordOffset = 0x1c8;
+}
 
-#endif
+}
+
+}
