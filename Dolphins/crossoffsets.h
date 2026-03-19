@@ -5,7 +5,6 @@ typedef struct {
     long gWorldData;
     long gNameFun;
     long gNameData;
-    long gObject;
 } OffsetValues;
 
 @interface OffsetsManager : NSObject
