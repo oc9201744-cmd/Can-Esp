@@ -231,7 +231,10 @@ void *readStaticData(void *) {
     return nullptr;
 }
 // 获取帧数据
-void readFrameData(ImVec2 screenSize, vector<PlayerData> &playerDataList, vector<MaterialData> &materialDataList, ImDrawList* drawList = nullptr) {
+void readFrameData(ImVec2 screenSize, vector<PlayerData> &playerDataList, vector<MaterialData> &materialDataList) {
+    // Get ImDrawList locally
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    
     playerDataList.clear();
     materialDataList.clear();
     if (moduleControl.systemStatus == TransmissionNormal) {
