@@ -5,20 +5,18 @@
 //  Created by xbk on 2022/4/25.
 //
 
+#import "Dolphins/crossoffsets.h"
 #import "Dolphins/Module/菜单.h"
 #import "Dolphins/View/OverlayView.h"
+#include "JRMemory.framework/Headers/MemScan.h"
 #import "Dolphins/Obfuscate.h"
 #import <Metal/Metal.h>
 #import <MetalKit/MetalKit.h>
 #import <UIKit/UIKit.h>
+#import <mach-o/dyld.h>
 #include <stdint.h>
+#import <substrate.h>
 #import <sys/sysctl.h>
-
-// Removed jailbreak dependencies:
-// - #import "Dolphins/crossoffsets.h" (memory offsets)
-// - #include "JRMemory.framework/Headers/MemScan.h" (memory scanning)
-// - #import <mach-o/dyld.h> (dynamic linking)
-// - #import <substrate.h> (jailbreak hooking)
 
 @implementation mi
 
@@ -421,10 +419,6 @@ ImGui::Spacing();
         configManager::putBoolean(config,"playerSwitch", "bones", self.moduleControl->playerSwitch.boneStatus);
     }
     ImGui::SameLine();
-    if (ImGui::Checkbox("Skeleton", &self.moduleControl->playerSwitch.skeletonStatus)) {
-        configManager::putBoolean(config,"playerSwitch", "skeleton", self.moduleControl->playerSwitch.skeletonStatus);
-    }
-    ImGui::SameLine();
     if (ImGui::Checkbox("Line", &self.moduleControl->playerSwitch.lineStatus)) {
         configManager::putBoolean(config,"playerSwitch", "line", self.moduleControl->playerSwitch.lineStatus);
     }
@@ -733,11 +727,26 @@ ImGui::Spacing();
 
 
 
-// NOTE: Removed jailbreak-dependent code sections:
-// - IDA OFFSETS (memory addresses for game manipulation)
-// - HOOK FUNCTIONS (MSHookFunction calls)
-// - Memory manipulation targeting game binaries
-// These require MobileSubstrate jailbreak framework
+// ----------------------------------
+//          IDA OFFSETS
+// ----------------------------------
+#define TARGET_OFFSET       0x1A278          // AnoSDK
+#define ACEWORKER_OFFSET    0x88610          // AceWorker offset
+
+static int (*orig_AnoSDKOnRecvData)();
+static int (*orig_AceWorker)();
+
+
+// 
+//        HOOK
+// 
+int hook_AnoSDKOnRecvData() {
+    return 1;
+}
+
+int hook_AceWorker() {
+    return 1;   // AceWorker
+}
 
 
 // ----------------------------------
@@ -809,18 +818,71 @@ void showStageToast() {
 // ----------------------------------
 
 // ----------------------------------
+void perform_offset_hook() {
 
-// NOTE: Removed jailbreak-dependent hooking mechanisms:
-// - perform_offset_hook() - Attempted to hook game memory functions using MobileSubstrate
-// - init_hook() - Initialization routine for hooking system
-// These functions required:
-//   - MobileSubstrate framework
-//   - dyld linking (_dyld_get_image_header)
-//   - Memory offset targeting (IDA offsets)
+    uintptr_t base = (uintptr_t)_dyld_get_image_header(0);
+
+    uintptr_t ano_addr  = base + TARGET_OFFSET;
+    uintptr_t ace_addr  = base + ACEWORKER_OFFSET;
+
+    if (ano_addr > 0x1000 && ace_addr > 0x1000) {
+
+
+        MSHookFunction((void *)ano_addr,
+                       (void *)hook_AnoSDKOnRecvData,
+                       (void **)&orig_AnoSDKOnRecvData);
+
+        // 2) AceWorker Hook 
+        MSHookFunction((void *)ace_addr,
+                       (void *)hook_AceWorker,
+                       (void **)&orig_AceWorker);
+
+        // 
+        showStageToast();
+
+    } else {
+
+        dispatch_async(dispatch_get_main_queue(), ^{
+            UIWindow *window = [UIApplication sharedApplication].windows.firstObject;
+            if (!window) return;
+
+            UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(
+                40,
+                window.frame.size.height-120,
+                window.frame.size.width-80,
+                45
+            )];
+
+            label.text = @"Error: Base address not found!";
+            label.textAlignment = NSTextAlignmentCenter;
+            label.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.85];
+            label.textColor = [UIColor redColor];
+            label.layer.cornerRadius = 12;
+            label.clipsToBounds = YES;
+            label.font = [UIFont boldSystemFontOfSize:16];
+
+            [window addSubview:label];
+
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW,3*NSEC_PER_SEC),
+                           dispatch_get_main_queue(), ^{
+                [label removeFromSuperview];
+            });
+        });
+    }
+}
+
+
 // 
-// For a legitimate, jailbreak-free iOS app, these operations are not permitted by Apple's App Store policies
 
+// 
+__attribute__((constructor))
+static void init_hook() {
 
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,5*NSEC_PER_SEC),
+                   dispatch_get_main_queue(), ^{
+        perform_offset_hook();
+    });
+}
 
 
 
