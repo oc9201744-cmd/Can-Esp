@@ -650,6 +650,7 @@ ImGui::Spacing();
     self.moduleControl->mainSwitch.aimbotStatus = configManager::readBoolean(config,"mainSwitch", "aimbot", false);
 
     self.moduleControl->playerSwitch.boneStatus = configManager::readBoolean(config,"playerSwitch", "bones", false);
+    self.moduleControl->playerSwitch.skeletonStatus = configManager::readBoolean(config,"playerSwitch", "skeleton", false);  // ← ADDED
     self.moduleControl->playerSwitch.SCStatus = configManager::readBoolean(config,"playerSwitch", "icon", false);
     self.moduleControl->playerSwitch.boxStatus = configManager::readBoolean(config,"playerSwitch", "box", false);
     self.moduleControl->playerSwitch.WZStatus = configManager::readBoolean(config,"playerSwitch", "cars", false);
