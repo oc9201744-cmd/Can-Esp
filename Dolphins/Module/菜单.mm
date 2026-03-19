@@ -8,6 +8,7 @@
 #import "Dolphins/Module/菜单.h"
 #import "Dolphins/View/OverlayView.h"
 #import "Dolphins/Obfuscate.h"
+#include "Dolphins/utils/module_tools.h"  // ADD THIS - for PlayerSwitch struct
 #import <Metal/Metal.h>
 #import <MetalKit/MetalKit.h>
 #import <UIKit/UIKit.h>
