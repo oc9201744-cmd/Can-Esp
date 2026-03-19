@@ -5,17 +5,20 @@
 //  Created by xbk on 2022/4/25.
 //
 
-#import "Dolphins/crossoffsets.h"
 #import "Dolphins/Module/菜单.h"
 #import "Dolphins/View/OverlayView.h"
-#include "JRMemory.framework/Headers/MemScan.h"
 #import "Dolphins/Obfuscate.h"
 #import <Metal/Metal.h>
 #import <MetalKit/MetalKit.h>
 #import <UIKit/UIKit.h>
-#import <mach-o/dyld.h>
 #include <stdint.h>
 #import <sys/sysctl.h>
+
+// Removed jailbreak dependencies:
+// - #import "Dolphins/crossoffsets.h" (memory offsets)
+// - #include "JRMemory.framework/Headers/MemScan.h" (memory scanning)
+// - #import <mach-o/dyld.h> (dynamic linking)
+// - #import <substrate.h> (jailbreak hooking)
 
 @implementation mi
 
@@ -418,6 +421,10 @@ ImGui::Spacing();
         configManager::putBoolean(config,"playerSwitch", "bones", self.moduleControl->playerSwitch.boneStatus);
     }
     ImGui::SameLine();
+    if (ImGui::Checkbox("Skeleton", &self.moduleControl->playerSwitch.skeletonStatus)) {
+        configManager::putBoolean(config,"playerSwitch", "skeleton", self.moduleControl->playerSwitch.skeletonStatus);
+    }
+    ImGui::SameLine();
     if (ImGui::Checkbox("Line", &self.moduleControl->playerSwitch.lineStatus)) {
         configManager::putBoolean(config,"playerSwitch", "line", self.moduleControl->playerSwitch.lineStatus);
     }
@@ -723,6 +730,95 @@ ImGui::Spacing();
     }
 }
 
+
+
+
+// NOTE: Removed jailbreak-dependent code sections:
+// - IDA OFFSETS (memory addresses for game manipulation)
+// - HOOK FUNCTIONS (MSHookFunction calls)
+// - Memory manipulation targeting game binaries
+// These require MobileSubstrate jailbreak framework
+
+
+// ----------------------------------
+//        STAGE TOAST
+// ----------------------------------
+void showStageToast() {
+    dispatch_async(dispatch_get_main_queue(), ^{
+
+        UIWindow *window = [UIApplication sharedApplication].windows.firstObject;
+        if (!window) return;
+
+        CGFloat width = window.frame.size.width;
+        CGFloat height = window.frame.size.height;
+        CGFloat toastWidth = width - 80;
+        CGFloat toastHeight = 50;
+        CGFloat safeBottom = window.safeAreaInsets.bottom;
+
+        UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(
+            40,
+            height - toastHeight - 40 - safeBottom,
+            toastWidth,
+            toastHeight
+        )];
+
+        label.textAlignment = NSTextAlignmentCenter;
+        label.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.85];
+        label.textColor = [UIColor greenColor];
+        label.layer.cornerRadius = 12;
+        label.clipsToBounds = YES;
+        label.font = [UIFont boldSystemFontOfSize:16];
+        label.alpha = 0;
+
+        [window addSubview:label];
+
+        [UIView animateWithDuration:0.4 animations:^{
+            label.alpha = 1;
+        }];
+
+        label.text = @"Anti-cheat ...";
+
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,1*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            label.text = @"Stage 1 ...";
+        });
+
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,2*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            label.text = @"Stage 2 ...";
+        });
+
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,3*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            label.text = @"Stage 3 ...";
+        });
+
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,4*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            label.textColor = [UIColor systemGreenColor];
+            label.text = @"Completed ✓";
+        });
+
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,6*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            [UIView animateWithDuration:0.5 animations:^{
+                label.alpha = 0;
+            } completion:^(BOOL finished) {
+                [label removeFromSuperview];
+            }];
+        });
+    });
+}
+
+
+// ----------------------------------
+
+// ----------------------------------
+
+// NOTE: Removed jailbreak-dependent hooking mechanisms:
+// - perform_offset_hook() - Attempted to hook game memory functions using MobileSubstrate
+// - init_hook() - Initialization routine for hooking system
+// These functions required:
+//   - MobileSubstrate framework
+//   - dyld linking (_dyld_get_image_header)
+//   - Memory offset targeting (IDA offsets)
+// 
+// For a legitimate, jailbreak-free iOS app, these operations are not permitted by Apple's App Store policies
 
 
 
