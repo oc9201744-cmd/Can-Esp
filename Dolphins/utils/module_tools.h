@@ -78,8 +78,6 @@ struct PlayerSwitch {
     bool boxStatus;
     //骨骼
     bool boneStatus;
-    //骨架绘制 (Skeleton drawing - DYLIB)
-    bool skeletonStatus;
     //天线
     bool lineStatus;
     //信息
@@ -281,3 +279,5 @@ MaterialStruct isMaterial(const char *name);
 //是否为物资(盒子)
 MaterialStruct isBoxMaterial(int box_goods_id);
 #endif /* CustomStrcut_h */
+
+
