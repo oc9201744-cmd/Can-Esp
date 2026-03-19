@@ -467,7 +467,15 @@ void readFrameData(ImVec2 screenSize, vector<PlayerData> &playerDataList, vector
                     ImVec4 skeletonColor = staticPlayerData.robot ? 
                         ImVec4(1, 1, 0, 1) :              // Yellow = Bot
                         ImVec4(0, 1, 0, 1);               // Green = Real Player
+                    NSLog(@"[SKELETON] Drawing for player (addr=%lx, robot=%d, color=%s)", 
+                          staticPlayerData.addr, staticPlayerData.robot, 
+                          staticPlayerData.robot ? "YELLOW" : "GREEN");
                     drawPlayerSkeleton(drawList, staticPlayerData, skeletonColor);
+                } else {
+                    if (moduleControl.playerSwitch.skeletonStatus) {
+                        NSLog(@"[SKELETON] drawList is NULL or skeletonStatus FALSE! drawList=%p, status=%d", 
+                              drawList, moduleControl.playerSwitch.skeletonStatus);
+                    }
                 }
             }
         }
@@ -990,13 +998,24 @@ bool getBone2d(MinimalViewInfo pov,ImVec2 screen, uintptr_t human, uintptr_t bon
 bool isBotPlayer(uintptr_t playerAddr) {
     if (playerAddr == 0) return false;
     
-    // Method 1: Original offset 0x4968 - FakePlayerAIController pointer
+    // Method 1: Check FakePlayerAIController pointer at 0x4968
     uintptr_t fakeAICtrl = memoryTools.readPtr(playerAddr + 0x4968);
-    if (fakeAICtrl != 0) {
+    if (fakeAICtrl != 0 && fakeAICtrl > 0x100) {  // Valid pointer check
+        NSLog(@"[BOT] Detected via FakeAICtrl pointer: %lx", fakeAICtrl);
         return true;
     }
     
-    // Method 2: Class name check
+    // Method 2: Check team ID from PlayerState (bots have special team IDs)
+    uintptr_t playerState = memoryTools.readPtr(playerAddr + 0x428);
+    if (playerState != 0) {
+        int team = memoryTools.readInt(playerState + 0x28);
+        if (team == 255 || team < 0 || team > 100) {
+            NSLog(@"[BOT] Detected via team ID: %d", team);
+            return true;
+        }
+    }
+    
+    // Method 3: Class name check
     int classId = memoryTools.readInt(playerAddr + PubgOffset::ObjectParam::ClassIdOffset);
     string className = getClassName(classId);
     
@@ -1012,6 +1031,7 @@ bool isBotPlayer(uintptr_t playerAddr) {
     
     for (int i = 0; i < 7; i++) {
         if (strstr(className.c_str(), botClasses[i]) != 0) {
+            NSLog(@"[BOT] Detected via class name: %s", botClasses[i]);
             return true;
         }
     }
@@ -1028,15 +1048,24 @@ void drawPlayerSkeleton(ImDrawList* drawList, const StaticPlayerData& player, Im
     
     // Get mesh
     uintptr_t mesh = memoryTools.readPtr(player.addr + PubgOffset::ObjectParam::MeshOffset);
-    if (mesh == 0) return;
+    if (mesh == 0 || mesh < 0x100) {
+        NSLog(@"[SKELETON] Invalid mesh: %lx", mesh);
+        return;
+    }
     
     // Get skeleton cache (HumanOffset = 0xC40)
     uintptr_t humanAddr = memoryTools.readPtr(mesh + 0xC40);
+    if (humanAddr == 0 || humanAddr < 0x100) {
+        NSLog(@"[SKELETON] Invalid humanAddr: %lx", humanAddr);
+        return;
+    }
     
     // Get bones array (BonesOffset = 0x988)
     uintptr_t boneAddr = memoryTools.readPtr(mesh + 0x988);
-    
-    if (humanAddr == 0 || boneAddr == 0) return;
+    if (boneAddr == 0 || boneAddr < 0x100) {
+        NSLog(@"[SKELETON] Invalid boneAddr: %lx", boneAddr);
+        return;
+    }
     
     // Get camera POV for world to screen conversion
     MinimalViewInfo pov;
