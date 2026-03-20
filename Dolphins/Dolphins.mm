@@ -158,7 +158,7 @@ __attribute__((constructor)) static void initialize() {
 // 固定数据函数
 void *readStaticData(void *) {
     while (true) {
-        sleep(4);
+        sleep(1);  // 1 saniyede bir güncelle (önceden 4 saniyeydi - çok yavaştı!)
         if(moduleControl.systemStatus != TransmissionNormal){
             staticData.libAddr = (uintptr_t)_dyld_get_image_vmaddr_slide(0);
             if(staticData.libAddr != 1){
@@ -185,6 +185,11 @@ void *readStaticData(void *) {
             vector<StaticPlayerData> tmpPlayerDataList;
             vector<StaticMaterialData> tmpMaterialDataList;
             vector<StaticMaterialData> tmpSmokeList;
+            
+            // KOŞARKEN KENDİNE BOX SORUNU ÇÖZÜMÜ:
+            // selfAddr'yi her döngüde güncelle (4 saniye beklemek çok uzun!)
+            staticData.selfAddr = memoryTools.readPtr(staticData.playerController + PubgOffset::PlayerControllerParam::SelfOffset);
+            
             //遍历地址
             uintptr_t uLevel = memoryTools.readPtr(staticData.gwlordAddr + PubgOffset::ULevelOffset);
             //数组
@@ -205,13 +210,21 @@ void *readStaticData(void *) {
                 string className = getClassName(memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::ClassIdOffset));
                 //人
                 if (strstr(className.c_str(), "PlayerPawn") || (strstr(className.c_str(), "PlayerCharacter") || (strstr(className.c_str(), "PlayerControllertSl") || (strstr(className.c_str(), "_PlayerPawn_TPlanAI_C")|| (strstr(className.c_str(), "CharacterModelTaget")|| (strstr(className.c_str(), "FakePlayer_AIPawn")!= 0 && moduleControl.mainSwitch.playerStatus)) )))) {
-                    //队伍ID
-                    int team = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::TeamOffset);
-                    // KENDİNİ FİLTRELE - ÖNCE BUNU KONTROL ET!
-                    if (objectAddr == staticData.selfAddr) continue;
                     
-                    // Sonra takım kontrolü
-                    int TeamID = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::TeamOffset);
+                    // KRİTİK FİX: selfAddr'yi her object kontrolünde güncelle!
+                    // Koşarken character değiştiği için eski adres yanlış oluyor
+                    uintptr_t currentSelfAddr = memoryTools.readPtr(staticData.playerController + PubgOffset::PlayerControllerParam::SelfOffset);
+                    
+                    // KENDİNİ FİLTRELE - EN ÖNCELİKLİ KONTROL!
+                    if (objectAddr == currentSelfAddr) {
+                        continue;  // Kendini atla
+                    }
+                    
+                    // Takım kontrolü
+                    int team = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::TeamOffset);
+                    int TeamID = memoryTools.readInt(currentSelfAddr + PubgOffset::ObjectParam::TeamOffset);
+                    
+                    // Aynı takımsa atla (ama kendini zaten atladık)
                     if (team == TeamID) continue;
                     
                     StaticPlayerData tmpPlayerData;
@@ -543,6 +556,16 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 
                 // Bone data'yı her zaman ata
                 playerData.bonesData = bonesData;
+                
+                // DEBUG: Skeleton koordinatlarını logla
+                #ifdef DEBUG_SKELETON
+                NSLog(@"[SKELETON] Player: %s | Head:(%.0f,%.0f) Chest:(%.0f,%.0f) Pelvis:(%.0f,%.0f)", 
+                      playerData.name.c_str(),
+                      bonesData.head.x, bonesData.head.y,
+                      bonesData.pit.x, bonesData.pit.y,
+                      bonesData.pelvis.x, bonesData.pelvis.y);
+                #endif
+                
                 playerDataList.push_back(playerData);
             }
         }
