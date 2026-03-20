@@ -66,12 +66,28 @@ int AddControllerPitchInputOffset = 0x898;  // Vertical rotation
 
 // Player Status
 int StatusOffset = 0x1018;
-int TeamOffset = 0x998;
+int TeamOffset = 0x998;          // TeamID offset (dump verified: UAECharacter+0x998)
 int NameOffset = 0x960;
-int RobotOffset = 0xa40;        // Is bot check (bIsAI field - DOĞRU OFFSET!)
-int HpOffset = 0xe60;           // Current HP (PB 4.3)
-int HpmaxOffset = 0xe64;        // Max HP (PB 4.3)
-int DeadOffset = 0xe7c;         // Dead status (PB 4.3)
+
+// ⚠️ BOT DETECTION (PB 4.3 - SERVER-SIDE VERIFIED)
+// Server tarafı bIsAI field'ı set ETMİYOR! (hep 0 geliyor)
+// DOĞRU YÖNTEM: FakePlayerAIController pointer kontrolü!
+// 
+// AIOHeader_3.hpp satır 191129:
+// struct ANewFakePlayerAIController* FakePlayerAIController; // 0x4968(0x8)
+//
+// Kullanım:
+//   uintptr_t aiPtr = readPtr(playerAddr + FakePlayerAIControllerOffset);
+//   if (aiPtr != 0) → BOT
+//   if (aiPtr == 0) → GERÇEK OYUNCU
+int FakePlayerAIControllerOffset = 0x4968;  // AI controller pointer (8 byte ptr)
+
+// ❌ KULLANMA: bIsAI field server tarafından set edilmiyor!
+// int RobotOffset = 0xa40;  // Bu field runtime'da hep 0!
+
+int HpOffset = 0xe60;            // Health (float) - Class dump verified!
+int HpmaxOffset = 0xe64;         // Max HP (PB 4.3)
+int DeadOffset = 0xe7c;          // Dead status (PB 4.3)
 
 // Vehicle Parameters
 int VehicleCommonComponentOffset = 0xc00;  // PB 4.3
