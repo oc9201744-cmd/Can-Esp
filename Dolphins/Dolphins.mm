@@ -56,10 +56,8 @@ MemoryTools memoryTools;
 
 //OffsetSet currentOffsetSet = GL;
 
-// Updated offsets - Working GL version
-// Structure: { gWorldFun, gWorldData, gNameFun, gNameData }
 OffsetValues offsets[] = {
-    { 0x102A62208, 0x10A566E00, 0x104bd8740, 0x10a1178b0 },  // GL (Global - GÜNCEL)
+    { 0x102A5125C, 0x10A4A1960, 0x104C0F1E8, 0x10A0557E0 },  // GL
     { 0x1028791CC, 0x10A171A00, 0x104510EF0, 0x109AAA1A0 },  // VNG
     { 0x102AD71F8, 0x10A47D400, 0x10476F14C, 0x109DB5940 },  // KR
     { 0x102AAAB0C, 0x10A453300, 0x104742830, 0x109D8B830 }   // TW
@@ -81,11 +79,13 @@ void (*AddControllerPitchInput)(void *actot, float val);
 
 
 long gWorld() {
+    // non-JB: dylib IPA içine gömülü, ana binary index 0'dır
     OffsetValues offsetsForBundle = [OffsetsManager getOffsetsForBundleID:[[NSBundle mainBundle] bundleIdentifier]];
     return reinterpret_cast<long(__fastcall*)(long)>((long)_dyld_get_image_vmaddr_slide(0) + offsetsForBundle.gWorldFun)((long)_dyld_get_image_vmaddr_slide(0) + offsetsForBundle.gWorldData);
 }
 
 long gName() {
+    // non-JB: dylib IPA içine gömülü, ana binary index 0'dır
     OffsetValues offsetsForBundle = [OffsetsManager getOffsetsForBundleID:[[NSBundle mainBundle] bundleIdentifier]];
     return reinterpret_cast<long(__fastcall*)(long)>((long)_dyld_get_image_vmaddr_slide(0) + offsetsForBundle.gNameFun)((long)_dyld_get_image_vmaddr_slide(0) + offsetsForBundle.gNameData);
 }
@@ -158,9 +158,10 @@ __attribute__((constructor)) static void initialize() {
 // 固定数据函数
 void *readStaticData(void *) {
     while (true) {
-        sleep(1);  // 1 saniyede bir güncelle (önceden 4 saniyeydi - çok yavaştı!)
+        sleep(4);
         if(moduleControl.systemStatus != TransmissionNormal){
-            staticData.libAddr = (uintptr_t)_dyld_get_image_vmaddr_slide(0);
+            // non-JB: ana binary index 0 — JB tweakında index 1'di
+                staticData.libAddr = (uintptr_t)_dyld_get_image_vmaddr_slide(0);
             if(staticData.libAddr != 1){
                 moduleControl.systemStatus = TransmissionNormal;
             }
@@ -185,11 +186,6 @@ void *readStaticData(void *) {
             vector<StaticPlayerData> tmpPlayerDataList;
             vector<StaticMaterialData> tmpMaterialDataList;
             vector<StaticMaterialData> tmpSmokeList;
-            
-            // KOŞARKEN KENDİNE BOX SORUNU ÇÖZÜMÜ:
-            // selfAddr'yi her döngüde güncelle (4 saniye beklemek çok uzun!)
-            staticData.selfAddr = memoryTools.readPtr(staticData.playerController + PubgOffset::PlayerControllerParam::SelfOffset);
-            
             //遍历地址
             uintptr_t uLevel = memoryTools.readPtr(staticData.gwlordAddr + PubgOffset::ULevelOffset);
             //数组
@@ -209,35 +205,32 @@ void *readStaticData(void *) {
                 
                 string className = getClassName(memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::ClassIdOffset));
                 //人
-                if (strstr(className.c_str(), "PlayerPawn") || (strstr(className.c_str(), "PlayerCharacter") || (strstr(className.c_str(), "PlayerControllertSl") || (strstr(className.c_str(), "_PlayerPawn_TPlanAI_C")|| (strstr(className.c_str(), "CharacterModelTaget")|| (strstr(className.c_str(), "FakePlayer_AIPawn")!= 0 && moduleControl.mainSwitch.playerStatus)) )))) {
-                    
-                    // KRİTİK FİX: selfAddr'yi her object kontrolünde güncelle!
-                    // Koşarken character değiştiği için eski adres yanlış oluyor
-                    uintptr_t currentSelfAddr = memoryTools.readPtr(staticData.playerController + PubgOffset::PlayerControllerParam::SelfOffset);
-                    
-                    // KENDİNİ FİLTRELE - EN ÖNCELİKLİ KONTROL!
-                    if (objectAddr == currentSelfAddr) {
-                        continue;  // Kendini atla
-                    }
-                    
-                    // Takım kontrolü
+                //人
+                bool isPlayer = (
+                    strstr(className.c_str(), "PlayerPawn")         != 0 ||
+                    strstr(className.c_str(), "PlayerCharacter")    != 0 ||
+                    strstr(className.c_str(), "PlayerControllertSl")!= 0 ||
+                    strstr(className.c_str(), "CharacterModelTaget")!= 0
+                );
+                if (isPlayer && moduleControl.mainSwitch.playerStatus) {
+                    //队伍ID
                     int team = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::TeamOffset);
-                    int TeamID = memoryTools.readInt(currentSelfAddr + PubgOffset::ObjectParam::TeamOffset);
-                    
-                    // Aynı takımsa atla (ama kendini zaten atladık)
+                    int TeamID = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::TeamOffset);
                     if (team == TeamID) continue;
-                    
                     StaticPlayerData tmpPlayerData;
                     //对象指针地址
 
-                    bool bDead = memoryTools.readPtr(staticData.selfAddr + PubgOffset::ObjectParam::DeadOffset);
+                    // Oldu mu kontrolu - IsDead (1 byte bool)
+                    bool isDead = false;
+                    memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::DeadOffset, 1, &isDead);
+                    if (isDead) continue;
 
 
 
 
 
-                    float hp = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::HpOffset);
-                            if(bDead) continue;
+                    // HP yukarida kontrol edildi
+                    // bDead kontrolu kaldirildi - HP ile yapiliyor
                             uintptr_t statusAddr = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::StatusOffset);
 
                     
@@ -249,29 +242,13 @@ void *readStaticData(void *) {
                     tmpPlayerData.team = team;
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
-                    
-                    // ✅ BOT KONTROLÜ (DUMP VERIFIED - PB 4.3)
-                    // Server tarafı bIsAI field'ı set etmiyor (hep 0)
-                    // Çözüm: FakePlayerAIController pointer kontrolü!
-                    // 
-                    // STExtraPlayerCharacter+0x4968: ANewFakePlayerAIController* FakePlayerAIController
-                    // - BOT ise: pointer != 0 (AI controller var)
-                    // - Gerçek oyuncu ise: pointer == 0 (NULL)
-                    
+                    // IsBot offset - bool (1 byte)
                     bool isBot = false;
-                    uintptr_t aiControllerPtr = memoryTools.readPtr(objectAddr + 0x4968);
-                    
-                    if (aiControllerPtr != 0 && aiControllerPtr > 0x100000000) {
-                        isBot = true;  // FakePlayerAIController mevcut = BOT!
-                    }
-                    
+                    memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::RobotOffset, 1, &isBot);
                     tmpPlayerData.robot = isBot ? 1 : 0;
-                    
-                    // NEO XO FEATURE: HIDE BOT
-                    // Eğer bot ise ve "Hide Bot" açıksa, listeye ekleme!
-                    if (isBot && moduleControl.playerSwitch.ignorebot) {
-                        continue;  // Bot'u atla!
-                    }
+
+
+
                     
                     tmpPlayerData.status = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::StatusOffset);
                     
@@ -341,18 +318,9 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
         ImVec3 selfCoord = pov.location;
         //读视角角度
         float lateralAngleView = memoryTools.readFloat(staticData.playerController + PubgOffset::PlayerControllerParam::MouseOffset + 0x4) - 90;
-        
-        // NEO STYLE FIX: Her frame self address'i güncelle - koşarken karakter değişebilir!
-        uintptr_t currentSelfAddr = memoryTools.readPtr(staticData.playerController + PubgOffset::PlayerControllerParam::SelfOffset);
-        
         //读取矩阵
         if (moduleControl.mainSwitch.playerStatus) {
             for (auto staticPlayerData: staticData.playerDataList) {
-                
-                // SELF KONTROLÜ: Kendi karakterini atla!
-                if (staticPlayerData.addr == currentSelfAddr) {
-                    continue;
-                }
 
                 //坐标
                 ImVec3 objectCoord;
@@ -393,7 +361,7 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 playerData.team = staticPlayerData.team;
                 //血量
                 playerData.hp = memoryTools.readFloat(staticPlayerData.addr + PubgOffset::ObjectParam::HpOffset);
-                playerData.hp = memoryTools.readFloat(staticPlayerData.addr + PubgOffset::ObjectParam::HpOffset);
+                // Baygın oyuncular hp=0 olabilir, IsDead kontrolü readStaticData'da yapılıyor
                                if (playerData.hp > 100) playerData.hp = 100;
                 //取敌人动作
              //   NSLog(@"****： %id",statusName);
@@ -551,38 +519,24 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
                 uintptr_t humanAddr = meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset;
                 uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset) + 48;
-                
-                // SKELETON HER ZAMAN ÇİZ - duvar arkasında da
+                //判断是否需要骨骼掩体判断
                 BonesData bonesData;
-                // Her bone'u bağımsız kontrol et
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 5, bonesData.head);      // Baş
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 4, bonesData.pit);       // Göğüs
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 1, bonesData.pelvis);    // Kalça
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 11, bonesData.lcollar);  // Sol omuz
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 32, bonesData.rcollar);  // Sağ omuz
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 12, bonesData.lelbow);   // Sol dirsek
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 33, bonesData.relbow);   // Sağ dirsek
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 63, bonesData.lwrist);   // Sol bilek
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 62, bonesData.rwrist);   // Sağ bilek
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 52, bonesData.lthigh);   // Sol uyluk
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 56, bonesData.rthigh);   // Sağ uyluk
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 53, bonesData.lknee);    // Sol diz
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 57, bonesData.rknee);    // Sağ diz
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 54, bonesData.lankle);   // Sol ayak bileği
-                getBone2d(pov, screenSize, humanAddr, boneAddr, 58, bonesData.rankle);   // Sağ ayak bileği
-                
-                // Bone data'yı her zaman ata
-                playerData.bonesData = bonesData;
-                
-                // DEBUG: Skeleton koordinatlarını logla
-                #ifdef DEBUG_SKELETON
-                NSLog(@"[SKELETON] Player: %s | Head:(%.0f,%.0f) Chest:(%.0f,%.0f) Pelvis:(%.0f,%.0f)", 
-                      playerData.name.c_str(),
-                      bonesData.head.x, bonesData.head.y,
-                      bonesData.pit.x, bonesData.pit.y,
-                      bonesData.pelvis.x, bonesData.pelvis.y);
-                #endif
-                
+                if (getBone2d(pov, screenSize,humanAddr, boneAddr, 5, bonesData.head))//头
+                    if (getBone2d(pov,screenSize, humanAddr, boneAddr, 4, bonesData.pit))//胸口
+                        if (getBone2d(pov,screenSize, humanAddr, boneAddr, 1, bonesData.pelvis))//屁股
+                            if (getBone2d(pov,screenSize, humanAddr, boneAddr, 11, bonesData.lcollar))//左肩
+                                if (getBone2d(pov, screenSize,humanAddr, boneAddr, 32, bonesData.rcollar))//右肩
+                                    if (getBone2d(pov,screenSize, humanAddr, boneAddr, 12, bonesData.lelbow))//左手肘
+                                        if (getBone2d(pov,screenSize, humanAddr, boneAddr, 33, bonesData.relbow))//右手肘
+                                            if (getBone2d(pov,screenSize, humanAddr, boneAddr, 63, bonesData.lwrist))//左手腕
+                                                if (getBone2d(pov,screenSize, humanAddr, boneAddr, 62, bonesData.rwrist))//右手腕
+                                                    if (getBone2d(pov, screenSize,humanAddr, boneAddr, 52, bonesData.lthigh))//左大腿
+                                                        if (getBone2d(pov,screenSize, humanAddr, boneAddr, 56, bonesData.rthigh))//右大腿
+                                                            if (getBone2d(pov,screenSize, humanAddr, boneAddr, 53, bonesData.lknee))//左膝盖
+                                                                if (getBone2d(pov,screenSize, humanAddr, boneAddr, 57, bonesData.rknee))//右膝盖
+                                                                    if (getBone2d(pov,screenSize, humanAddr, boneAddr, 54, bonesData.lankle))//左脚腕
+                                                                        if (getBone2d(pov,screenSize, humanAddr, boneAddr, 58, bonesData.rankle))//右脚腕
+                                                                            playerData.bonesData = bonesData;
                 playerDataList.push_back(playerData);
             }
         }
@@ -687,7 +641,7 @@ void *silenceAimbot(void *) {
             switch (moduleControl.aimbotController.aimbotMode) {
                 case 0:
                     //开镜自瞄
-                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 257 || memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
+                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
                     break;
                 case 1:
                     //开火自瞄
@@ -695,7 +649,7 @@ void *silenceAimbot(void *) {
                     break;
                 case 2:
                     //开镜开火自瞄
-                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 257 || memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1 || memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1;
+                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1 || memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1;
                     break;
                 case 3:
                     //判断枪械是单发还是全自动
@@ -704,7 +658,7 @@ void *silenceAimbot(void *) {
                         enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1;
                     } else {
                         //单发连发用开镜
-                        enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 257 || memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
+                        enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
                     }
                     break;
             }
