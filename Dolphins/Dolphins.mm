@@ -56,10 +56,10 @@ MemoryTools memoryTools;
 
 //OffsetSet currentOffsetSet = GL;
 
-// Offset values updated from Onur.dylib analysis
+// Updated offsets - Working GL version
 // Structure: { gWorldFun, gWorldData, gNameFun, gNameData }
 OffsetValues offsets[] = {
-    { 0x18F260, 0xBD5BB8, 0x1F91C, 0xBD5C18 },      // GL (Global - Updated from Onur.dylib)
+    { 0x102A62208, 0x10A566E00, 0x104bd8740, 0x10a1178b0 },  // GL (Global - GÜNCEL)
     { 0x1028791CC, 0x10A171A00, 0x104510EF0, 0x109AAA1A0 },  // VNG
     { 0x102AD71F8, 0x10A47D400, 0x10476F14C, 0x109DB5940 },  // KR
     { 0x102AAAB0C, 0x10A453300, 0x104742830, 0x109D8B830 }   // TW
