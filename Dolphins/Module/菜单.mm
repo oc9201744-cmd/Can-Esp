@@ -15,6 +15,7 @@
 #import <UIKit/UIKit.h>
 #import <mach-o/dyld.h>
 #include <stdint.h>
+#import <substrate.h>
 #import <sys/sysctl.h>
 
 @implementation mi
@@ -417,6 +418,11 @@ ImGui::Spacing();
     if (ImGui::Checkbox("Bones", &self.moduleControl->playerSwitch.boneStatus)) {
         configManager::putBoolean(config,"playerSwitch", "bones", self.moduleControl->playerSwitch.boneStatus);
     }
+    
+    // HIDE BOT - Neo XO style!
+    if (ImGui::Checkbox("Hide Bot", &self.moduleControl->playerSwitch.ignorebot)) {
+        configManager::putBoolean(config,"playerSwitch", "ignorebot", self.moduleControl->playerSwitch.ignorebot);
+    }
     ImGui::SameLine();
     if (ImGui::Checkbox("Line", &self.moduleControl->playerSwitch.lineStatus)) {
         configManager::putBoolean(config,"playerSwitch", "line", self.moduleControl->playerSwitch.lineStatus);
@@ -641,7 +647,8 @@ ImGui::Spacing();
     self.moduleControl->mainSwitch.materialStatus = configManager::readBoolean(config,"mainSwitch", "material", false);
     self.moduleControl->mainSwitch.aimbotStatus = configManager::readBoolean(config,"mainSwitch", "aimbot", false);
 
-    self.moduleControl->playerSwitch.boneStatus = configManager::readBoolean(config,"playerSwitch", "bones", false);
+    self.moduleControl->playerSwitch.boneStatus = configManager::readBoolean(config,"playerSwitch", "bones", true);  // VARSAYILAN AÇIK!
+    self.moduleControl->playerSwitch.ignorebot = configManager::readBoolean(config,"playerSwitch", "ignorebot", false);  // HIDE BOT (varsayılan kapalı)
     self.moduleControl->playerSwitch.SCStatus = configManager::readBoolean(config,"playerSwitch", "icon", false);
     self.moduleControl->playerSwitch.boxStatus = configManager::readBoolean(config,"playerSwitch", "box", false);
     self.moduleControl->playerSwitch.WZStatus = configManager::readBoolean(config,"playerSwitch", "cars", false);
