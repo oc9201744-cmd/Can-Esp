@@ -209,6 +209,10 @@ void *readStaticData(void *) {
                     int team = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::TeamOffset);
                     int TeamID = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::TeamOffset);
                     if (team == TeamID) continue;
+                    
+                    // KENDİNİ FİLTRELE - objectAddr kendi adresinle aynı mı?
+                    if (objectAddr == staticData.selfAddr) continue;
+                    
                     StaticPlayerData tmpPlayerData;
                     //对象指针地址
 
@@ -231,8 +235,11 @@ void *readStaticData(void *) {
                     tmpPlayerData.team = team;
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
-                    //人机
-                    tmpPlayerData.robot = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::RobotOffset);
+                    
+                    // BOT KONTROLÜ DÜZELTİLDİ - bool olarak oku (1 byte)
+                    bool isBot = false;
+                    memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::RobotOffset, 1, &isBot);
+                    tmpPlayerData.robot = isBot ? 1 : 0;
                     
                     tmpPlayerData.status = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::StatusOffset);
                     
@@ -503,24 +510,28 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
                 uintptr_t humanAddr = meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset;
                 uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset) + 48;
-                //判断是否需要骨骼掩体判断
+                
+                // SKELETON HER ZAMAN ÇİZ - duvar arkasında da
                 BonesData bonesData;
-                if (getBone2d(pov, screenSize,humanAddr, boneAddr, 5, bonesData.head))//头
-                    if (getBone2d(pov,screenSize, humanAddr, boneAddr, 4, bonesData.pit))//胸口
-                        if (getBone2d(pov,screenSize, humanAddr, boneAddr, 1, bonesData.pelvis))//屁股
-                            if (getBone2d(pov,screenSize, humanAddr, boneAddr, 11, bonesData.lcollar))//左肩
-                                if (getBone2d(pov, screenSize,humanAddr, boneAddr, 32, bonesData.rcollar))//右肩
-                                    if (getBone2d(pov,screenSize, humanAddr, boneAddr, 12, bonesData.lelbow))//左手肘
-                                        if (getBone2d(pov,screenSize, humanAddr, boneAddr, 33, bonesData.relbow))//右手肘
-                                            if (getBone2d(pov,screenSize, humanAddr, boneAddr, 63, bonesData.lwrist))//左手腕
-                                                if (getBone2d(pov,screenSize, humanAddr, boneAddr, 62, bonesData.rwrist))//右手腕
-                                                    if (getBone2d(pov, screenSize,humanAddr, boneAddr, 52, bonesData.lthigh))//左大腿
-                                                        if (getBone2d(pov,screenSize, humanAddr, boneAddr, 56, bonesData.rthigh))//右大腿
-                                                            if (getBone2d(pov,screenSize, humanAddr, boneAddr, 53, bonesData.lknee))//左膝盖
-                                                                if (getBone2d(pov,screenSize, humanAddr, boneAddr, 57, bonesData.rknee))//右膝盖
-                                                                    if (getBone2d(pov,screenSize, humanAddr, boneAddr, 54, bonesData.lankle))//左脚腕
-                                                                        if (getBone2d(pov,screenSize, humanAddr, boneAddr, 58, bonesData.rankle))//右脚腕
-                                                                            playerData.bonesData = bonesData;
+                // Her bone'u bağımsız kontrol et
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 5, bonesData.head);      // Baş
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 4, bonesData.pit);       // Göğüs
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 1, bonesData.pelvis);    // Kalça
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 11, bonesData.lcollar);  // Sol omuz
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 32, bonesData.rcollar);  // Sağ omuz
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 12, bonesData.lelbow);   // Sol dirsek
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 33, bonesData.relbow);   // Sağ dirsek
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 63, bonesData.lwrist);   // Sol bilek
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 62, bonesData.rwrist);   // Sağ bilek
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 52, bonesData.lthigh);   // Sol uyluk
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 56, bonesData.rthigh);   // Sağ uyluk
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 53, bonesData.lknee);    // Sol diz
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 57, bonesData.rknee);    // Sağ diz
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 54, bonesData.lankle);   // Sol ayak bileği
+                getBone2d(pov, screenSize, humanAddr, boneAddr, 58, bonesData.rankle);   // Sağ ayak bileği
+                
+                // Bone data'yı her zaman ata
+                playerData.bonesData = bonesData;
                 playerDataList.push_back(playerData);
             }
         }
