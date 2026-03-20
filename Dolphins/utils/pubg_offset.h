@@ -68,17 +68,17 @@ int AddControllerPitchInputOffset = 0x898;  // Vertical rotation
 int StatusOffset = 0x1018;
 int TeamOffset = 0x998;
 int NameOffset = 0x960;
-int RobotOffset = 0xa49;        // Is bot check
-int HpOffset = 0xe28;           // Current HP
-int HpmaxOffset = 0xe2c;        // Max HP
-int DeadOffset = 0xe44;         // Dead status
+int RobotOffset = 0xa40;        // Is bot check (bIsAI field - DOĞRU OFFSET!)
+int HpOffset = 0xe60;           // Current HP (PB 4.3)
+int HpmaxOffset = 0xe64;        // Max HP (PB 4.3)
+int DeadOffset = 0xe7c;         // Dead status (PB 4.3)
 
 // Vehicle Parameters
-int VehicleCommonComponentOffset = 0xbf0;
-int VehicleHPOffset = 0x344;
-int VehicleHPMaxOffset = 0x340;
-int VehicleFuelOffset = 0x424;
-int VehicleFuelMaxOffset = 0x420;
+int VehicleCommonComponentOffset = 0xc00;  // PB 4.3
+int VehicleHPOffset = 0x354;               // PB 4.3
+int VehicleHPMaxOffset = 0x350;            // PB 4.3
+int VehicleFuelOffset = 0x43c;             // PB 4.3
+int VehicleFuelMaxOffset = 0x438;          // PB 4.3
 
 // Position & Mesh
 int MoveCoordOffset = 0x110;
@@ -91,8 +91,8 @@ int BonesOffset = 0x988;        // Bone array for skeleton
 }
 
 // Shooting & Aiming
-int OpenFireOffset = 0x1788;    // Is firing
-int OpenTheSightOffset = 0x10e1; // Is aiming down sights
+int OpenFireOffset = 0x1800;     // Is firing (PB 4.3)
+int OpenTheSightOffset = 0x1134; // Is aiming down sights (PB 4.3)
 
 // Weapon
 int WeaponOneOffset = 0x2a30 + 0x20;  // Primary weapon
