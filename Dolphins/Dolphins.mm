@@ -267,6 +267,12 @@ void *readStaticData(void *) {
                     
                     tmpPlayerData.robot = isBot ? 1 : 0;
                     
+                    // NEO XO FEATURE: HIDE BOT
+                    // Eğer bot ise ve "Hide Bot" açıksa, listeye ekleme!
+                    if (isBot && moduleControl.playerSwitch.ignorebot) {
+                        continue;  // Bot'u atla!
+                    }
+                    
                     tmpPlayerData.status = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::StatusOffset);
                     
                     tmpPlayerDataList.push_back(tmpPlayerData);
