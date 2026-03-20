@@ -56,8 +56,10 @@ MemoryTools memoryTools;
 
 //OffsetSet currentOffsetSet = GL;
 
+// Offset values updated from Onur.dylib analysis
+// Structure: { gWorldFun, gWorldData, gNameFun, gNameData }
 OffsetValues offsets[] = {
-    { 0x102A5125C, 0x10A4A1960, 0x104C0F1E8, 0x10A0557E0 },  // GL
+    { 0x18F260, 0xBD5BB8, 0x1F91C, 0xBD5C18 },      // GL (Global - Updated from Onur.dylib)
     { 0x1028791CC, 0x10A171A00, 0x104510EF0, 0x109AAA1A0 },  // VNG
     { 0x102AD71F8, 0x10A47D400, 0x10476F14C, 0x109DB5940 },  // KR
     { 0x102AAAB0C, 0x10A453300, 0x104742830, 0x109D8B830 }   // TW
@@ -79,15 +81,13 @@ void (*AddControllerPitchInput)(void *actot, float val);
 
 
 long gWorld() {
-    // non-JB: dylib IPA içine gömülü, ana binary index 0'dır
     OffsetValues offsetsForBundle = [OffsetsManager getOffsetsForBundleID:[[NSBundle mainBundle] bundleIdentifier]];
-    return reinterpret_cast<long(__fastcall*)(long)>((long)_dyld_get_image_vmaddr_slide(0) + offsetsForBundle.gWorldFun)((long)_dyld_get_image_vmaddr_slide(0) + offsetsForBundle.gWorldData);
+    return reinterpret_cast<long(__fastcall*)(long)>((long)_dyld_get_image_vmaddr_slide(1) + offsetsForBundle.gWorldFun)((long)_dyld_get_image_vmaddr_slide(1) + offsetsForBundle.gWorldData);
 }
 
 long gName() {
-    // non-JB: dylib IPA içine gömülü, ana binary index 0'dır
     OffsetValues offsetsForBundle = [OffsetsManager getOffsetsForBundleID:[[NSBundle mainBundle] bundleIdentifier]];
-    return reinterpret_cast<long(__fastcall*)(long)>((long)_dyld_get_image_vmaddr_slide(0) + offsetsForBundle.gNameFun)((long)_dyld_get_image_vmaddr_slide(0) + offsetsForBundle.gNameData);
+    return reinterpret_cast<long(__fastcall*)(long)>((long)_dyld_get_image_vmaddr_slide(1) + offsetsForBundle.gNameFun)((long)_dyld_get_image_vmaddr_slide(1) + offsetsForBundle.gNameData);
 }
 
 
@@ -160,8 +160,7 @@ void *readStaticData(void *) {
     while (true) {
         sleep(4);
         if(moduleControl.systemStatus != TransmissionNormal){
-            // non-JB: ana binary index 0 — JB tweakında index 1'di
-                staticData.libAddr = (uintptr_t)_dyld_get_image_vmaddr_slide(0);
+            staticData.libAddr = (uintptr_t)_dyld_get_image_vmaddr_slide(1);
             if(staticData.libAddr != 1){
                 moduleControl.systemStatus = TransmissionNormal;
             }
@@ -205,14 +204,7 @@ void *readStaticData(void *) {
                 
                 string className = getClassName(memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::ClassIdOffset));
                 //人
-                //人
-                bool isPlayer = (
-                    strstr(className.c_str(), "PlayerPawn")         != 0 ||
-                    strstr(className.c_str(), "PlayerCharacter")    != 0 ||
-                    strstr(className.c_str(), "PlayerControllertSl")!= 0 ||
-                    strstr(className.c_str(), "CharacterModelTaget")!= 0
-                );
-                if (isPlayer && moduleControl.mainSwitch.playerStatus) {
+                if (strstr(className.c_str(), "PlayerPawn") || (strstr(className.c_str(), "PlayerCharacter") || (strstr(className.c_str(), "PlayerControllertSl") || (strstr(className.c_str(), "_PlayerPawn_TPlanAI_C")|| (strstr(className.c_str(), "CharacterModelTaget")|| (strstr(className.c_str(), "FakePlayer_AIPawn")!= 0 && moduleControl.mainSwitch.playerStatus)) )))) {
                     //队伍ID
                     int team = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::TeamOffset);
                     int TeamID = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::TeamOffset);
@@ -220,17 +212,14 @@ void *readStaticData(void *) {
                     StaticPlayerData tmpPlayerData;
                     //对象指针地址
 
-                    // Oldu mu kontrolu - IsDead (1 byte bool)
-                    bool isDead = false;
-                    memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::DeadOffset, 1, &isDead);
-                    if (isDead) continue;
+                    bool bDead = memoryTools.readPtr(staticData.selfAddr + PubgOffset::ObjectParam::DeadOffset);
 
 
 
 
 
-                    // HP yukarida kontrol edildi
-                    // bDead kontrolu kaldirildi - HP ile yapiliyor
+                    float hp = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::HpOffset);
+                            if(bDead) continue;
                             uintptr_t statusAddr = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::StatusOffset);
 
                     
@@ -242,13 +231,8 @@ void *readStaticData(void *) {
                     tmpPlayerData.team = team;
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
-                    // IsBot offset - bool (1 byte)
-                    bool isBot = false;
-                    memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::RobotOffset, 1, &isBot);
-                    tmpPlayerData.robot = isBot ? 1 : 0;
-
-
-
+                    //人机
+                    tmpPlayerData.robot = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::RobotOffset);
                     
                     tmpPlayerData.status = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::StatusOffset);
                     
@@ -361,7 +345,7 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 playerData.team = staticPlayerData.team;
                 //血量
                 playerData.hp = memoryTools.readFloat(staticPlayerData.addr + PubgOffset::ObjectParam::HpOffset);
-                // Baygın oyuncular hp=0 olabilir, IsDead kontrolü readStaticData'da yapılıyor
+                playerData.hp = memoryTools.readFloat(staticPlayerData.addr + PubgOffset::ObjectParam::HpOffset);
                                if (playerData.hp > 100) playerData.hp = 100;
                 //取敌人动作
              //   NSLog(@"****： %id",statusName);
@@ -641,7 +625,7 @@ void *silenceAimbot(void *) {
             switch (moduleControl.aimbotController.aimbotMode) {
                 case 0:
                     //开镜自瞄
-                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
+                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 257 || memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
                     break;
                 case 1:
                     //开火自瞄
@@ -649,7 +633,7 @@ void *silenceAimbot(void *) {
                     break;
                 case 2:
                     //开镜开火自瞄
-                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1 || memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1;
+                    enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 257 || memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1 || memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1;
                     break;
                 case 3:
                     //判断枪械是单发还是全自动
@@ -658,7 +642,7 @@ void *silenceAimbot(void *) {
                         enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1;
                     } else {
                         //单发连发用开镜
-                        enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
+                        enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 257 || memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
                     }
                     break;
             }
