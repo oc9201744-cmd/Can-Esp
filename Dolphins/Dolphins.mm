@@ -250,17 +250,19 @@ void *readStaticData(void *) {
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
                     
-                    // BOT KONTROLÜ - 2 YÖNTEM:
-                    // 1. Class name'e bak (FakePlayer = bot)
-                    // 2. bIsAI field'ını oku
-                    bool isBot = false;
+                    // ✅ BOT KONTROLÜ (DUMP VERIFIED - PB 4.3)
+                    // Server tarafı bIsAI field'ı set etmiyor (hep 0)
+                    // Çözüm: FakePlayerAIController pointer kontrolü!
+                    // 
+                    // STExtraPlayerCharacter+0x4968: ANewFakePlayerAIController* FakePlayerAIController
+                    // - BOT ise: pointer != 0 (AI controller var)
+                    // - Gerçek oyuncu ise: pointer == 0 (NULL)
                     
-                    if (strstr(className.c_str(), "FakePlayer") != 0 || 
-                        strstr(className.c_str(), "AIPawn") != 0) {
-                        isBot = true;  // Class name'den bot tespit edildi
-                    } else {
-                        // Field'dan oku
-                        memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::RobotOffset, 1, &isBot);
+                    bool isBot = false;
+                    uintptr_t aiControllerPtr = memoryTools.readPtr(objectAddr + 0x4968);
+                    
+                    if (aiControllerPtr != 0 && aiControllerPtr > 0x100000000) {
+                        isBot = true;  // FakePlayerAIController mevcut = BOT!
                     }
                     
                     tmpPlayerData.robot = isBot ? 1 : 0;
@@ -333,9 +335,18 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
         ImVec3 selfCoord = pov.location;
         //读视角角度
         float lateralAngleView = memoryTools.readFloat(staticData.playerController + PubgOffset::PlayerControllerParam::MouseOffset + 0x4) - 90;
+        
+        // NEO STYLE FIX: Her frame self address'i güncelle - koşarken karakter değişebilir!
+        uintptr_t currentSelfAddr = memoryTools.readPtr(staticData.playerController + PubgOffset::PlayerControllerParam::SelfOffset);
+        
         //读取矩阵
         if (moduleControl.mainSwitch.playerStatus) {
             for (auto staticPlayerData: staticData.playerDataList) {
+                
+                // SELF KONTROLÜ: Kendi karakterini atla!
+                if (staticPlayerData.addr == currentSelfAddr) {
+                    continue;
+                }
 
                 //坐标
                 ImVec3 objectCoord;
