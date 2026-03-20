@@ -82,12 +82,12 @@ void (*AddControllerPitchInput)(void *actot, float val);
 
 long gWorld() {
     OffsetValues offsetsForBundle = [OffsetsManager getOffsetsForBundleID:[[NSBundle mainBundle] bundleIdentifier]];
-    return reinterpret_cast<long(__fastcall*)(long)>((long)_dyld_get_image_vmaddr_slide(1) + offsetsForBundle.gWorldFun)((long)_dyld_get_image_vmaddr_slide(1) + offsetsForBundle.gWorldData);
+    return reinterpret_cast<long(__fastcall*)(long)>((long)_dyld_get_image_vmaddr_slide(0) + offsetsForBundle.gWorldFun)((long)_dyld_get_image_vmaddr_slide(0) + offsetsForBundle.gWorldData);
 }
 
 long gName() {
     OffsetValues offsetsForBundle = [OffsetsManager getOffsetsForBundleID:[[NSBundle mainBundle] bundleIdentifier]];
-    return reinterpret_cast<long(__fastcall*)(long)>((long)_dyld_get_image_vmaddr_slide(1) + offsetsForBundle.gNameFun)((long)_dyld_get_image_vmaddr_slide(1) + offsetsForBundle.gNameData);
+    return reinterpret_cast<long(__fastcall*)(long)>((long)_dyld_get_image_vmaddr_slide(0) + offsetsForBundle.gNameFun)((long)_dyld_get_image_vmaddr_slide(0) + offsetsForBundle.gNameData);
 }
 
 
@@ -160,7 +160,7 @@ void *readStaticData(void *) {
     while (true) {
         sleep(4);
         if(moduleControl.systemStatus != TransmissionNormal){
-            staticData.libAddr = (uintptr_t)_dyld_get_image_vmaddr_slide(1);
+            staticData.libAddr = (uintptr_t)_dyld_get_image_vmaddr_slide(0);
             if(staticData.libAddr != 1){
                 moduleControl.systemStatus = TransmissionNormal;
             }
