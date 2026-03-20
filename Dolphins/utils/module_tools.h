@@ -78,6 +78,8 @@ struct PlayerSwitch {
     bool boxStatus;
     //骨骼
     bool boneStatus;
+    //隐藏机器人 (HIDE BOT - Neo XO style)
+    bool ignorebot;
     //天线
     bool lineStatus;
     //信息
