@@ -1,146 +1,58 @@
-#include <stdio.h>
-#include <string>
-
-/*
- * PUBG Mobile Offsets - Updated from Onur.dylib Analysis
- * 
- * Dylib Info:
- * - Bundle ID: com.tencent.ig (Global/International)
- * - File: Onur.dylib (Mach-O 64-bit ARM64)
- * 
- * Key Symbols Found:
- * - GetGWorld:  0x18F260  (Function)
- * - GWorldNum:  0xBD5BB8  (Global Data)
- * - GetGNames:  0x1F91C   (Function)
- * - GNames:     0xBD5C18  (Global Data)
- * 
- * Special Offsets:
- * - AimBullet_Offset:           0xBD5AB8
- * - AimBullet_Offset2:          0xBD5AC0
- * - ProcessEvent_Offset:        0xBD5AB0
- * - SetControlRotation_Offset:  0xBD5AC8
- */
+// Dolphins/utils/pubg_offset.h  →  4.3 GL Güncel (Mart 2026)
 
 namespace PubgOffset {
 
-// Player Controller Chain
-int PlayerControllerOffset[3] = {0x38, 0x78, 0x30};
+    // GWorld & GName (en kritik)
+    inline uintptr_t GWorldFunction   = 0x10282a858;
+    inline uintptr_t GWorldData       = 0x10992a6e0;
+    inline uintptr_t GNameFunction    = 0x1044dd6ec;
+    inline uintptr_t GNameData        = 0x10953ecd0;
 
-namespace PlayerControllerParam {
+    // Ana Chain'ler
+    inline uintptr_t ULevelOffset               = 0x38;     // GWorld + this → ULevel
+    inline uintptr_t ActorArrayOffset           = 0xA0;     // ULevel + this → Actor Array
+    inline uintptr_t ActorCountOffset           = 0xA8;     // ULevel + this → Count
 
-int SelfOffset = 0x28e0;
-int MouseOffset = 0x4e0;
-int CameraManagerOffset = 0x548;
-int AngleOffset = 0x558;
+    // PlayerController
+    inline uintptr_t PlayerControllerOffset[3] = {0x30, 0x78, 0x98};  // Güncel chain
 
-namespace CameraManagerParam {
-int PovOffset = 0x10a0 + 0x10;  // Field of View offset
-}
+    // Local Player
+    inline uintptr_t LocalPlayerOffset          = 0x30;     // PlayerController + this
 
-namespace ControllerFunction {
-int LineOfSightToOffset = 0x7B0;  // Line of sight check
-}
+    // Self / Pawn
+    inline uintptr_t SelfOffset                 = 0x4B8;    // PlayerController + Pawn
+    inline uintptr_t MeshOffset                 = 0x510;    // Pawn + Mesh (eski 0x510 hâlâ yakın)
+    inline uintptr_t RootComponentOffset        = 0x208;
 
-}
+    // HP & Dead
+    inline uintptr_t HealthOffset               = 0xE60;    // Pawn + Health
+    inline uintptr_t HealthMaxOffset            = 0xE64;
+    inline uintptr_t bDeadOffset                = 0xE7C;    // 1 byte bool
 
-// ULevel (World Level)
-int ULevelOffset = 0x30;
+    // Team
+    inline uintptr_t TeamOffset                 = 0x940;    // hâlâ çalışıyor ama bazen 0x998 de dene
+    inline uintptr_t TeamIDOffset               = 0x998;
 
-namespace ULevelParam {
-int ObjectArrayOffset = 0xA0;   // Actor array
-int ObjectCountOffset = 0xA8;   // Actor count
-}
+    // Camera
+    inline uintptr_t CameraManagerOffset        = 0x548;    // PlayerController + CameraManager
+    inline uintptr_t POVOffset                  = 0x520;    // CameraManager + POV (MinimalViewInfo)
 
-// Object/Actor Parameters
-namespace ObjectParam {
+    // Weapon & Firing
+    inline uintptr_t WeaponOffset               = 0x5C8;    // CurrentWeaponReplicated
+    inline uintptr_t ShootModeOffset            = 0x10D9;
+    inline uintptr_t IsFiringOffset             = 0x1800;
+    inline uintptr_t ADSOffset                  = 0x1134;
 
-int ClassIdOffset = 0x18;
-int ClassNameOffset = 0xC;
+    // Bone & Skeleton (çok değişti)
+    inline uintptr_t BonesOffset                = 0x5A0;    // Mesh + BoneArray (yeni)
+    inline uintptr_t BoneOffsetInArray          = 0x30;     // Bone base + index*0x30 + offset
 
-// Player Input Functions (AddControllerYawInput, etc.)
-namespace PlayerFunction {
-int AddControllerYawInputOffset = 0x890;    // Horizontal rotation
-int AddControllerRollInputOffset = 0x888;   // Roll input
-int AddControllerPitchInputOffset = 0x898;  // Vertical rotation
-}
+    // LineOfSightTo (fonksiyon)
+    inline uintptr_t LineOfSightToOffset        = 0x780;    // Controller vtable içinden
 
-// Player Status
-int StatusOffset = 0x1018;
-int TeamOffset = 0x998;          // TeamID offset (dump verified: UAECharacter+0x998)
-int NameOffset = 0x960;
-
-// ⚠️ BOT DETECTION (PB 4.3 - SERVER-SIDE VERIFIED)
-// Server tarafı bIsAI field'ı set ETMİYOR! (hep 0 geliyor)
-// DOĞRU YÖNTEM: FakePlayerAIController pointer kontrolü!
-// 
-// AIOHeader_3.hpp satır 191129:
-// struct ANewFakePlayerAIController* FakePlayerAIController; // 0x4968(0x8)
-//
-// Kullanım:
-//   uintptr_t aiPtr = readPtr(playerAddr + FakePlayerAIControllerOffset);
-//   if (aiPtr != 0) → BOT
-//   if (aiPtr == 0) → GERÇEK OYUNCU
-int FakePlayerAIControllerOffset = 0x4968;  // AI controller pointer (8 byte ptr)
-
-// ❌ KULLANMA: bIsAI field server tarafından set edilmiyor!
-// int RobotOffset = 0xa40;  // Bu field runtime'da hep 0!
-
-int HpOffset = 0xe60;            // Health (float) - Class dump verified!
-int HpmaxOffset = 0xe64;         // Max HP (PB 4.3)
-int DeadOffset = 0xe7c;          // Dead status (PB 4.3)
-
-// Vehicle Parameters
-int VehicleCommonComponentOffset = 0xc00;  // PB 4.3
-int VehicleHPOffset = 0x354;               // PB 4.3
-int VehicleHPMaxOffset = 0x350;            // PB 4.3
-int VehicleFuelOffset = 0x43c;             // PB 4.3
-int VehicleFuelMaxOffset = 0x438;          // PB 4.3
-
-// Position & Mesh
-int MoveCoordOffset = 0x110;
-int MeshOffset = 0x510;
-int boneCountOffset = 0x8d0;
-
-namespace MeshParam {
-int HumanOffset = 0x210;
-int BonesOffset = 0x988;        // Bone array for skeleton
-}
-
-// Shooting & Aiming
-int OpenFireOffset = 0x1800;     // Is firing (PB 4.3)
-int OpenTheSightOffset = 0x1134; // Is aiming down sights (PB 4.3)
-
-// Weapon
-int WeaponOneOffset = 0x2a30 + 0x20;  // Primary weapon
-
-namespace WeaponParam {
-
-int MasterOffset = 0x110;
-int ShootModeOffset = 0x1089;   // Auto/Single/Burst
-int WeaponAttrOffset = 0x12c0;  // Weapon attributes
-
-namespace WeaponAttrParam {
-int BulletSpeedOffset = 0x560;  // Bullet velocity
-int RecoilOffset = 0xcf0;       // Recoil multiplier
-}
-
-}
-
-// Inventory/Items
-int GoodsListOffset = 0x940;
-
-namespace GoodsListParam {
-int DataBase = 0x38;
-}
-
-// Coordinates
-int CoordOffset = 0x208;
-
-namespace CoordParam {
-int HeightOffset = 0x1dc;       // Z-axis height
-int CoordOffset = 0x1c8;        // XYZ coordinates
-}
-
-}
-
+    // Diğer önemli
+    inline uintptr_t PlayerNameOffset           = 0x960;
+    inline uintptr_t IsBotOffset                = 0xA40;    // kbIsAI
+    inline uintptr_t VelocityOffset             = 0x18C;
+    inline uintptr_t RelativeLocationOffset     = 0x1E4;
 }
