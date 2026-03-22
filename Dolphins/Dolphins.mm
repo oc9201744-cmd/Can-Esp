@@ -32,16 +32,9 @@ using namespace std;
 ModuleControl moduleControl;
 MemoryTools memoryTools;
 
-// OffsetValues structure for OffsetsManager
-typedef struct {
-    long gWorldFun;
-    long gWorldData;
-    long gNameFun;
-    long gNameData;
-} OffsetValues;
-
-// Global offsets array using your values
-OffsetValues offsets[] = {
+// Global offsets array - using values from your header
+// Note: OffsetValues and OffsetsManager are defined in crossoffsets.h
+OffsetValues regionOffsets[] = {
     { 0x102A62208, 0x10A566E00, 0x104bd8740, 0x10a1178b0 },  // GL
     { 0x1028791CC, 0x10A171A00, 0x104510EF0, 0x109AAA1A0 },  // VNG
     { 0x102AD71F8, 0x10A47D400, 0x10476F14C, 0x109DB5940 },  // KR
@@ -79,9 +72,9 @@ struct {
     vector<StaticMaterialData> smokeList;
 } staticData;
 
-// Global functions - Using your global offsets directly
+// Global functions - Using global offsets from pubg_offset.h
 long gWorld() {
-    // Slide 0: Use global offset directly
+    // Slide 0: Use global offset directly from PubgOffset::Global
     long slide = (long)_dyld_get_image_vmaddr_slide(0);
     long gworld_func_addr = slide + PubgOffset::Global::gworld_func;
     long gworld_data_addr = slide + PubgOffset::Global::gworld_data;
@@ -90,34 +83,13 @@ long gWorld() {
 }
 
 long gName() {
-    // Slide 0: Use global offset directly
+    // Slide 0: Use global offset directly from PubgOffset::Global
     long slide = (long)_dyld_get_image_vmaddr_slide(0);
     long gname_func_addr = slide + PubgOffset::Global::gname_func;
     long gname_data_addr = slide + PubgOffset::Global::gname_data;
     
     return reinterpret_cast<long(__fastcall*)(long)>(gname_func_addr)(gname_data_addr);
 }
-
-// Alternative: Using OffsetsManager pattern
-@interface OffsetsManager : NSObject
-+ (OffsetValues)getOffsetsForBundleID:(NSString *)bundleID;
-@end
-
-@implementation OffsetsManager
-+ (OffsetValues)getOffsetsForBundleID:(NSString *)bundleID {
-    // Return offsets based on bundle ID
-    if ([bundleID isEqualToString:@"com.tencent.ig"]) {
-        return offsets[0]; // GL
-    } else if ([bundleID isEqualToString:@"com.vng.pubgmobile"]) {
-        return offsets[1]; // VNG
-    } else if ([bundleID isEqualToString:@"com.pubg.krmobile"]) {
-        return offsets[2]; // KR
-    } else if ([bundleID isEqualToString:@"com.rekoo.pubgm"]) {
-        return offsets[3]; // TW
-    }
-    return offsets[0]; // Default GL
-}
-@end
 
 // UI entry point
 static void didFinishLaunching(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef info) {
