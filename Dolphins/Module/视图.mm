@@ -1419,11 +1419,6 @@ imDrawList->AddRectFilled({playerData.screen.x - playerData.size.x, playerData.s
                 }
                 //绘制骨骼
                 if (self.moduleControl->playerSwitch.boneStatus) {
-                    
-                    #ifdef DEBUG_SKELETON
-                    NSLog(@"[SKELETON DRAW] Drawing bones for player at screen:(%.0f,%.0f)", 
-                          playerData.screen.x, playerData.screen.y);
-                    #endif
 
                     imDrawList->AddLine({playerData.bonesData.head.x, playerData.bonesData.head.y}, {playerData.bonesData.pit.x, playerData.bonesData.pit.y}, color, 2.0f);//голова > грудь
                     imDrawList->AddLine({playerData.bonesData.pit.x, playerData.bonesData.pit.y}, {playerData.bonesData.pelvis.x, playerData.bonesData.pelvis.y}, color, 2.0f);//грудь > таз
