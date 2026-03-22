@@ -1,6 +1,6 @@
 //
 //  Dolphins.m
-//  Final fix - self box, bot filtering, skeleton
+//  Final version – uses new offsets, self-box fixed, bot filtering, skeleton fallback
 //
 
 #import "Dolphins/crossoffsets.h"
@@ -132,16 +132,12 @@ bool IsSelfPlayer(uintptr_t playerAddr) {
 
 long gWorld() {
     long slide = (long)_dyld_get_image_vmaddr_slide(0);
-    long gworld_func_addr = slide + PubgOffset::Global::gworld_func;
-    long gworld_data_addr = slide + PubgOffset::Global::gworld_data;
-    return reinterpret_cast<long(__fastcall*)(long)>(gworld_func_addr)(gworld_data_addr);
+    return slide + PubgOffset::Global::gworld_data;
 }
 
 long gName() {
     long slide = (long)_dyld_get_image_vmaddr_slide(0);
-    long gname_func_addr = slide + PubgOffset::Global::gname_func;
-    long gname_data_addr = slide + PubgOffset::Global::gname_data;
-    return reinterpret_cast<long(__fastcall*)(long)>(gname_func_addr)(gname_data_addr);
+    return slide + PubgOffset::Global::gname_data;
 }
 
 static void didFinishLaunching(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef info) {
