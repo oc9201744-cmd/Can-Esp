@@ -3,7 +3,6 @@
 //  Dolphins
 //
 //  Created by xbk on 2022/4/25.
-//  Updated for PUBG Mobile 4.3 - Non-Jailbreak
 //
 
 #import "Dolphins/crossoffsets.h"
@@ -19,20 +18,15 @@
 #import <substrate.h>
 #import <sys/sysctl.h>
 
-// imgui imports
-#import "imgui.h"
-#import "imgui_impl_metal.h"
-#import "imgui_impl_ios.h"
-
 @implementation mi
 
 INI* config;
 
-const char *optionItemName[] = {"HOME", "ESP MENU", "ITEM MENU", "AIMBOT MENU", "AIM SETTINGS", "SKINS"};
+const char *optionItemName[] = {"HOME", "MENU ESP", "MENU ITEM", "MENU AIM", "Aim settings", "Skins"};
 int optionItemCurrent = 0;
 
 int aimbotIntensity;
-const char *aimbotIntensityText[] = {"Very low", "Low", "Medium", "Hard", "Very hard", "Lock", "Hard lock"};
+const char *aimbotIntensityText[] = {"Very low","Low", "Medium", "Hard", "Very hard", "Lock", "Hard lock"};
 
 const char *aimbotModeText[] = {"Scope", "Fire", "Scope & Fire", "Auto when fire"};
 
@@ -133,7 +127,6 @@ static BOOL gTriedLoadAppIconTexture = NO;
         NSLog(@"App icon texture create failed.");
     }
 }
-
 - (NSString *)deviceMachineCode {
     size_t size;
     sysctlbyname("hw.machine", NULL, &size, NULL, 0);
@@ -259,7 +252,7 @@ static BOOL gTriedLoadAppIconTexture = NO;
     ImGui::SetNextWindowSize({1280, 700}, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowPos({172, 172}, ImGuiCond_FirstUseEver);
 
-    if (ImGui::Begin("GLOCK IOS PUBG 4.3 FREE", &self.moduleControl->menuStatus, ImGuiWindowFlags_NoCollapse)) {
+    if (ImGui::Begin("GLOCK IOS PUBG 4.2.0 FREE", &self.moduleControl->menuStatus, ImGuiWindowFlags_NoCollapse)) {
         ImGuiContext& g = *GImGui;
         if (g.NavWindow == NULL) {
             self.moduleControl->menuStatus = !self.moduleControl->menuStatus;
@@ -300,7 +293,7 @@ static BOOL gTriedLoadAppIconTexture = NO;
                 [self showHomeTab];
                 break;
             case 1:
-                [self showESPMenu];
+                [self showSystemInfo];
                 break;
             case 2:
                 [self showMaterialControl];
@@ -309,10 +302,10 @@ static BOOL gTriedLoadAppIconTexture = NO;
                 [self showAimbotControl];
                 break;
             case 4:
-                [self showAimbotSettings];
+                [self showAimbotControl];
                 break;
             case 5:
-                [self showSkins];
+                [self skins];
                 break;
             default:
                 [self showHomeTab];
@@ -323,8 +316,6 @@ static BOOL gTriedLoadAppIconTexture = NO;
         ImGui::End();
     }
 }
-
-#pragma mark - Home Tab
 
 -(void)showHomeTab {
     UIDevice *device = [UIDevice currentDevice];
@@ -360,16 +351,16 @@ static BOOL gTriedLoadAppIconTexture = NO;
     }
 
     ImGui::SameLine();
-    ImGui::BeginGroup();
-    ImGui::TextColored(ImVec4(0.38f, 0.72f, 1.00f, 1.00f), "Application");
-    ImGui::Separator();
-    ImGui::Text("App Name           : %s", appName.UTF8String);
-    ImGui::Text("Bundle Identifier  : %s", bundleID.UTF8String);
-    ImGui::EndGroup();
+ImGui::BeginGroup();
+ImGui::TextColored(ImVec4(0.38f, 0.72f, 1.00f, 1.00f), "Application");
+ImGui::Separator();
+ImGui::Text("App Name           : %s", appName.UTF8String);
+ImGui::Text("Bundle Identifier  : %s", bundleID.UTF8String);
+ImGui::EndGroup();
 
-    ImGui::EndChild();
+ImGui::EndChild();
 
-    ImGui::Spacing();
+ImGui::Spacing();
     ImGui::TextColored(ImVec4(0.38f, 0.72f, 1.00f, 1.00f), "Device");
     ImGui::Separator();
     ImGui::Text("Device Model       : %s", deviceName.UTF8String);
@@ -387,457 +378,326 @@ static BOOL gTriedLoadAppIconTexture = NO;
     ImGui::Separator();
     ImGui::Text("Current Date       : %s", dateString.UTF8String);
 
-    // Version info
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "PUBG Mobile 4.3 - Non-Jailbreak Version");
-
     ImGui::PopStyleVar();
 }
 
-#pragma mark - ESP Menu
+-(void)showSystemInfo {
 
--(void)showESPMenu {
-    if(ImGui::Button("Update / Telegram")){
-        [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://t.me/glockios"]];
+    if(ImGui::Button("Update")){
+        [[UIApplication sharedApplication] openURL:[NSURL URLWithString:NSSENCRYPT("https://t.me/glockios")]];
     }
 
-    ImGui::Separator();
-    ImGui::BulletColorText(ImColor(97, 167, 217, 255).Value, "ESP Main");
-
-    if (ImGui::Checkbox("Hide ESP (GZB)", &self.moduleControl->mainSwitch.gzb)) {
-        configManager::putBoolean(config, "mainSwitch", "gzb", self.moduleControl->mainSwitch.gzb);
+    if (ImGui::Checkbox("HideESP", &self.moduleControl->mainSwitch.gzb)) {
+        configManager::putBoolean(config,"mainSwitch", "gzb", self.moduleControl->mainSwitch.gzb);
     }
 
-    if (ImGui::Checkbox("ENABLE PLAYER ESP", &self.moduleControl->mainSwitch.playerStatus)) {
-        configManager::putBoolean(config, "mainSwitch", "player", self.moduleControl->mainSwitch.playerStatus);
+    if (ImGui::Checkbox("ENABLE ESP", &self.moduleControl->mainSwitch.playerStatus)) {
+        configManager::putBoolean(config,"mainSwitch", "player", self.moduleControl->mainSwitch.playerStatus);
     }
 
-    ImGui::Separator();
-    ImGui::BulletColorText(ImColor(97, 167, 217, 255).Value, "ESP Features");
-
-    if (ImGui::Checkbox("Player Icon", &self.moduleControl->playerSwitch.SCStatus)) {
-        configManager::putBoolean(config, "playerSwitch", "icon", self.moduleControl->playerSwitch.SCStatus);
+    if (ImGui::Checkbox("Icon", &self.moduleControl->playerSwitch.SCStatus)) {
+        configManager::putBoolean(config,"playerSwitch", "icon", self.moduleControl->playerSwitch.SCStatus);
     }
     ImGui::SameLine();
-    if (ImGui::Checkbox("Weapon Name", &self.moduleControl->playerSwitch.SCWZStatus)) {
-        configManager::putBoolean(config, "playerSwitch", "weapon", self.moduleControl->playerSwitch.SCWZStatus);
-    }
-
-    if (ImGui::Checkbox("Box ESP", &self.moduleControl->playerSwitch.boxStatus)) {
-        configManager::putBoolean(config, "playerSwitch", "box", self.moduleControl->playerSwitch.boxStatus);
+    if (ImGui::Checkbox("Weapon", &self.moduleControl->playerSwitch.SCWZStatus)) {
+        configManager::putBoolean(config,"playerSwitch", "weapon", self.moduleControl->playerSwitch.SCWZStatus);
     }
     ImGui::SameLine();
-    if (ImGui::Checkbox("Skeleton", &self.moduleControl->playerSwitch.boneStatus)) {
-        configManager::putBoolean(config, "playerSwitch", "bones", self.moduleControl->playerSwitch.boneStatus);
-    }
-
-    if (ImGui::Checkbox("Line ESP", &self.moduleControl->playerSwitch.lineStatus)) {
-        configManager::putBoolean(config, "playerSwitch", "line", self.moduleControl->playerSwitch.lineStatus);
+    if (ImGui::Checkbox("Cars", &self.moduleControl->playerSwitch.WZStatus)) {
+        configManager::putBoolean(config,"playerSwitch", "cars", self.moduleControl->playerSwitch.WZStatus);
     }
     ImGui::SameLine();
-    if (ImGui::Checkbox("Player Info", &self.moduleControl->playerSwitch.infoStatus)) {
-        configManager::putBoolean(config, "playerSwitch", "info", self.moduleControl->playerSwitch.infoStatus);
+    if (ImGui::Checkbox("Items", &self.moduleControl->playerSwitch.WZWZStatus)) {
+        configManager::putBoolean(config,"playerSwitch", "items", self.moduleControl->playerSwitch.WZWZStatus);
     }
 
-    if (ImGui::Checkbox("Fill Box", &self.moduleControl->playerSwitch.fillStatus)) {
-        configManager::putBoolean(config, "playerSwitch", "fill", self.moduleControl->playerSwitch.fillStatus);
+    if (ImGui::Checkbox("Box", &self.moduleControl->playerSwitch.boxStatus)) {
+        configManager::putBoolean(config,"playerSwitch", "box", self.moduleControl->playerSwitch.boxStatus);
     }
     ImGui::SameLine();
-    if (ImGui::Checkbox("Back Arrows", &self.moduleControl->playerSwitch.backStatus)) {
-        configManager::putBoolean(config, "playerSwitch", "arrows", self.moduleControl->playerSwitch.backStatus);
+    if (ImGui::Checkbox("Bones", &self.moduleControl->playerSwitch.boneStatus)) {
+        configManager::putBoolean(config,"playerSwitch", "bones", self.moduleControl->playerSwitch.boneStatus);
+    }
+    ImGui::SameLine();
+    if (ImGui::Checkbox("Line", &self.moduleControl->playerSwitch.lineStatus)) {
+        configManager::putBoolean(config,"playerSwitch", "line", self.moduleControl->playerSwitch.lineStatus);
+    }
+    ImGui::SameLine();
+    if (ImGui::Checkbox("Info", &self.moduleControl->playerSwitch.infoStatus)) {
+        configManager::putBoolean(config,"playerSwitch", "info", self.moduleControl->playerSwitch.infoStatus);
     }
 
+    if (ImGui::Checkbox("Fill", &self.moduleControl->playerSwitch.fillStatus)) {
+        configManager::putBoolean(config,"playerSwitch", "fill", self.moduleControl->playerSwitch.fillStatus);
+    }
+    ImGui::SameLine();
     if (ImGui::Checkbox("Radar", &self.moduleControl->playerSwitch.radarStatus)) {
-        configManager::putBoolean(config, "playerSwitch", "radar", self.moduleControl->playerSwitch.radarStatus);
+        configManager::putBoolean(config,"playerSwitch", "radar", self.moduleControl->playerSwitch.radarStatus);
     }
     ImGui::SameLine();
-    if (ImGui::Checkbox("Aim Line", &self.moduleControl->playerSwitch.lineStatusC)) {
-        configManager::putBoolean(config, "playerSwitch", "aimline", self.moduleControl->playerSwitch.lineStatusC);
+    if (ImGui::Checkbox("Arrows", &self.moduleControl->playerSwitch.backStatus)) {
+        configManager::putBoolean(config,"playerSwitch", "arrows", self.moduleControl->playerSwitch.backStatus);
     }
 
-    ImGui::Separator();
-    ImGui::BulletColorText(ImColor(97, 167, 217, 255).Value, "BOT Settings");
-
-    // YENI - Bot ayarları
-    if (ImGui::Checkbox("Hide Bot", &self.moduleControl->playerSwitch.ignorebot)) {
-        configManager::putBoolean(config, "playerSwitch", "ignorebot", self.moduleControl->playerSwitch.ignorebot);
-    }
-    ImGui::SameLine();
-    if (ImGui::Checkbox("Show Bot Type", &self.moduleControl->playerSwitch.showBotType)) {
-        configManager::putBoolean(config, "playerSwitch", "showbottype", self.moduleControl->playerSwitch.showBotType);
-    }
-
-    if (ImGui::Checkbox("Bot Alert", &self.moduleControl->playerSwitch.botAlert)) {
-        configManager::putBoolean(config, "playerSwitch", "botalert", self.moduleControl->playerSwitch.botAlert);
-    }
-    ImGui::SameLine();
-    if (ImGui::Checkbox("Different Color Bot", &self.moduleControl->playerSwitch.botDifferentColor)) {
-        configManager::putBoolean(config, "playerSwitch", "botdiffcolor", self.moduleControl->playerSwitch.botDifferentColor);
-    }
-
-    ImGui::Separator();
-    ImGui::BulletColorText(ImColor(97, 167, 217, 255).Value, "Render Settings");
-
+    ImGui::BulletColorText(ImColor(97, 167, 217, 255).Value, "RANDER DRAW ESP ");
     if (ImGui::RadioButton("60FPS", &self.moduleControl->fps, 0)) {
-        configManager::putInteger(config, "mainSwitch", "fps", self.moduleControl->fps);
+        configManager::putInteger(config,"mainSwitch", "fps",self.moduleControl->fps);
         overlayView.preferredFramesPerSecond = 60;
     }
     ImGui::SameLine();
     if (ImGui::RadioButton("90FPS", &self.moduleControl->fps, 1)) {
-        configManager::putInteger(config, "mainSwitch", "fps", self.moduleControl->fps);
+        configManager::putInteger(config,"mainSwitch", "fps",self.moduleControl->fps);
         overlayView.preferredFramesPerSecond = 90;
     }
     ImGui::SameLine();
     if (ImGui::RadioButton("120FPS", &self.moduleControl->fps, 2)) {
-        configManager::putInteger(config, "mainSwitch", "fps", self.moduleControl->fps);
+        configManager::putInteger(config,"mainSwitch", "fps",self.moduleControl->fps);
         overlayView.preferredFramesPerSecond = 120;
     }
 
-    ImGui::Separator();
-    ImGui::BulletColorText(ImColor(97, 167, 217, 255).Value, "Radar Settings");
+    ImGui::BulletColorText(ImColor(97, 167, 217, 255).Value, "Radar mode");
 
     ImGui::SetNextItemWidth(ImGui::GetWindowContentRegionWidth() - calcTextSize("X position") - 32.0f);
-    if (ImGui::SliderFloat("X position##radarX", &self.moduleControl->playerSwitch.radarCoord.x, 0.0f, 
-        ([UIScreen mainScreen].bounds.size.width * [UIScreen mainScreen].nativeScale), "%.0f")) {
-        configManager::putFloat(config, "playerSwitch", "radarX", self.moduleControl->playerSwitch.radarCoord.x);
+    if (ImGui::SliderFloat("X position##radarX", &self.moduleControl->playerSwitch.radarCoord.x, 0.0f, ([UIScreen mainScreen].bounds.size.width * [UIScreen mainScreen].nativeScale), "%.0f")) {
+        configManager::putFloat(config,"playerSwitch", "radarX", self.moduleControl->playerSwitch.radarCoord.x);
     }
 
     ImGui::SetNextItemWidth(ImGui::GetWindowContentRegionWidth() - calcTextSize("Y position") - 32.0f);
-    if (ImGui::SliderFloat("Y position##radarY", &self.moduleControl->playerSwitch.radarCoord.y, 0.0f, 
-        ([UIScreen mainScreen].bounds.size.height * [UIScreen mainScreen].nativeScale), "%.0f")) {
-        configManager::putFloat(config, "playerSwitch", "radarY", self.moduleControl->playerSwitch.radarCoord.y);
+    if (ImGui::SliderFloat("Y position##radarY", &self.moduleControl->playerSwitch.radarCoord.y, 0.0f, ([UIScreen mainScreen].bounds.size.height * [UIScreen mainScreen].nativeScale), "%.0f")) {
+        configManager::putFloat(config,"playerSwitch", "radarY", self.moduleControl->playerSwitch.radarCoord.y);
     }
 
     ImGui::SetNextItemWidth(ImGui::GetWindowContentRegionWidth() - calcTextSize("Size") - 32.0f);
     if (ImGui::SliderFloat("Size##radarSize", &self.moduleControl->playerSwitch.radarSize, 1.0f, 100, "%.0f%%")) {
-        configManager::putFloat(config, "playerSwitch", "radarSize", self.moduleControl->playerSwitch.radarSize);
+        configManager::putFloat(config,"playerSwitch", "radarSize", self.moduleControl->playerSwitch.radarSize);
     }
 
     ImGui::Text("%.1fMs / %.1fFps", 1000 / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 }
 
-#pragma mark - Material/Item Menu
-
--(void)showMaterialControl {
-    ImGui::BulletColorText(ImColor(97, 167, 217, 255).Value, "Item ESP Settings");
-    
-    if (ImGui::Checkbox("ENABLE ITEM ESP", &self.moduleControl->mainSwitch.materialStatus)) {
-        configManager::putBoolean(config, "mainSwitch", "material", self.moduleControl->mainSwitch.materialStatus);
+-(void) showMaterialControl {
+    ImGui::BulletColorText(ImColor(97, 167, 217, 255).Value, "Item");
+    if (ImGui::Checkbox("ENABLE ITEM", &self.moduleControl->mainSwitch.materialStatus)) {
+        configManager::putBoolean(config,"mainSwitch", "material", self.moduleControl->mainSwitch.materialStatus);
     }
-
-    ImGui::Separator();
-    ImGui::BulletColorText(ImColor(97, 167, 217, 255).Value, "Weapons");
 
     if (ImGui::Checkbox("Rifle", &self.moduleControl->materialSwitch[Rifle])) {
         std::string str = "materialSwitch_" + std::to_string(Rifle);
-        configManager::putBoolean(config, "materialSwitch", str.c_str(), self.moduleControl->materialSwitch[Rifle]);
-    }
-    ImGui::SameLine();
-    if (ImGui::Checkbox("Sniper", &self.moduleControl->materialSwitch[Sniper])) {
-        std::string str = "materialSwitch_" + std::to_string(Sniper);
-        configManager::putBoolean(config, "materialSwitch", str.c_str(), self.moduleControl->materialSwitch[Sniper]);
-    }
-    ImGui::SameLine();
-    if (ImGui::Checkbox("SMG", &self.moduleControl->materialSwitch[SMG])) {
-        std::string str = "materialSwitch_" + std::to_string(SMG);
-        configManager::putBoolean(config, "materialSwitch", str.c_str(), self.moduleControl->materialSwitch[SMG]);
-    }
-    ImGui::SameLine();
-    if (ImGui::Checkbox("Shotgun", &self.moduleControl->materialSwitch[Shotgun])) {
-        std::string str = "materialSwitch_" + std::to_string(Shotgun);
-        configManager::putBoolean(config, "materialSwitch", str.c_str(), self.moduleControl->materialSwitch[Shotgun]);
-    }
-
-    if (ImGui::Checkbox("Pistol", &self.moduleControl->materialSwitch[Pistol])) {
-        std::string str = "materialSwitch_" + std::to_string(Pistol);
-        configManager::putBoolean(config, "materialSwitch", str.c_str(), self.moduleControl->materialSwitch[Pistol]);
-    }
-    ImGui::SameLine();
-    if (ImGui::Checkbox("Melee", &self.moduleControl->materialSwitch[Melee])) {
-        std::string str = "materialSwitch_" + std::to_string(Melee);
-        configManager::putBoolean(config, "materialSwitch", str.c_str(), self.moduleControl->materialSwitch[Melee]);
-    }
-
-    ImGui::Separator();
-    ImGui::BulletColorText(ImColor(97, 167, 217, 255).Value, "Attachments");
-
-    if (ImGui::Checkbox("Rifle Attachments", &self.moduleControl->materialSwitch[RifleParts])) {
-        std::string str = "materialSwitch_" + std::to_string(RifleParts);
-        configManager::putBoolean(config, "materialSwitch", str.c_str(), self.moduleControl->materialSwitch[RifleParts]);
-    }
-    ImGui::SameLine();
-    if (ImGui::Checkbox("Sniper Attachments", &self.moduleControl->materialSwitch[SniperParts])) {
-        std::string str = "materialSwitch_" + std::to_string(SniperParts);
-        configManager::putBoolean(config, "materialSwitch", str.c_str(), self.moduleControl->materialSwitch[SniperParts]);
-    }
-    ImGui::SameLine();
-    if (ImGui::Checkbox("Scope", &self.moduleControl->materialSwitch[Sight])) {
-        std::string str = "materialSwitch_" + std::to_string(Sight);
-        configManager::putBoolean(config, "materialSwitch", str.c_str(), self.moduleControl->materialSwitch[Sight]);
-    }
-    ImGui::SameLine();
-    if (ImGui::Checkbox("Grips", &self.moduleControl->materialSwitch[Grip])) {
-        std::string str = "materialSwitch_" + std::to_string(Grip);
-        configManager::putBoolean(config, "materialSwitch", str.c_str(), self.moduleControl->materialSwitch[Grip]);
-    }
-
-    ImGui::Separator();
-    ImGui::BulletColorText(ImColor(97, 167, 217, 255).Value, "Equipment");
-
-    if (ImGui::Checkbox("Armor", &self.moduleControl->materialSwitch[Armor])) {
-        std::string str = "materialSwitch_" + std::to_string(Armor);
-        configManager::putBoolean(config, "materialSwitch", str.c_str(), self.moduleControl->materialSwitch[Armor]);
-    }
-    ImGui::SameLine();
-    if (ImGui::Checkbox("Helmet", &self.moduleControl->materialSwitch[Armor+1])) { // Helmet için ayrı enum ekle
-        std::string str = "materialSwitch_helmet";
-        configManager::putBoolean(config, "materialSwitch", str.c_str(), self.moduleControl->materialSwitch[Armor+1]);
-    }
-    ImGui::SameLine();
-    if (ImGui::Checkbox("Backpack", &self.moduleControl->materialSwitch[Armor+2])) {
-        std::string str = "materialSwitch_backpack";
-        configManager::putBoolean(config, "materialSwitch", str.c_str(), self.moduleControl->materialSwitch[Armor+2]);
-    }
-
-    ImGui::Separator();
-    ImGui::BulletColorText(ImColor(97, 167, 217, 255).Value, "Consumables & Ammo");
-
-    if (ImGui::Checkbox("Drugs/Medkits", &self.moduleControl->materialSwitch[Drug])) {
-        std::string str = "materialSwitch_" + std::to_string(Drug);
-        configManager::putBoolean(config, "materialSwitch", str.c_str(), self.moduleControl->materialSwitch[Drug]);
-    }
-    ImGui::SameLine();
-    if (ImGui::Checkbox("Ammo", &self.moduleControl->materialSwitch[Bullet])) {
-        std::string str = "materialSwitch_" + std::to_string(Bullet);
-        configManager::putBoolean(config, "materialSwitch", str.c_str(), self.moduleControl->materialSwitch[Bullet]);
+        configManager::putBoolean(config,"materialSwitch", str.c_str(), self.moduleControl->materialSwitch[Rifle]);
     }
     ImGui::SameLine();
     if (ImGui::Checkbox("Grenade", &self.moduleControl->materialSwitch[Missile])) {
         std::string str = "materialSwitch_" + std::to_string(Missile);
-        configManager::putBoolean(config, "materialSwitch", str.c_str(), self.moduleControl->materialSwitch[Missile]);
+        configManager::putBoolean(config,"materialSwitch", str.c_str(), self.moduleControl->materialSwitch[Missile]);
+    }
+    ImGui::SameLine();
+    if (ImGui::Checkbox("Armor", &self.moduleControl->materialSwitch[Armor])) {
+        std::string str = "materialSwitch_" + std::to_string(Armor);
+        configManager::putBoolean(config,"materialSwitch", str.c_str(), self.moduleControl->materialSwitch[Armor]);
+    }
+    ImGui::SameLine();
+    if (ImGui::Checkbox("Sniper mods", &self.moduleControl->materialSwitch[SniperParts])) {
+        std::string str = "materialSwitch_" + std::to_string(SniperParts);
+        configManager::putBoolean(config,"materialSwitch", str.c_str(), self.moduleControl->materialSwitch[SniperParts]);
     }
 
-    ImGui::Separator();
-    ImGui::BulletColorText(ImColor(97, 167, 217, 255).Value, "Special");
-
-    if (ImGui::Checkbox("Vehicles", &self.moduleControl->materialSwitch[Vehicle])) {
+    if (ImGui::Checkbox("Rifle mods", &self.moduleControl->materialSwitch[RifleParts])) {
+        std::string str = "materialSwitch_" + std::to_string(RifleParts);
+        configManager::putBoolean(config,"materialSwitch", str.c_str(), self.moduleControl->materialSwitch[RifleParts]);
+    }
+    ImGui::SameLine();
+    if (ImGui::Checkbox("Drugs", &self.moduleControl->materialSwitch[Drug])) {
+        std::string str = "materialSwitch_" + std::to_string(Drug);
+        configManager::putBoolean(config,"materialSwitch", str.c_str(), self.moduleControl->materialSwitch[Drug]);
+    }
+    ImGui::SameLine();
+    if (ImGui::Checkbox("Bullet", &self.moduleControl->materialSwitch[Bullet])) {
+        std::string str = "materialSwitch_" + std::to_string(Bullet);
+        configManager::putBoolean(config,"materialSwitch", str.c_str(), self.moduleControl->materialSwitch[Bullet]);
+    }
+    ImGui::SameLine();
+    if (ImGui::Checkbox("Grips", &self.moduleControl->materialSwitch[Grip])) {
+        std::string str = "materialSwitch_" + std::to_string(Grip);
+        configManager::putBoolean(config,"materialSwitch", str.c_str(), self.moduleControl->materialSwitch[Grip]);
+    }
+    if (ImGui::Checkbox("Cars", &self.moduleControl->materialSwitch[Vehicle])) {
         std::string str = "materialSwitch_" + std::to_string(Vehicle);
-        configManager::putBoolean(config, "materialSwitch", str.c_str(), self.moduleControl->materialSwitch[Vehicle]);
+        configManager::putBoolean(config,"materialSwitch", str.c_str(), self.moduleControl->materialSwitch[Vehicle]);
     }
     ImGui::SameLine();
     if (ImGui::Checkbox("Airdrop", &self.moduleControl->materialSwitch[Airdrop])) {
         std::string str = "materialSwitch_" + std::to_string(Airdrop);
-        configManager::putBoolean(config, "materialSwitch", str.c_str(), self.moduleControl->materialSwitch[Airdrop]);
+        configManager::putBoolean(config,"materialSwitch", str.c_str(), self.moduleControl->materialSwitch[Airdrop]);
     }
     ImGui::SameLine();
-    if (ImGui::Checkbox("Flare Gun", &self.moduleControl->materialSwitch[FlareGun])) {
+    if (ImGui::Checkbox("Flare", &self.moduleControl->materialSwitch[FlareGun])) {
         std::string str = "materialSwitch_" + std::to_string(FlareGun);
-        configManager::putBoolean(config, "materialSwitch", str.c_str(), self.moduleControl->materialSwitch[FlareGun]);
+        configManager::putBoolean(config,"materialSwitch", str.c_str(), self.moduleControl->materialSwitch[FlareGun]);
+    }
+    ImGui::SameLine();
+    if (ImGui::Checkbox("Sniper", &self.moduleControl->materialSwitch[Sniper])) {
+        std::string str = "materialSwitch_" + std::to_string(Sniper);
+        configManager::putBoolean(config,"materialSwitch", str.c_str(), self.moduleControl->materialSwitch[Sniper]);
     }
 
-    if (ImGui::Checkbox("Grenade Warning", &self.moduleControl->materialSwitch[Warning])) {
+    if (ImGui::Checkbox("Scope", &self.moduleControl->materialSwitch[Sight])) {
+        std::string str = "materialSwitch_" + std::to_string(Sight);
+        configManager::putBoolean(config,"materialSwitch", str.c_str(), self.moduleControl->materialSwitch[Sight]);
+    }
+    ImGui::SameLine();
+    if (ImGui::Checkbox("Grenade warning", &self.moduleControl->materialSwitch[Warning])) {
         std::string str = "materialSwitch_" + std::to_string(Warning);
-        configManager::putBoolean(config, "materialSwitch", str.c_str(), self.moduleControl->materialSwitch[Warning]);
+        configManager::putBoolean(config,"materialSwitch", str.c_str(), self.moduleControl->materialSwitch[Warning]);
     }
 }
 
-#pragma mark - Aimbot Menu
-
--(void)showAimbotControl {
-    ImGui::BulletColorText(ImColor(97, 167, 217, 255).Value, "Aimbot Main");
-    
+-(void) showAimbotControl {
+    ImGui::BulletColorText(ImColor(97, 167, 217, 255).Value, "Aim");
     if (ImGui::Checkbox("ENABLE AIMBOT", &self.moduleControl->mainSwitch.aimbotStatus)) {
-        configManager::putBoolean(config, "mainSwitch", "aimbot", self.moduleControl->mainSwitch.aimbotStatus);
+        configManager::putBoolean(config,"mainSwitch", "aimbot", self.moduleControl->mainSwitch.aimbotStatus);
     }
-
-    ImGui::Separator();
-    ImGui::BulletColorText(ImColor(97, 167, 217, 255).Value, "Aimbot Mode");
-
-    ImGui::SetNextItemWidth(ImGui::GetWindowContentRegionWidth() / 2 - 20);
-    if (ImGui::Combo("Mode", &self.moduleControl->aimbotController.aimbotMode, aimbotModeText, IM_ARRAYSIZE(aimbotModeText))) {
-        configManager::putInteger(config, "aimbotControl", "mode", self.moduleControl->aimbotController.aimbotMode);
-    }
-    
-    ImGui::SameLine();
-    
-    ImGui::SetNextItemWidth(ImGui::GetWindowContentRegionWidth() / 2 - 20);
-    if (ImGui::Combo("Target Part", &self.moduleControl->aimbotController.aimbotParts, aimbotPartsText, IM_ARRAYSIZE(aimbotPartsText))) {
-        configManager::putInteger(config, "aimbotControl", "parts", self.moduleControl->aimbotController.aimbotParts);
-    }
-
-    ImGui::Separator();
-    ImGui::BulletColorText(ImColor(97, 167, 217, 255).Value, "Aimbot Settings");
 
     ImGui::SetNextItemWidth(calcTextSize("Aim intensity"));
-    if (ImGui::Combo("Smooth/Intensity", &aimbotIntensity, aimbotIntensityText, IM_ARRAYSIZE(aimbotIntensityText))) {
-        configManager::putInteger(config, "aimbotControl", "intensity", aimbotIntensity);
+    if (ImGui::Combo("Aim intensity", &aimbotIntensity, aimbotIntensityText, IM_ARRAYSIZE(aimbotIntensityText))) {
+        configManager::putInteger(config,"aimbotControl", "intensity",aimbotIntensity);
         switch (aimbotIntensity) {
-            case 0: self.moduleControl->aimbotController.aimbotIntensity = 0.1f; break;
-            case 1: self.moduleControl->aimbotController.aimbotIntensity = 0.2f; break;
-            case 2: self.moduleControl->aimbotController.aimbotIntensity = 0.3f; break;
-            case 3: self.moduleControl->aimbotController.aimbotIntensity = 0.4f; break;
-            case 4: self.moduleControl->aimbotController.aimbotIntensity = 0.5f; break;
-            case 5: self.moduleControl->aimbotController.aimbotIntensity = 1.0f; break;
-            case 6: self.moduleControl->aimbotController.aimbotIntensity = 1.2f; break;
+            case 0:
+                self.moduleControl->aimbotController.aimbotIntensity = 0.1f;
+                break;
+            case 1:
+                self.moduleControl->aimbotController.aimbotIntensity = 0.2f;
+                break;
+            case 2:
+                self.moduleControl->aimbotController.aimbotIntensity = 0.3f;
+                break;
+            case 3:
+                self.moduleControl->aimbotController.aimbotIntensity = 0.4f;
+                break;
+            case 4:
+                self.moduleControl->aimbotController.aimbotIntensity = 0.5f;
+                break;
+            case 5:
+                self.moduleControl->aimbotController.aimbotIntensity = 1.0f;
+                break;
+            case 6:
+                self.moduleControl->aimbotController.aimbotIntensity = 1.2f;
+                break;
         }
     }
 
-    if (ImGui::Checkbox("Show FOV Radius", &self.moduleControl->aimbotController.showAimbotRadius)) {
-        configManager::putBoolean(config, "aimbotControl", "showRadius", self.moduleControl->aimbotController.showAimbotRadius);
+    if (ImGui::Checkbox("Show radius", &self.moduleControl->aimbotController.showAimbotRadius)) {
+        configManager::putBoolean(config,"aimbotControl", "showRadius", self.moduleControl->aimbotController.showAimbotRadius);
+    }
+
+    if (ImGui::Checkbox("Ignore knock", &self.moduleControl->aimbotController.fallNotAim)) {
+        configManager::putBoolean(config,"aimbotControl", "fall", self.moduleControl->aimbotController.fallNotAim);
+    }
+
+    if (ImGui::Checkbox("Ignore in smoke", &self.moduleControl->aimbotController.smoke)) {
+        configManager::putBoolean(config,"aimbotControl", "smoke", self.moduleControl->aimbotController.smoke);
+    }
+    ImGui::SetNextItemWidth(ImGui::GetWindowContentRegionWidth() / 2 - calcTextSize("Mode") - 32.0f);
+    if (ImGui::Combo("Mode", &self.moduleControl->aimbotController.aimbotMode, aimbotModeText, IM_ARRAYSIZE(aimbotModeText))) {
+        configManager::putInteger(config,"aimbotControl", "mode", self.moduleControl->aimbotController.aimbotMode);
     }
     ImGui::SameLine();
-    if (ImGui::Checkbox("Ignore Knocked", &self.moduleControl->aimbotController.fallNotAim)) {
-        configManager::putBoolean(config, "aimbotControl", "fall", self.moduleControl->aimbotController.fallNotAim);
+    ImGui::SetNextItemWidth(ImGui::GetWindowContentRegionWidth() / 2 - calcTextSize("Part") - 32.0f);
+    if (ImGui::Combo("Part", &self.moduleControl->aimbotController.aimbotParts, aimbotPartsText, IM_ARRAYSIZE(aimbotPartsText))) {
+        configManager::putBoolean(config,"aimbotControl", "parts", self.moduleControl->aimbotController.aimbotParts);
     }
 
-    if (ImGui::Checkbox("Ignore in Smoke", &self.moduleControl->aimbotController.smoke)) {
-        configManager::putBoolean(config, "aimbotControl", "smoke", self.moduleControl->aimbotController.smoke);
-    }
-    ImGui::SameLine();
-    
-    // YENI - Bot atlama
-    if (ImGui::Checkbox("Ignore Bots", &self.moduleControl->aimbotController.ignoreBots)) {
-        configManager::putBoolean(config, "aimbotControl", "ignorebots", self.moduleControl->aimbotController.ignoreBots);
+    ImGui::SetNextItemWidth(ImGui::GetWindowContentRegionWidth() - calcTextSize("Radius") - 32.0f);
+    if (ImGui::SliderFloat("Radius", &self.moduleControl->aimbotController.aimbotRadius, 0.0f, ([UIScreen mainScreen].bounds.size.height * [UIScreen mainScreen].nativeScale) / 2, "%.0f")) {
+        configManager::putFloat(config,"aimbotControl", "radius", self.moduleControl->aimbotController.aimbotRadius);
     }
 
-    ImGui::Separator();
-    ImGui::BulletColorText(ImColor(97, 167, 217, 255).Value, "Aimbot Range");
-
-    ImGui::SetNextItemWidth(ImGui::GetWindowContentRegionWidth() - calcTextSize("FOV Radius") - 32.0f);
-    if (ImGui::SliderFloat("FOV Radius", &self.moduleControl->aimbotController.aimbotRadius, 10.0f, 
-        ([UIScreen mainScreen].bounds.size.height * [UIScreen mainScreen].nativeScale) / 2, "%.0f")) {
-        configManager::putFloat(config, "aimbotControl", "radius", self.moduleControl->aimbotController.aimbotRadius);
-    }
-
-    ImGui::SetNextItemWidth(ImGui::GetWindowContentRegionWidth() - calcTextSize("Max Distance") - 32.0f);
-    if (ImGui::SliderFloat("Max Distance", &self.moduleControl->aimbotController.distance, 10.0f, 500.0f, "%.0fM")) {
-        configManager::putFloat(config, "aimbotControl", "distance", self.moduleControl->aimbotController.distance);
+    ImGui::SetNextItemWidth(ImGui::GetWindowContentRegionWidth() - calcTextSize("Distance") - 32.0f);
+    if (ImGui::SliderFloat("Distance", &self.moduleControl->aimbotController.distance, 0.0f, 450.0f, "%.0fM")) {
+        configManager::putFloat(config,"aimbotControl", "distance", self.moduleControl->aimbotController.distance);
     }
 }
 
-#pragma mark - Aimbot Settings (Detailed)
+-(void) skins{
 
--(void)showAimbotSettings {
-    ImGui::BulletColorText(ImColor(97, 167, 217, 255).Value, "Advanced Aimbot Settings");
-    
-    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "Coming soon...");
-    ImGui::Text("Recoil control, prediction settings,");
-    ImGui::Text("and weapon-specific configs will be here.");
-    
-    ImGui::Separator();
-    
-    // M416 Skin selector (placeholder)
-    ImGui::BulletColorText(ImColor(97, 167, 217, 255).Value, "Weapon Skins");
-    static int m416skin = 0;
-    ImGui::Combo("M416 Skin", &m416skin, m416text, IM_ARRAYSIZE(m416text));
 }
 
-#pragma mark - Skins
-
--(void)showSkins {
-    ImGui::BulletColorText(ImColor(97, 167, 217, 255).Value, "Skin Changer");
-    
-    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "Skin features coming soon...");
-    
-    static int selectedWeapon = 0;
-    const char* weapons[] = {"M416", "AKM", "M762", "SCAR-L", "AUG", "Groza", "QBZ", "G36C"};
-    
-    ImGui::Combo("Select Weapon", &selectedWeapon, weapons, IM_ARRAYSIZE(weapons));
-    
-    ImGui::Separator();
-    
-    static int selectedSkin = 0;
-    const char* skins[] = {"Default", "Glacier", "Fool", "Shinobi Kami", "Pharaoh", "Golden"};
-    
-    ImGui::Combo("Select Skin", &selectedSkin, skins, IM_ARRAYSIZE(skins));
-    
-    if (ImGui::Button("Apply Skin", ImVec2(200, 40))) {
-        // Skin uygulama kodu buraya
-        ImGui::OpenPopup("Skin Applied");
-    }
-    
-    if (ImGui::BeginPopupModal("Skin Applied", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::Text("Skin applied successfully!");
-        if (ImGui::Button("OK", ImVec2(120, 0))) {
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::EndPopup();
-    }
-}
-
-#pragma mark - Config Management
-
--(void)readIniConfig {
-    // FPS
-    self.moduleControl->fps = configManager::readInteger(config, "mainSwitch", "fps", 0);
-    switch(self.moduleControl->fps) {
-        case 0: overlayView.preferredFramesPerSecond = 60; break;
-        case 1: overlayView.preferredFramesPerSecond = 90; break;
-        case 2: overlayView.preferredFramesPerSecond = 120; break;
-        default: overlayView.preferredFramesPerSecond = 60; break;
+-(void)readIniConfig{
+    self.moduleControl->fps = configManager::readInteger(config,"mainSwitch", "fps", 0);
+    switch(self.moduleControl->fps){
+        case 0:
+            overlayView.preferredFramesPerSecond = 60;
+            break;
+        case 1:
+            overlayView.preferredFramesPerSecond = 90;
+            break;
+        case 2:
+            overlayView.preferredFramesPerSecond = 120;
+            break;
+        default:
+            overlayView.preferredFramesPerSecond = 60;
+            break;
     }
 
-    // Main switches
-    self.moduleControl->mainSwitch.playerStatus = configManager::readBoolean(config, "mainSwitch", "player", false);
-    self.moduleControl->mainSwitch.materialStatus = configManager::readBoolean(config, "mainSwitch", "material", false);
-    self.moduleControl->mainSwitch.aimbotStatus = configManager::readBoolean(config, "mainSwitch", "aimbot", false);
-    self.moduleControl->mainSwitch.gzb = configManager::readBoolean(config, "mainSwitch", "gzb", true);
+    self.moduleControl->mainSwitch.playerStatus = configManager::readBoolean(config,"mainSwitch", "player", false);
+    self.moduleControl->mainSwitch.materialStatus = configManager::readBoolean(config,"mainSwitch", "material", false);
+    self.moduleControl->mainSwitch.aimbotStatus = configManager::readBoolean(config,"mainSwitch", "aimbot", false);
 
-    // Player switches
-    self.moduleControl->playerSwitch.boneStatus = configManager::readBoolean(config, "playerSwitch", "bones", true);
-    self.moduleControl->playerSwitch.ignorebot = configManager::readBoolean(config, "playerSwitch", "ignorebot", false);
-    self.moduleControl->playerSwitch.showBotType = configManager::readBoolean(config, "playerSwitch", "showbottype", false);
-    self.moduleControl->playerSwitch.botAlert = configManager::readBoolean(config, "playerSwitch", "botalert", false);
-    self.moduleControl->playerSwitch.botDifferentColor = configManager::readBoolean(config, "playerSwitch", "botdiffcolor", false);
-    
-    self.moduleControl->playerSwitch.SCStatus = configManager::readBoolean(config, "playerSwitch", "icon", false);
-    self.moduleControl->playerSwitch.boxStatus = configManager::readBoolean(config, "playerSwitch", "box", false);
-    self.moduleControl->playerSwitch.SCWZStatus = configManager::readBoolean(config, "playerSwitch", "weapon", false);
-    self.moduleControl->playerSwitch.WZStatus = configManager::readBoolean(config, "playerSwitch", "cars", false);
-    self.moduleControl->playerSwitch.lineStatus = configManager::readBoolean(config, "playerSwitch", "line", false);
-    self.moduleControl->playerSwitch.WZWZStatus = configManager::readBoolean(config, "playerSwitch", "items", false);
-    self.moduleControl->playerSwitch.infoStatus = configManager::readBoolean(config, "playerSwitch", "info", false);
-    self.moduleControl->playerSwitch.backStatus = configManager::readBoolean(config, "playerSwitch", "arrows", false);
-    self.moduleControl->playerSwitch.radarStatus = configManager::readBoolean(config, "playerSwitch", "radar", false);
-    self.moduleControl->playerSwitch.fillStatus = configManager::readBoolean(config, "playerSwitch", "fill", false);
-    self.moduleControl->playerSwitch.lineStatusC = configManager::readBoolean(config, "playerSwitch", "aimline", false);
+    self.moduleControl->playerSwitch.boneStatus = configManager::readBoolean(config,"playerSwitch", "bones", false);
+    self.moduleControl->playerSwitch.SCStatus = configManager::readBoolean(config,"playerSwitch", "icon", false);
+    self.moduleControl->playerSwitch.boxStatus = configManager::readBoolean(config,"playerSwitch", "box", false);
+    self.moduleControl->playerSwitch.WZStatus = configManager::readBoolean(config,"playerSwitch", "cars", false);
+    self.moduleControl->playerSwitch.lineStatus = configManager::readBoolean(config,"playerSwitch", "line", false);
+    self.moduleControl->playerSwitch.WZWZStatus = configManager::readBoolean(config,"playerSwitch", "items", false);
+    self.moduleControl->playerSwitch.infoStatus = configManager::readBoolean(config,"playerSwitch", "info", false);
+    self.moduleControl->playerSwitch.backStatus = configManager::readBoolean(config,"playerSwitch", "arrows", false);
+    self.moduleControl->playerSwitch.radarStatus = configManager::readBoolean(config,"playerSwitch", "radar", false);
+    self.moduleControl->playerSwitch.fillStatus = configManager::readBoolean(config,"playerSwitch", "fill", false);
+    self.moduleControl->playerSwitch.lineStatusC = configManager::readBoolean(config,"playerSwitch", "aimline", false);
 
-    // Radar settings
-    self.moduleControl->playerSwitch.radarSize = configManager::readFloat(config, "playerSwitch", "radarSize", 70);
-    self.moduleControl->playerSwitch.radarCoord.x = configManager::readFloat(config, "playerSwitch", "radarX", 500);
-    self.moduleControl->playerSwitch.radarCoord.y = configManager::readFloat(config, "playerSwitch", "radarY", 500);
+    self.moduleControl->playerSwitch.radarSize = configManager::readFloat(config,"playerSwitch", "radarSize", 70);
+    self.moduleControl->playerSwitch.radarCoord.x = configManager::readFloat(config,"playerSwitch", "radarX", 500);
+    self.moduleControl->playerSwitch.radarCoord.y = configManager::readFloat(config,"playerSwitch", "radarY", 500);
 
-    // Material switches
     for (int i = 0; i < All; ++i) {
         std::string str = "materialSwitch_" + std::to_string(i);
-        self.moduleControl->materialSwitch[i] = configManager::readBoolean(config, "materialSwitch", str.c_str(), false);
+        self.moduleControl->materialSwitch[i] = configManager::readBoolean(config,"materialSwitch", str.c_str(), false);
     }
 
-    // Aimbot settings
-    self.moduleControl->aimbotController.fallNotAim = configManager::readBoolean(config, "aimbotControl", "fall", false);
-    self.moduleControl->aimbotController.showAimbotRadius = configManager::readBoolean(config, "aimbotControl", "showRadius", true);
-    self.moduleControl->aimbotController.aimbotRadius = configManager::readFloat(config, "aimbotControl", "radius", 500);
-    self.moduleControl->aimbotController.smoke = configManager::readBoolean(config, "aimbotControl", "smoke", true);
-    self.moduleControl->aimbotController.aimbotMode = configManager::readInteger(config, "aimbotControl", "mode", 0);
-    self.moduleControl->aimbotController.aimbotParts = configManager::readInteger(config, "aimbotControl", "parts", 0);
-    self.moduleControl->aimbotController.ignoreBots = configManager::readBoolean(config, "aimbotControl", "ignorebots", false);
-    self.moduleControl->aimbotController.distance = configManager::readFloat(config, "aimbotControl", "distance", 450);
+    self.moduleControl->aimbotController.fallNotAim = configManager::readBoolean(config,"aimbotControl", "fall", false);
+    self.moduleControl->aimbotController.showAimbotRadius = configManager::readBoolean(config,"aimbotControl", "showRadius", true);
+    self.moduleControl->aimbotController.aimbotRadius = configManager::readFloat(config,"aimbotControl", "radius", 500);
+    self.moduleControl->aimbotController.smoke = configManager::readBoolean(config,"aimbotControl", "smoke", true);
+    self.moduleControl->aimbotController.aimbotMode = configManager::readInteger(config,"aimbotControl", "mode", 0);
+    self.moduleControl->aimbotController.aimbotParts = configManager::readInteger(config,"aimbotControl", "parts", 0);
 
-    // Aimbot intensity
-    aimbotIntensity = configManager::readInteger(config, "aimbotControl", "intensity", 2);
+    aimbotIntensity = configManager::readInteger(config,"aimbotControl", "intensity", 2);
     switch (aimbotIntensity) {
-        case 0: self.moduleControl->aimbotController.aimbotIntensity = 0.1f; break;
-        case 1: self.moduleControl->aimbotController.aimbotIntensity = 0.2f; break;
-        case 2: self.moduleControl->aimbotController.aimbotIntensity = 0.3f; break;
-        case 3: self.moduleControl->aimbotController.aimbotIntensity = 0.4f; break;
-        case 4: self.moduleControl->aimbotController.aimbotIntensity = 0.5f; break;
-        case 5: self.moduleControl->aimbotController.aimbotIntensity = 1.0f; break;
-        case 6: self.moduleControl->aimbotController.aimbotIntensity = 1.2f; break;
+        case 0:
+            self.moduleControl->aimbotController.aimbotIntensity = 0.1f;
+            break;
+        case 1:
+            self.moduleControl->aimbotController.aimbotIntensity = 0.2f;
+            break;
+        case 2:
+            self.moduleControl->aimbotController.aimbotIntensity = 0.3f;
+            break;
+        case 3:
+            self.moduleControl->aimbotController.aimbotIntensity = 0.4f;
+            break;
+        case 4:
+            self.moduleControl->aimbotController.aimbotIntensity = 0.5f;
+            break;
+        case 5:
+            self.moduleControl->aimbotController.aimbotIntensity = 1.0f;
+            break;
+        case 6:
+            self.moduleControl->aimbotController.aimbotIntensity = 1.2f;
+            break;
     }
-}
 
-#pragma mark - Cleanup Timer
+    self.moduleControl->mainSwitch.gzb = configManager::readBoolean(config,"mainSwitch", "gzb", true);
+    self.moduleControl->aimbotController.distance = configManager::readFloat(config,"aimbotControl", "distance", 450);
+}
 
 - (void)startCleanupTimer {
     NSTimer *cleanupTimer = [NSTimer scheduledTimerWithTimeInterval:5.0
@@ -863,5 +723,168 @@ static BOOL gTriedLoadAppIconTexture = NO;
         }
     }
 }
+
+
+
+
+// ----------------------------------
+//          IDA OFFSETS
+// ----------------------------------
+#define TARGET_OFFSET       0x1A278          // AnoSDK
+#define ACEWORKER_OFFSET    0x88610          // AceWorker offset
+
+static int (*orig_AnoSDKOnRecvData)();
+static int (*orig_AceWorker)();
+
+
+// 
+//        HOOK
+// 
+int hook_AnoSDKOnRecvData() {
+    return 1;
+}
+
+int hook_AceWorker() {
+    return 1;   // AceWorker
+}
+
+
+// ----------------------------------
+//        STAGE TOAST
+// ----------------------------------
+void showStageToast() {
+    dispatch_async(dispatch_get_main_queue(), ^{
+
+        UIWindow *window = [UIApplication sharedApplication].windows.firstObject;
+        if (!window) return;
+
+        CGFloat width = window.frame.size.width;
+        CGFloat height = window.frame.size.height;
+        CGFloat toastWidth = width - 80;
+        CGFloat toastHeight = 50;
+        CGFloat safeBottom = window.safeAreaInsets.bottom;
+
+        UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(
+            40,
+            height - toastHeight - 40 - safeBottom,
+            toastWidth,
+            toastHeight
+        )];
+
+        label.textAlignment = NSTextAlignmentCenter;
+        label.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.85];
+        label.textColor = [UIColor greenColor];
+        label.layer.cornerRadius = 12;
+        label.clipsToBounds = YES;
+        label.font = [UIFont boldSystemFontOfSize:16];
+        label.alpha = 0;
+
+        [window addSubview:label];
+
+        [UIView animateWithDuration:0.4 animations:^{
+            label.alpha = 1;
+        }];
+
+        label.text = @"Anti-cheat ...";
+
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,1*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            label.text = @"Stage 1 ...";
+        });
+
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,2*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            label.text = @"Stage 2 ...";
+        });
+
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,3*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            label.text = @"Stage 3 ...";
+        });
+
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,4*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            label.textColor = [UIColor systemGreenColor];
+            label.text = @"Completed ✓";
+        });
+
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,6*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            [UIView animateWithDuration:0.5 animations:^{
+                label.alpha = 0;
+            } completion:^(BOOL finished) {
+                [label removeFromSuperview];
+            }];
+        });
+    });
+}
+
+
+// ----------------------------------
+
+// ----------------------------------
+void perform_offset_hook() {
+
+    uintptr_t base = (uintptr_t)_dyld_get_image_header(0);
+
+    uintptr_t ano_addr  = base + TARGET_OFFSET;
+    uintptr_t ace_addr  = base + ACEWORKER_OFFSET;
+
+    if (ano_addr > 0x1000 && ace_addr > 0x1000) {
+
+
+        MSHookFunction((void *)ano_addr,
+                       (void *)hook_AnoSDKOnRecvData,
+                       (void **)&orig_AnoSDKOnRecvData);
+
+        // 2) AceWorker Hook 
+        MSHookFunction((void *)ace_addr,
+                       (void *)hook_AceWorker,
+                       (void **)&orig_AceWorker);
+
+        // 
+        showStageToast();
+
+    } else {
+
+        dispatch_async(dispatch_get_main_queue(), ^{
+            UIWindow *window = [UIApplication sharedApplication].windows.firstObject;
+            if (!window) return;
+
+            UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(
+                40,
+                window.frame.size.height-120,
+                window.frame.size.width-80,
+                45
+            )];
+
+            label.text = @"Error: Base address not found!";
+            label.textAlignment = NSTextAlignmentCenter;
+            label.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.85];
+            label.textColor = [UIColor redColor];
+            label.layer.cornerRadius = 12;
+            label.clipsToBounds = YES;
+            label.font = [UIFont boldSystemFontOfSize:16];
+
+            [window addSubview:label];
+
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW,3*NSEC_PER_SEC),
+                           dispatch_get_main_queue(), ^{
+                [label removeFromSuperview];
+            });
+        });
+    }
+}
+
+
+// 
+
+// 
+__attribute__((constructor))
+static void init_hook() {
+
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,5*NSEC_PER_SEC),
+                   dispatch_get_main_queue(), ^{
+        perform_offset_hook();
+    });
+}
+
+
+
 
 @end
