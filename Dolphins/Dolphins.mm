@@ -116,7 +116,7 @@ void *readStaticData(void *) {
             // PlayerController chain
             staticData.playerController = memoryTools.readPtr(memoryTools.readPtr(memoryTools.readPtr(staticData.gwlordAddr + PubgOffset::PlayerControllerOffset[0]) + PubgOffset::PlayerControllerOffset[1]) + PubgOffset::PlayerControllerOffset[2]);
             
-            // LineOfSightTo fonksiyonu
+            // LineOfSightTo fonksiyonu (vtable + offset)
             LineOfSightTo = (bool (*)(void *, void *, ImVec3, bool)) (memoryTools.readPtr(memoryTools.readPtr(staticData.playerController + 0x0) + PubgOffset::LineOfSightToOffset));
             
             // Self pointer
@@ -211,7 +211,7 @@ void *readStaticData(void *) {
     return nullptr;
 }
 
-// Frame verisi okuma (hatalar düzeltildi)
+// Frame verisi okuma (düzeltilmiş)
 void readFrameData(ImVec2 screenSize, vector<PlayerData> &playerDataList, vector<MaterialData> &materialDataList) {
     playerDataList.clear();
     materialDataList.clear();
@@ -326,13 +326,13 @@ void readFrameData(ImVec2 screenSize, vector<PlayerData> &playerDataList, vector
     }
 }
 
-// Silence Aimbot (içerik yoksa boş bırakıldı, sen doldurabilirsin)
+// Silence Aimbot thread (içerik boşsa doldur)
 void *silenceAimbot(void *) {
     ImVec2 screen = ImVec2(screenWidth, screenHeight);
     while (true) {
         usleep(16666);
         if (moduleControl.systemStatus == TransmissionNormal && moduleControl.mainSwitch.aimbotStatus) {
-            // Aimbot mantığı buraya eklenebilir
+            // Aimbot mantığı buraya
         }
     }
     return nullptr;
