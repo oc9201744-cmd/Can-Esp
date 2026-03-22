@@ -1,9 +1,6 @@
 //
-//  Dolphins.m (Güncellenmiş 4.3 Ofsetleri)
-//  Dolphins
-//
-//  Created by XBK on 2022/4/24.
-//  Updated for PUBG Mobile 4.3
+//  Dolphins.m (Non-Jailbreak Version - Base 0)
+//  PUBG Mobile 4.3 iOS
 //
 
 #import "Dolphins/crossoffsets.h"
@@ -11,7 +8,6 @@
 #import "Dolphins/View/FloatView.h"
 #import "Dolphins/View/OverlayView.h"
 #include "Dolphins/dolphins.h"
-#import <mach-o/dyld.h>
 #include <stdio.h>
 #include <vector>
 #include <iostream>
@@ -34,6 +30,10 @@ using namespace PubgOffset;
 ModuleControl moduleControl;
 MemoryTools memoryTools;
 
+// ============ NON-JAILBREAK BASE ============
+// Base address = 0 (non-jailbreak için)
+#define BASE_ADDR 0
+
 // ============ OFFSET YAPILARI ============
 typedef struct {
     uintptr_t gWorldFun;
@@ -42,7 +42,7 @@ typedef struct {
     uintptr_t gNameData;
 } OffsetValues;
 
-// 4.3 Global Offsets
+// 4.3 Global Offsets (Base 0 ile kullanılır)
 OffsetValues offsets[] = {
     { 
         GlobalOffsets::gworld_func,    // 0x102A62208
@@ -58,19 +58,23 @@ void (*AddControllerYawInput)(void *actor, float val);
 void (*AddControllerRollInput)(void *actor, float val);
 void (*AddControllerPitchInput)(void *actor, float val);
 
-// ============ GLOBAL FONKSIYONLAR ============
+// ============ GLOBAL FONKSIYONLAR (NON-JAILBREAK) ============
+// Base = 0 olduğu için direkt adresleri kullan
 long gWorld() {
     OffsetValues offsetsForBundle = offsets[0];
-    return reinterpret_cast<long(__fastcall*)(long)>(
-        (long)_dyld_get_image_vmaddr_slide(1) + offsetsForBundle.gWorldFun
-    )((long)_dyld_get_image_vmaddr_slide(1) + offsetsForBundle.gWorldData);
+    // Non-jailbreak: Direkt adres, slide yok
+    uintptr_t funcAddr = offsetsForBundle.gWorldFun;
+    uintptr_t dataAddr = offsetsForBundle.gWorldData;
+    
+    return reinterpret_cast<long(__fastcall*)(long)>(funcAddr)(dataAddr);
 }
 
 long gName() {
     OffsetValues offsetsForBundle = offsets[0];
-    return reinterpret_cast<long(__fastcall*)(long)>(
-        (long)_dyld_get_image_vmaddr_slide(1) + offsetsForBundle.gNameFun
-    )((long)_dyld_get_image_vmaddr_slide(1) + offsetsForBundle.gNameData);
+    uintptr_t funcAddr = offsetsForBundle.gNameFun;
+    uintptr_t dataAddr = offsetsForBundle.gNameData;
+    
+    return reinterpret_cast<long(__fastcall*)(long)>(funcAddr)(dataAddr);
 }
 
 // ============ STATIK DATA YAPISI ============
@@ -91,14 +95,10 @@ struct {
 // ============ UI BASLATMA ============
 static void didFinishLaunching(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef info) {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        // ESP Pencere
         mao* drawWindow = [[mao alloc] initWithFrame:&moduleControl];
-        // Menu
         mi* menuWindow = [[mi alloc] initWithFrame:&moduleControl];
-        // Overlay
         OverlayView* overlayView = [[OverlayView alloc] initWithFrame:[UIScreen mainScreen].bounds:&moduleControl:drawWindow:menuWindow];
         [[UIApplication sharedApplication].keyWindow addSubview:overlayView];
-        // Float button
         FloatView* floatView = [[FloatView alloc] initWithFrame:CGRectMake(489, 58, 45, 45):&moduleControl];
         [[UIApplication sharedApplication].keyWindow addSubview:floatView];
     });
@@ -122,15 +122,14 @@ void *readStaticData(void *) {
         sleep(4);
         
         if(moduleControl.systemStatus != TransmissionNormal) {
-            staticData.libAddr = (uintptr_t)_dyld_get_image_vmaddr_slide(1);
-            if(staticData.libAddr != 1) {
-                moduleControl.systemStatus = TransmissionNormal;
-            }
+            // Non-jailbreak: Base adres kontrolü farklı
+            staticData.libAddr = BASE_ADDR;
+            moduleControl.systemStatus = TransmissionNormal;
         } else if (moduleControl.systemStatus == TransmissionNormal) {
             staticData.gwlordAddr = gWorld();
             staticData.gnameAddr = gName();
             
-            // Player Controller - Yeni offset dizisi
+            // Player Controller
             staticData.playerController = memoryTools.readPtr(
                 memoryTools.readPtr(
                     memoryTools.readPtr(staticData.gwlordAddr + PlayerControllerOffset::offsets[0]) 
@@ -138,7 +137,7 @@ void *readStaticData(void *) {
                 ) + PlayerControllerOffset::offsets[2]
             );
             
-            // LineOfSightTo fonksiyonu
+            // LineOfSightTo
             LineOfSightTo = (bool (*)(void *, void *, ImVec3, bool))(
                 memoryTools.readPtr(
                     memoryTools.readPtr(staticData.playerController + 0x0) 
@@ -187,7 +186,7 @@ void *readStaticData(void *) {
                 uintptr_t coordAddr = memoryTools.readPtr(objectAddr + ObjectParam::CoordOffset);
                 string className = getClassName(memoryTools.readInt(objectAddr + ObjectParam::ClassIdOffset));
                 
-                // ============ PLAYER TESPITI ============
+                // PLAYER TESPITI
                 if (strstr(className.c_str(), "PlayerPawn") || 
                     strstr(className.c_str(), "PlayerCharacter") ||
                     strstr(className.c_str(), "PlayerControllertSl") ||
@@ -210,21 +209,20 @@ void *readStaticData(void *) {
                     tmpPlayerData.team = team;
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + ObjectParam::NameOffset));
                     
-                    // ============ BOT/AI KONTROLU (GUNCELLENMIS) ============
-                    // kbIsAI = 0xa40, kbIsMLAI = 0xa41
+                    // BOT/AI KONTROLU (0xa40 ve 0xa41)
                     bool isAI = memoryTools.readByte(objectAddr + ObjectParam::RobotOffset);
                     bool isMLAI = memoryTools.readByte(objectAddr + ObjectParam::MLAIOffset);
                     tmpPlayerData.robot = (isAI || isMLAI) ? 1 : 0;
                     
-                    // HP (GUNCELLENMIS - 0xe60)
+                    // HP (0xe60)
                     tmpPlayerData.hp = memoryTools.readFloat(objectAddr + ObjectParam::HpOffset);
                     
-                    // STATUS (GUNCELLENMIS - 0x1058)
+                    // STATUS (0x1058)
                     tmpPlayerData.status = memoryTools.readInt(objectAddr + ObjectParam::StatusOffset);
                     
                     tmpPlayerDataList.push_back(tmpPlayerData);
                 }
-                // ============ DUMAN TESPITI ============
+                // DUMAN TESPITI
                 else if (strstr(className.c_str(), "ProjSmoke_BP_C") != 0) {
                     StaticMaterialData tmpMaterialData;
                     tmpMaterialData.type = Warning;
@@ -234,7 +232,7 @@ void *readStaticData(void *) {
                     tmpMaterialData.coordAddr = coordAddr;
                     tmpSmokeList.push_back(tmpMaterialData);
                 }
-                // ============ ITEM TESPITI ============
+                // ITEM TESPITI
                 else if (moduleControl.mainSwitch.materialStatus) {
                     MaterialStruct material = isMaterial(className.c_str());
                     if (material.type > -1) {
@@ -245,7 +243,6 @@ void *readStaticData(void *) {
                         tmpMaterialData.addr = objectAddr;
                         tmpMaterialData.coordAddr = coordAddr;
                         
-                        // Silah kontrolu - sahip varsa atla
                         if ((material.type == Rifle || material.type == Sniper || material.type == Missile) && 
                             memoryTools.readPtr(objectAddr + ObjectParam::WeaponParam::MasterOffset) != 0) {
                             continue;
@@ -277,7 +274,7 @@ void readFrameData(ImVec2 screenSize, vector<PlayerData> &playerDataList, vector
         memoryTools.readInt(staticData.playerController + ObjectParam::ClassIdOffset)
     );
     
-    // POV oku (GUNCELLENMIS - 0x10a0, +0x10 yok!)
+    // POV oku (0x10a0)
     MinimalViewInfo pov;
     memoryTools.readMemory(
         staticData.cameraManager + PlayerControllerParam::CameraManagerParam::PovOffset, 
@@ -290,11 +287,11 @@ void readFrameData(ImVec2 screenSize, vector<PlayerData> &playerDataList, vector
         staticData.playerController + PlayerControllerParam::MouseOffset + 0x4
     ) - 90;
     
-    // ============ PLAYER ESP ============
+    // PLAYER ESP
     if (moduleControl.mainSwitch.playerStatus) {
         for (auto staticPlayerData : staticData.playerDataList) {
             
-            // KOORDINAT (GUNCELLENMIS - 0x1c8)
+            // KOORDINAT (0x1c8)
             ImVec3 objectCoord;
             memoryTools.readMemory(
                 staticPlayerData.coordAddr + ObjectParam::CoordParam::CoordOffset, 
@@ -305,7 +302,7 @@ void readFrameData(ImVec2 screenSize, vector<PlayerData> &playerDataList, vector
             float objectDistance = get3dDistance(objectCoord, selfCoord, 100);
             if (objectDistance < 0 || objectDistance > 450) continue;
             
-            // YUKSEKLIK (GUNCELLENMIS - 0x1c8)
+            // YUKSEKLIK (0x1c8)
             float objectHeight = memoryTools.readFloat(
                 staticPlayerData.coordAddr + ObjectParam::CoordParam::HeightOffset
             );
@@ -337,11 +334,11 @@ void readFrameData(ImVec2 screenSize, vector<PlayerData> &playerDataList, vector
             playerData.hp = memoryTools.readFloat(staticPlayerData.addr + ObjectParam::HpOffset);
             if (playerData.hp > 100) playerData.hp = 100;
             
-            // STATUS (GUNCELLENMIS - 0x1058)
+            // STATUS (0x1058)
             uintptr_t statusAddr = memoryTools.readInt(staticPlayerData.addr + ObjectParam::StatusOffset);
             playerData.statusName = getStatusName(statusAddr);
             
-            // SILAH ADI
+            // SILAH ADI (0x25b8)
             uintptr_t weaponAddr = memoryTools.readPtr(
                 staticPlayerData.addr + ObjectParam::WeaponManagerComponentOffset
             );
@@ -362,7 +359,7 @@ void readFrameData(ImVec2 screenSize, vector<PlayerData> &playerDataList, vector
             playerData.size.x = (playerData.screen.y - width.y) / 2;
             playerData.size.y = playerData.screen.y - height.y;
             
-            // ============ SKELETON (GUNCELLENMIS) ============
+            // SKELETON (0x510 mesh, 0x988 bones)
             uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + ObjectParam::MeshOffset);
             if (meshAddr != 0) {
                 uintptr_t humanAddr = meshAddr + ObjectParam::MeshParam::HumanOffset;
@@ -391,7 +388,7 @@ void readFrameData(ImVec2 screenSize, vector<PlayerData> &playerDataList, vector
         }
     }
     
-    // ============ ITEM ESP ============
+    // ITEM ESP
     if (moduleControl.mainSwitch.materialStatus) {
         for (auto staticMaterialData : staticData.materialDataList) {
             string className = getClassName(
@@ -515,7 +512,7 @@ void *silenceAimbot(void *) {
             continue;
         }
         
-        // Silah pointer (GUNCELLENMIS - 0x25b8)
+        // Silah pointer (0x25b8)
         uintptr_t weaponAddr = memoryTools.readPtr(
             staticData.selfAddr + ObjectParam::WeaponManagerComponentOffset
         );
@@ -595,7 +592,7 @@ void *silenceAimbot(void *) {
             
             if (screenDistance >= aimbotRadius) continue;
             
-            // Mesh ve bone okuma (GUNCELLENMIS)
+            // Mesh ve bone okuma (0x510 / 0x988)
             uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + ObjectParam::MeshOffset);
             if (meshAddr == 0) continue;
             
@@ -622,13 +619,11 @@ void *silenceAimbot(void *) {
                     break;
                 case 2: // Auto
                     if (memoryTools.readInt(weaponAddr + ObjectParam::WeaponParam::ShootModeOffset) >= 1024) {
-                        // Auto - body priority
                         boneIds[0] = 3; boneIds[1] = 5; boneIds[2] = 1; boneIds[3] = 11; boneIds[4] = 32;
                         boneIds[5] = 12; boneIds[6] = 33; boneIds[7] = 63; boneIds[8] = 62; boneIds[9] = 52;
                         boneIds[10] = 56; boneIds[11] = 53; boneIds[12] = 57; boneIds[13] = 54; boneIds[14] = 58;
                         boneCount = 15;
                     } else {
-                        // Single - head priority
                         boneIds[0] = 5; boneIds[1] = 3; boneIds[2] = 1; boneIds[3] = 11; boneIds[4] = 32;
                         boneIds[5] = 12; boneIds[6] = 33; boneIds[7] = 63; boneIds[8] = 62; boneIds[9] = 52;
                         boneIds[10] = 56; boneIds[11] = 53; boneIds[12] = 57; boneIds[13] = 54; boneIds[14] = 58;
@@ -662,7 +657,7 @@ void *silenceAimbot(void *) {
             // Duman kontrolu
             if (moduleControl.aimbotController.smoke && isOnSmoke(aimbotCoord)) continue;
             
-            // Silah ozellikleri (GUNCELLENMIS)
+            // Silah ozellikleri (0xf30 weapon attr)
             uintptr_t weaponAttrAddr = memoryTools.readPtr(
                 weaponAddr + ObjectParam::WeaponParam::WeaponAttrOffset
             );
@@ -744,7 +739,7 @@ void *silenceAimbot(void *) {
                 }
             }
             
-            // Recoil control (GUNCELLENMIS)
+            // Recoil control (0xcf0)
             if (memoryTools.readInt(staticData.selfAddr + ObjectParam::OpenFireOffset) == 1) {
                 float recoilTimes = 4.5 - get3dDistance(selfCoord, aimbotCoord, 10000);
                 recoilTimes += get3dDistance(selfCoord, aimbotCoord, 10000) * 0.2;
