@@ -1,6 +1,6 @@
 //
 //  Dolphins.m
-//  Fixed version - Self-box removed, skeleton drawing fixed
+//  Final fix - self box, bot filtering, skeleton
 //
 
 #import "Dolphins/crossoffsets.h"
@@ -56,6 +56,7 @@ struct {
     uintptr_t cameraManager;
     string cameraManagerClassName;
     uintptr_t selfAddr;
+    string selfName;
     int selfTeam;
     vector<StaticPlayerData> playerDataList;
     vector<StaticMaterialData> materialDataList;
@@ -92,6 +93,7 @@ struct FullSkeletonBones {
 FullSkeletonBones GetFullSkeleton(MinimalViewInfo pov, ImVec2 screenSize, uintptr_t humanAddr, uintptr_t boneAddr) {
     FullSkeletonBones skeleton;
     skeleton.isValid = false;
+    if (humanAddr == 0 || boneAddr == 0) return skeleton;
     
     bool success = true;
     success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_HEAD, skeleton.head);
@@ -276,6 +278,11 @@ void *readStaticData(void *) {
             
             staticData.selfAddr = memoryTools.readPtr(staticData.playerController + PubgOffset::PlayerControllerParam::SelfOffset);
             staticData.selfTeam = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::TeamOffset);
+            // kendi ismini de sakla
+            uintptr_t namePtr = memoryTools.readPtr(staticData.selfAddr + PubgOffset::ObjectParam::NameOffset);
+            char *selfNameBuf = getPlayerName(namePtr);
+            staticData.selfName = selfNameBuf ? selfNameBuf : "";
+            free(selfNameBuf);
             
             uintptr_t selfFunction = memoryTools.readPtr(staticData.selfAddr + 0);
             AddControllerYawInput = (void (*)(void *, float)) (memoryTools.readPtr(selfFunction + PubgOffset::ObjectParam::PlayerFunction::AddControllerYawInputOffset));
@@ -311,7 +318,7 @@ void *readStaticData(void *) {
                 if (isPlayer && moduleControl.mainSwitch.playerStatus) {
                     int team = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::TeamOffset);
                     
-                    // Self ve takım arkadaşlarını atla
+                    // Kendini ve takım arkadaşlarını atla
                     if (IsSelfPlayer(objectAddr) || team == staticData.selfTeam) continue;
                     
                     StaticPlayerData tmpPlayerData;
@@ -321,6 +328,9 @@ void *readStaticData(void *) {
                     if (isDead) continue;
                     
                     bool isBot = IsBotPlayer(objectAddr);
+                    
+                    // Bot filtreleme: eğer menüde botları gizle seçiliyse botları listeye ekleme
+                    if (moduleControl.playerSwitch.ignorebot && isBot) continue;
                     
                     tmpPlayerData.addr = objectAddr;
                     tmpPlayerData.coordAddr = coordAddr;
@@ -383,8 +393,8 @@ void readFrameData(ImVec2 screenSize, vector<PlayerData> &playerDataList, vector
         
         if (moduleControl.mainSwitch.playerStatus) {
             for (auto staticPlayerData : staticData.playerDataList) {
-                // KENDİNİ ATLA (güvenlik için tekrar)
-                if (IsSelfPlayer(staticPlayerData.addr)) continue;
+                // Kendini adres ve isimle filtrele (çift güvenlik)
+                if (IsSelfPlayer(staticPlayerData.addr) || staticPlayerData.name == staticData.selfName) continue;
                 
                 ImVec3 objectCoord;
                 memoryTools.readMemory(staticPlayerData.coordAddr + PubgOffset::ObjectParam::CoordParam::CoordOffset, sizeof(ImVec3), &objectCoord);
@@ -475,6 +485,14 @@ void readFrameData(ImVec2 screenSize, vector<PlayerData> &playerDataList, vector
                         playerData.bonesData.rknee = skeleton.rightKnee;
                         playerData.bonesData.lankle = skeleton.leftAnkle;
                         playerData.bonesData.rankle = skeleton.rightAnkle;
+                    } else {
+                        // Fallback: sadece baş ve boyun dene
+                        ImVec2 head2d, neck2d;
+                        if (getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_HEAD, head2d) &&
+                            getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_NECK, neck2d)) {
+                            playerData.bonesData.head = head2d;
+                            playerData.bonesData.pit = neck2d;
+                        }
                     }
                 }
                 playerDataList.push_back(playerData);
@@ -548,7 +566,6 @@ void *silenceAimbot(void *) {
                 ImVec3 aimbotCoord = ImVec3(0,0,0);
                 
                 for (auto staticPlayerData : staticData.playerDataList) {
-                    // Kendini ve botları atla (bot kontrolü playerSwitch.ignorebot ile yapılır)
                     if (IsSelfPlayer(staticPlayerData.addr)) continue;
                     
                     ImVec3 objectCoord;
