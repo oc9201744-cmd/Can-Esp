@@ -1,8 +1,3 @@
-# PUBG Mobile ESP & Aimbot Project – Complete Fix with Current Offsets
-
-## File: Dolphins/Dolphins.mm
-
-```objectivec
 //
 //  Dolphins.m
 //  Fixed version - Updated with current offsets, bot detection, and skeleton drawing
@@ -67,7 +62,7 @@ struct {
     vector<StaticMaterialData> smokeList;
 } staticData;
 
-// Bone indices from current offsets
+// Bone indices
 const int BONE_HEAD = 5;
 const int BONE_NECK = 4;
 const int BONE_SPINE1 = 3;
@@ -550,6 +545,7 @@ void *silenceAimbot(void *) {
                 ImVec3 aimbotCoord = ImVec3(0,0,0);
                 
                 for (auto staticPlayerData : staticData.playerDataList) {
+                    // aimbotRealOnly kontrolü - kullanıcı ayarlarından gelir
                     if (moduleControl.aimbotController.aimbotRealOnly && staticPlayerData.robot == 1) {
                         continue;
                     }
