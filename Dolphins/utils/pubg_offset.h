@@ -44,6 +44,7 @@ int AddControllerPitchInputOffset = 0x898; // kPitch
 int StatusOffset = 0x1058;        // kCurrentStates
 int TeamOffset = 0x998;           // AUAECharacter_TeamID
 int NameOffset = 0x960;           // AUAECharacter_PlayerName
+int RobotOffset = 0xA40;          // AUAECharacter_bIsAI (ayrıca 0xA41 kbIsMLAI)
 int HpOffset = 0xE60;             // ASTExtraCharacter_Health
 int HpmaxOffset = 0xE64;          // ASTExtraCharacter_HealthMax
 int DeadOffset = 0xE7C;           // ASTExtraCharacter_bDead
@@ -80,6 +81,13 @@ int HeightOffset = 0x1DC;         // kCoord
 int CoordOffset = 0x1E4;          // USceneComponent_RelativeLocation
 }
 
+// ---------- EKLENENLER ----------
+int GoodsListOffset = 0x940;      // kPickUpDataList
+
+namespace GoodsListParam {
+int DataBase = 0x38;              // kGoodsID
+}
+// ------------------------------
 }
 
 }
