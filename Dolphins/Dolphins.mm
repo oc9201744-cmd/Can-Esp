@@ -2,8 +2,6 @@
 //  Dolphins.m
 //  Dolphins - Slide 0 (No Jailbreak)
 //
-//  White Paper: PUBG Mobile iOS Memory Analysis
-//
 
 #import "Dolphins/crossoffsets.h"
 #import <Foundation/Foundation.h>
@@ -28,20 +26,16 @@
 
 using namespace std;
 
-// Module controllers
 ModuleControl moduleControl;
 MemoryTools memoryTools;
 
-// Global offsets array - using values from your header
-// Note: OffsetValues and OffsetsManager are defined in crossoffsets.h
 OffsetValues regionOffsets[] = {
-    { 0x102A62208, 0x10A566E00, 0x104bd8740, 0x10a1178b0 },  // GL
-    { 0x1028791CC, 0x10A171A00, 0x104510EF0, 0x109AAA1A0 },  // VNG
-    { 0x102AD71F8, 0x10A47D400, 0x10476F14C, 0x109DB5940 },  // KR
-    { 0x102AAAB0C, 0x10A453300, 0x104742830, 0x109D8B830 }   // TW
+    { 0x102A62208, 0x10A566E00, 0x104bd8740, 0x10a1178b0 },
+    { 0x1028791CC, 0x10A171A00, 0x104510EF0, 0x109AAA1A0 },
+    { 0x102AD71F8, 0x10A47D400, 0x10476F14C, 0x109DB5940 },
+    { 0x102AAAB0C, 0x10A453300, 0x104742830, 0x109D8B830 }
 };
 
-// Function prototypes
 void *readStaticData(void *);
 void *silenceAimbot(void *);
 char *getPlayerName(uintptr_t addr);
@@ -51,13 +45,11 @@ bool isOnSmoke(ImVec3 coord);
 ImVec3 getBone(uintptr_t human, uintptr_t bones, int part);
 bool getBone2d(MinimalViewInfo pov, ImVec2 screen, uintptr_t human, uintptr_t bones, int part, ImVec2 &buf);
 
-// Function pointers
 bool (*LineOfSightTo)(void *controller, void *actor, ImVec3 bone_point, bool ischeck);
 void (*AddControllerYawInput)(void *actor, float val);
 void (*AddControllerRollInput)(void *actor, float val);
 void (*AddControllerPitchInput)(void *actor, float val);
 
-// Global data structure
 struct {
     uintptr_t libAddr = 0;
     uintptr_t gwlordAddr;
@@ -67,31 +59,26 @@ struct {
     uintptr_t cameraManager;
     string cameraManagerClassName;
     uintptr_t selfAddr;
+    int selfTeam;  // Kendi takımımızı sakla
     vector<StaticPlayerData> playerDataList;
     vector<StaticMaterialData> materialDataList;
     vector<StaticMaterialData> smokeList;
 } staticData;
 
-// Global functions - Using global offsets from pubg_offset.h
 long gWorld() {
-    // Slide 0: Use global offset directly from PubgOffset::Global
     long slide = (long)_dyld_get_image_vmaddr_slide(0);
     long gworld_func_addr = slide + PubgOffset::Global::gworld_func;
     long gworld_data_addr = slide + PubgOffset::Global::gworld_data;
-    
     return reinterpret_cast<long(__fastcall*)(long)>(gworld_func_addr)(gworld_data_addr);
 }
 
 long gName() {
-    // Slide 0: Use global offset directly from PubgOffset::Global
     long slide = (long)_dyld_get_image_vmaddr_slide(0);
     long gname_func_addr = slide + PubgOffset::Global::gname_func;
     long gname_data_addr = slide + PubgOffset::Global::gname_data;
-    
     return reinterpret_cast<long(__fastcall*)(long)>(gname_func_addr)(gname_data_addr);
 }
 
-// UI entry point
 static void didFinishLaunching(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef info) {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         mao* drawWindow = [[mao alloc] initWithFrame:&moduleControl];
@@ -103,7 +90,6 @@ static void didFinishLaunching(CFNotificationCenterRef center, void *observer, C
     });
 }
 
-// Library entry
 __attribute__((constructor)) static void initialize() {
     CFNotificationCenterAddObserver(CFNotificationCenterGetLocalCenter(), NULL, &didFinishLaunching, (CFStringRef)UIApplicationDidFinishLaunchingNotification, NULL, CFNotificationSuspensionBehaviorDrop);
     
@@ -114,7 +100,6 @@ __attribute__((constructor)) static void initialize() {
     pthread_create(&silenceAimbotThread, nullptr, silenceAimbot, nullptr);
 }
 
-// Get class name from GName
 char *getClassName(int classId) {
     char *buf = (char *)malloc(64);
     if (classId > 0 && classId < 2000000) {
@@ -127,7 +112,6 @@ char *getClassName(int classId) {
     return buf;
 }
 
-// Get player name with UTF-16 to UTF-8 conversion
 char *getPlayerName(uintptr_t addr) {
     char *buf = (char *)malloc(448);
     unsigned short buf16[16] = {0};
@@ -154,7 +138,6 @@ char *getPlayerName(uintptr_t addr) {
     return buf;
 }
 
-// Get 3D bone position
 ImVec3 getBone(uintptr_t human, uintptr_t bones, int part) {
     Ue4Transform actorftf;
     memoryTools.readMemory(human, sizeof(ImVec4), &actorftf.rotation);
@@ -173,14 +156,12 @@ ImVec3 getBone(uintptr_t human, uintptr_t bones, int part) {
     return matrixToVector(matrixMulti(bonematrix, actormatrix));
 }
 
-// Convert bone to 2D screen position
 bool getBone2d(MinimalViewInfo pov, ImVec2 screen, uintptr_t human, uintptr_t bones, int part, ImVec2 &buf) {
     ImVec3 newmatrix = getBone(human, bones, part);
     buf = worldToScreen(newmatrix, pov, screen);
     return buf.x != 0 && buf.y != 0;
 }
 
-// Visibility check with LineOfSightTo
 bool isCoordVisibility(ImVec3 coord) {
     if (LineOfSightTo == nullptr || !isfinite(coord.x) || !isfinite(coord.y) || !isfinite(coord.z)) {
         return false;
@@ -193,7 +174,6 @@ bool isCoordVisibility(ImVec3 coord) {
     return false;
 }
 
-// Smoke check
 bool isOnSmoke(ImVec3 coord) {
     for (StaticMaterialData smoke : staticData.smokeList) {
         ImVec3 smokeCoord;
@@ -205,7 +185,6 @@ bool isOnSmoke(ImVec3 coord) {
     return false;
 }
 
-// Static data reading - BOT detection with kbIsAI (0xa40) and kbIsMLAI (0xa41)
 void *readStaticData(void *) {
     while (true) {
         sleep(4);
@@ -215,11 +194,9 @@ void *readStaticData(void *) {
                 moduleControl.systemStatus = TransmissionNormal;
             }
         } else if (moduleControl.systemStatus == TransmissionNormal) {
-            // Use global offsets
             staticData.gwlordAddr = gWorld();
             staticData.gnameAddr = gName();
             
-            // PlayerController: NetDriver (0x38) -> ServerConnection (0x78) -> PlayerController (0x30)
             staticData.playerController = memoryTools.readPtr(
                 memoryTools.readPtr(
                     memoryTools.readPtr(staticData.gwlordAddr + PubgOffset::PlayerControllerOffset[0]) + 
@@ -227,7 +204,6 @@ void *readStaticData(void *) {
                 ) + PubgOffset::PlayerControllerOffset[2]
             );
             
-            // LineOfSightTo function
             LineOfSightTo = (bool (*)(void *, void *, ImVec3, bool)) (
                 memoryTools.readPtr(
                     memoryTools.readPtr(staticData.playerController + 0x0) + 
@@ -235,24 +211,22 @@ void *readStaticData(void *) {
                 )
             );
             
-            // Self Pawn - kSTBaseCharacter (0x28E0)
             staticData.selfAddr = memoryTools.readPtr(staticData.playerController + PubgOffset::PlayerControllerParam::SelfOffset);
             
-            // Input functions - kYaw (0x890), kRoll (0x888), kPitch (0x898)
+            // KENDİ TAKIMIMIZI BURADA OKU VE SAKLA
+            staticData.selfTeam = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::TeamOffset);
+            
             uintptr_t selfFunction = memoryTools.readPtr(staticData.selfAddr + 0);
             AddControllerYawInput = (void (*)(void *, float)) (memoryTools.readPtr(selfFunction + PubgOffset::ObjectParam::PlayerFunction::AddControllerYawInputOffset));
             AddControllerRollInput = (void (*)(void *, float)) (memoryTools.readPtr(selfFunction + PubgOffset::ObjectParam::PlayerFunction::AddControllerRollInputOffset));
             AddControllerPitchInput = (void (*)(void *, float)) (memoryTools.readPtr(selfFunction + PubgOffset::ObjectParam::PlayerFunction::AddControllerPitchInputOffset));
             
-            // CameraManager - kPlayerCameraManager (0x548)
             staticData.cameraManager = memoryTools.readPtr(staticData.playerController + PubgOffset::PlayerControllerParam::CameraManagerOffset);
             
-            // Clear lists
             vector<StaticPlayerData> tmpPlayerDataList;
             vector<StaticMaterialData> tmpMaterialDataList;
             vector<StaticMaterialData> tmpSmokeList;
             
-            // ULevel traversal - kPersistentLevel (0x30)
             uintptr_t uLevel = memoryTools.readPtr(staticData.gwlordAddr + PubgOffset::ULevelOffset);
             uintptr_t objectArray = memoryTools.readPtr(uLevel + PubgOffset::ULevelParam::ObjectArrayOffset);
             int objectCount = memoryTools.readInt(uLevel + PubgOffset::ULevelParam::ObjectCountOffset);
@@ -266,7 +240,6 @@ void *readStaticData(void *) {
                 uintptr_t coordAddr = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::CoordOffset);
                 string className = getClassName(memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::ClassIdOffset));
                 
-                // Player detection with BOT check
                 bool isPlayer = (
                     strstr(className.c_str(), "PlayerPawn") != 0 ||
                     strstr(className.c_str(), "PlayerCharacter") != 0 ||
@@ -275,29 +248,38 @@ void *readStaticData(void *) {
                 );
                 
                 if (isPlayer && moduleControl.mainSwitch.playerStatus) {
-                    // Team check - kTeamID (0x998)
                     int team = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::TeamOffset);
-                    int selfTeam = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::TeamOffset);
-                    if (team == selfTeam) continue;
+                    
+                    // KENDİ TAKIMINI ATLA - DÜZELTİLMİŞ KONTROL
+                    if (team == staticData.selfTeam) continue;
                     
                     StaticPlayerData tmpPlayerData;
                     
-                    // Dead check - kbDead (0xe7c)
                     bool isDead = false;
                     memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::DeadOffset, 1, &isDead);
                     if (isDead) continue;
                     
-                    // BOT detection - kbIsAI (0xa40) and kbIsMLAI (0xa41)
-                    bool isAI = false;
-                    bool isMLAI = false;
-                    memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::RobotOffset, 1, &isAI);
-                    memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::RobotOffset + 1, 1, &isMLAI);
+                    // BOT DETECTION - DÜZELTİLMİŞ
+                    // kbIsAI (0xa40) ve kbIsMLAI (0xa41) - bool 1 byte
+                    uint8_t isAI = 0;
+                    uint8_t isMLAI = 0;
+                    
+                    // Direkt bellekten oku
+                    memoryTools.readMemory(objectAddr + 0xa40, 1, &isAI);
+                    memoryTools.readMemory(objectAddr + 0xa41, 1, &isMLAI);
                     
                     tmpPlayerData.addr = objectAddr;
                     tmpPlayerData.coordAddr = coordAddr;
                     tmpPlayerData.team = team;
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
-                    tmpPlayerData.robot = (isAI || isMLAI) ? 1 : 0;  // BOT flag
+                    
+                    // BOT FLAG - DÜZELTİLMİŞ
+                    if (isAI != 0 || isMLAI != 0) {
+                        tmpPlayerData.robot = 1;  // BOT
+                    } else {
+                        tmpPlayerData.robot = 0;  // GERÇEK OYUNCU
+                    }
+                    
                     tmpPlayerData.status = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::StatusOffset);
                     
                     tmpPlayerDataList.push_back(tmpPlayerData);
@@ -321,7 +303,6 @@ void *readStaticData(void *) {
                         tmpMaterialData.addr = objectAddr;
                         tmpMaterialData.coordAddr = coordAddr;
                         
-                        // Skip weapons held by players - kMasterOffset (0x110)
                         if ((material.type == Rifle || material.type == Sniper || material.type == Missile) && 
                             memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::WeaponParam::MasterOffset) != 0) {
                             continue;
@@ -339,7 +320,6 @@ void *readStaticData(void *) {
     return nullptr;
 }
 
-// Frame data reading with skeleton drawing
 void readFrameData(ImVec2 screenSize, vector<PlayerData> &playerDataList, vector<MaterialData> &materialDataList) {
     playerDataList.clear();
     materialDataList.clear();
@@ -348,7 +328,6 @@ void readFrameData(ImVec2 screenSize, vector<PlayerData> &playerDataList, vector
         staticData.cameraManagerClassName = getClassName(memoryTools.readInt(staticData.cameraManager + PubgOffset::ObjectParam::ClassIdOffset));
         staticData.playerControllerClassName = getClassName(memoryTools.readInt(staticData.playerController + PubgOffset::ObjectParam::ClassIdOffset));
         
-        // Camera POV - kCameraCache (0x520) + 0x10
         MinimalViewInfo pov;
         memoryTools.readMemory(staticData.cameraManager + PubgOffset::PlayerControllerParam::CameraManagerParam::PovOffset, sizeof(pov), &pov);
         
@@ -357,14 +336,12 @@ void readFrameData(ImVec2 screenSize, vector<PlayerData> &playerDataList, vector
         
         if (moduleControl.mainSwitch.playerStatus) {
             for (auto staticPlayerData : staticData.playerDataList) {
-                // Coordinates - kRelativeLocation (0x1e4)
                 ImVec3 objectCoord;
                 memoryTools.readMemory(staticPlayerData.coordAddr + PubgOffset::ObjectParam::CoordParam::CoordOffset, sizeof(ImVec3), &objectCoord);
                 
                 float objectDistance = get3dDistance(objectCoord, selfCoord, 100);
                 if (objectDistance < 0 || objectDistance > 450) continue;
                 
-                // Height - kCoord (0x1dc)
                 float objectHeight = memoryTools.readFloat(staticPlayerData.coordAddr + PubgOffset::ObjectParam::CoordParam::HeightOffset);
                 if (objectHeight < 20) continue;
                 
@@ -389,7 +366,6 @@ void readFrameData(ImVec2 screenSize, vector<PlayerData> &playerDataList, vector
                 playerData.hp = memoryTools.readFloat(staticPlayerData.addr + PubgOffset::ObjectParam::HpOffset);
                 if (playerData.hp > 100) playerData.hp = 100;
                 
-                // Status - kCurrentStates (0x1058)
                 uintptr_t statusAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::StatusOffset);
                 if (statusAddr == 2097168) playerData.statusName = "DRIVE";
                 else if (statusAddr == 262208) playerData.statusName = "HEALING";
@@ -407,7 +383,6 @@ void readFrameData(ImVec2 screenSize, vector<PlayerData> &playerDataList, vector
                 else if (statusAddr == 17) playerData.statusName = "WALK";
                 else playerData.statusName = "UNKNOWN";
                 
-                // Weapon - kWeaponManagerComponent (0x25b8) -> kCurrentWeaponReplicated (0x5c8)
                 uintptr_t weaponMgr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::WeaponManagerComponentOffset);
                 uintptr_t weaponAddr = memoryTools.readPtr(weaponMgr + PubgOffset::ObjectParam::WeaponOneOffset);
                 
@@ -427,14 +402,12 @@ void readFrameData(ImVec2 screenSize, vector<PlayerData> &playerDataList, vector
                 playerData.size.x = (playerData.screen.y - width.y) / 2;
                 playerData.size.y = playerData.screen.y - height.y;
                 
-                // Skeleton drawing - kMesh (0x510) -> HumanOffset (0x210) -> kStaticMesh (0x988)
                 uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
                 if (meshAddr) {
                     uintptr_t humanAddr = meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset;
                     uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset) + 48;
                     
                     BonesData bonesData;
-                    // Bone chain: 5=head, 4=chest, 1=pelvis, 11/32=shoulders, 12/33=elbows, 63/62=wrists, 52/56=thighs, 53/57=knees, 54/58=ankles
                     if (getBone2d(pov, screenSize, humanAddr, boneAddr, 5, bonesData.head))
                         if (getBone2d(pov, screenSize, humanAddr, boneAddr, 4, bonesData.pit))
                             if (getBone2d(pov, screenSize, humanAddr, boneAddr, 1, bonesData.pelvis))
@@ -456,7 +429,6 @@ void readFrameData(ImVec2 screenSize, vector<PlayerData> &playerDataList, vector
             }
         }
         
-        // Materials processing
         if (moduleControl.mainSwitch.materialStatus) {
             for (auto staticMaterialData : staticData.materialDataList) {
                 string className = getClassName(memoryTools.readInt(staticMaterialData.coordAddr + PubgOffset::ObjectParam::ClassIdOffset));
@@ -483,30 +455,28 @@ void readFrameData(ImVec2 screenSize, vector<PlayerData> &playerDataList, vector
     }
 }
 
-// Aimbot - Using your weapon offsets
 void *silenceAimbot(void *) {
     ImVec2 screenSize = ImVec2(kWidth, kHeight);
     
     while (true) {
         usleep(16666);
         if (moduleControl.systemStatus == TransmissionNormal && moduleControl.mainSwitch.aimbotStatus) {
-            // Weapon: kWeaponManagerComponent (0x25b8) -> kCurrentWeaponReplicated (0x5c8)
             uintptr_t weaponMgr = memoryTools.readPtr(staticData.selfAddr + PubgOffset::ObjectParam::WeaponManagerComponentOffset);
             uintptr_t weaponAddr = memoryTools.readPtr(weaponMgr + PubgOffset::ObjectParam::WeaponOneOffset);
             
             bool enabledAimbot = false;
             switch (moduleControl.aimbotController.aimbotMode) {
-                case 0: // ADS aim - kbIsGunADS (0x1134)
+                case 0:
                     enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1;
                     break;
-                case 1: // Fire aim - kbIsWeaponFiring (0x1800)
+                case 1:
                     enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1;
                     break;
-                case 2: // ADS or Fire
+                case 2:
                     enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenTheSightOffset) == 1 || 
                                    memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1;
                     break;
-                case 3: // Smart mode - kShootMode (0x10d9)
+                case 3:
                     if (memoryTools.readInt(weaponAddr + PubgOffset::ObjectParam::WeaponParam::ShootModeOffset) >= 1024) {
                         enabledAimbot = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1;
                     } else {
@@ -536,7 +506,6 @@ void *silenceAimbot(void *) {
                     float objectHeight = memoryTools.readFloat(staticPlayerData.coordAddr + PubgOffset::ObjectParam::CoordParam::HeightOffset);
                     if (objectHeight < 20) continue;
                     
-                    // Skip knocked players
                     if (memoryTools.readFloat(staticPlayerData.addr + PubgOffset::ObjectParam::HpOffset) < 0.5 && 
                         moduleControl.aimbotController.fallNotAim) continue;
                     
@@ -544,16 +513,14 @@ void *silenceAimbot(void *) {
                     float screenDistance = get2dDistance(screenSize, playerScreen);
                     
                     if (screenDistance < aimbotRadius) {
-                        // Skeleton for aimbot
                         uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
                         if (!meshAddr) continue;
                         
                         uintptr_t humanAddr = meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset;
                         uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset) + 48;
                         
-                        // Aim parts
                         switch (moduleControl.aimbotController.aimbotParts) {
-                            case 0: { // Head priority
+                            case 0: {
                                 int boneIds[] = {5, 4, 3, 11, 12, 32, 33, 52, 53, 54, 56, 57, 58, 62, 63};
                                 for (int i = 0; i < 15; i++) {
                                     aimbotCoord = getBone(humanAddr, boneAddr, boneIds[i]);
@@ -566,7 +533,7 @@ void *silenceAimbot(void *) {
                                 }
                                 break;
                             }
-                            case 1: { // Body priority
+                            case 1: {
                                 int boneIds[] = {4, 3, 5, 1, 11, 32, 12, 33, 63, 62, 52, 56, 53, 57, 54, 58};
                                 for (int i = 0; i < 16; i++) {
                                     aimbotCoord = getBone(humanAddr, boneAddr, boneIds[i]);
@@ -579,7 +546,7 @@ void *silenceAimbot(void *) {
                                 }
                                 break;
                             }
-                            case 3: // Head only
+                            case 3:
                                 aimbotCoord = getBone(humanAddr, boneAddr, 5);
                                 if (isCoordVisibility(aimbotCoord)) {
                                     aimbotPlayerData = staticPlayerData;
@@ -588,7 +555,7 @@ void *silenceAimbot(void *) {
                                     aimbotCoord = {0, 0, 0};
                                 }
                                 break;
-                            case 4: // Body only
+                            case 4:
                                 aimbotCoord = getBone(humanAddr, boneAddr, 4);
                                 if (isCoordVisibility(aimbotCoord)) {
                                     aimbotPlayerData = staticPlayerData;
@@ -601,19 +568,16 @@ void *silenceAimbot(void *) {
                     }
                 }
                 
-                // Execute aim
                 if (aimbotPlayerData.addr != 0 && aimbotCoord.x != 0) {
                     if (moduleControl.aimbotController.smoke && isOnSmoke(aimbotCoord)) {
                         aimbotCoord = {0, 0, 0};
                         continue;
                     }
                     
-                    // Weapon attributes - kShootWeaponEntityComponent (0x398)
                     uintptr_t weaponAttrAddr = memoryTools.readPtr(weaponAddr + PubgOffset::ObjectParam::WeaponParam::WeaponAttrOffset);
                     float bulletSpeed = memoryTools.readFloat(weaponAttrAddr + PubgOffset::ObjectParam::WeaponParam::WeaponAttrParam::BulletSpeedOffset);
                     float bulletFlyTime = get3dDistance(selfCoord, aimbotCoord, bulletSpeed) * 1.2;
                     
-                    // Prediction - kRepMovement (0x110)
                     ImVec3 moveCoord;
                     memoryTools.readMemory(aimbotPlayerData.addr + PubgOffset::ObjectParam::MoveCoordOffset, 12, &moveCoord);
                     
@@ -626,14 +590,12 @@ void *silenceAimbot(void *) {
                     
                     ImVec2 aimbotMouse = rotateAngleView(selfCoord, aimbotCoord);
                     
-                    // Stance check - kHeight (0x1dc)
                     float selfStatus = memoryTools.readFloat(
                         memoryTools.readPtr(staticData.selfAddr + PubgOffset::ObjectParam::CoordOffset) + 
                         PubgOffset::ObjectParam::CoordParam::HeightOffset
                     );
                     string className = getClassName(memoryTools.readInt(weaponAddr + PubgOffset::ObjectParam::ClassIdOffset));
                     
-                    // Weapon adjustments (standing)
                     if (selfStatus > 47) {
                         if (strstr(className.c_str(), "AWM")) {
                             aimbotMouse.x += 0.06; aimbotMouse.y -= 0.06;
@@ -650,7 +612,6 @@ void *silenceAimbot(void *) {
                         }
                     }
                     
-                    // Recoil control - kRecoilKickADS (0xcf0)
                     if (memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1) {
                         float recoilTimes = 4.5 - get3dDistance(selfCoord, aimbotCoord, 10000);
                         recoilTimes += get3dDistance(selfCoord, aimbotCoord, 10000) * 0.2;
@@ -658,7 +619,6 @@ void *silenceAimbot(void *) {
                         
                         if (strstr(className.c_str(), "AKM")) recoil *= 1.15;
                         else if (strstr(className.c_str(), "M416")) recoil *= 0.7;
-                        else if (strstr(className.c_str(), "M762")) recoil *= 1.0;
                         
                         if (selfStatus < 50.0f) recoil *= 0.35;
                         aimbotMouse.y -= recoilTimes * recoil;
@@ -676,7 +636,6 @@ void *silenceAimbot(void *) {
                     
                     if (!isfinite(aimbotMouseMove.x) || !isfinite(aimbotMouseMove.y)) continue;
                     
-                    // Apply aim - kYaw (0x890), kRoll (0x888), kPitch (0x898)
                     if (AddControllerYawInput != NULL) {
                         AddControllerYawInput(reinterpret_cast<void *>(staticData.selfAddr), aimbotMouseMove.x);
                     }
