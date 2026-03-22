@@ -62,7 +62,6 @@ struct {
     vector<StaticMaterialData> smokeList;
 } staticData;
 
-// Bone indices
 const int BONE_HEAD = 5;
 const int BONE_NECK = 4;
 const int BONE_SPINE1 = 3;
@@ -545,11 +544,6 @@ void *silenceAimbot(void *) {
                 ImVec3 aimbotCoord = ImVec3(0,0,0);
                 
                 for (auto staticPlayerData : staticData.playerDataList) {
-                    // aimbotRealOnly kontrolü - kullanıcı ayarlarından gelir
-                    if (moduleControl.aimbotController.aimbotRealOnly && staticPlayerData.robot == 1) {
-                        continue;
-                    }
-                    
                     ImVec3 objectCoord;
                     memoryTools.readMemory(staticPlayerData.coordAddr + PubgOffset::ObjectParam::CoordParam::CoordOffset, sizeof(ImVec3), &objectCoord);
                     
