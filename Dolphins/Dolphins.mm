@@ -588,4 +588,155 @@ void *silenceAimbot(void *) {
                     ImVec3 objectCoord;
                     memoryTools.readMemory(staticPlayerData.coordAddr + PubgOffset::ObjectParam::CoordParam::CoordOffset, sizeof(ImVec3), &objectCoord);
                     
-                    float object
+                    float objectDistance = get3dDistance(objectCoord, selfCoord, 100);
+                    if (objectDistance < 0 || objectDistance > 450 || 
+                        objectDistance > moduleControl.aimbotController.distance) continue;
+                    
+                    float objectHeight = memoryTools.readFloat(staticPlayerData.coordAddr + PubgOffset::ObjectParam::CoordParam::HeightOffset);
+                    if (objectHeight < 20) continue;
+                    
+                    if (memoryTools.readFloat(staticPlayerData.addr + PubgOffset::ObjectParam::HpOffset) < 0.5 && 
+                        moduleControl.aimbotController.fallNotAim) continue;
+                    
+                    ImVec2 playerScreen = worldToScreen(objectCoord, pov, screenSize);
+                    float screenDistance = get2dDistance(screenSize, playerScreen);
+                    
+                    if (screenDistance < aimbotRadius) {
+                        uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
+                        if (!meshAddr) continue;
+                        
+                        uintptr_t humanAddr = meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset;
+                        uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset) + 48;
+                        
+                        switch (moduleControl.aimbotController.aimbotParts) {
+                            case 0: {
+                                int boneIds[] = {5, 4, 3, 11, 12, 32, 33, 52, 53, 54, 56, 57, 58, 62, 63};
+                                for (int i = 0; i < 15; i++) {
+                                    aimbotCoord = getBone(humanAddr, boneAddr, boneIds[i]);
+                                    if (isCoordVisibility(aimbotCoord)) {
+                                        aimbotPlayerData = staticPlayerData;
+                                        aimbotRadius = screenDistance;
+                                        break;
+                                    }
+                                    aimbotCoord = {0, 0, 0};
+                                }
+                                break;
+                            }
+                            case 1: {
+                                int boneIds[] = {4, 3, 5, 1, 11, 32, 12, 33, 63, 62, 52, 56, 53, 57, 54, 58};
+                                for (int i = 0; i < 16; i++) {
+                                    aimbotCoord = getBone(humanAddr, boneAddr, boneIds[i]);
+                                    if (isCoordVisibility(aimbotCoord)) {
+                                        aimbotPlayerData = staticPlayerData;
+                                        aimbotRadius = screenDistance;
+                                        break;
+                                    }
+                                    aimbotCoord = {0, 0, 0};
+                                }
+                                break;
+                            }
+                            case 3:
+                                aimbotCoord = getBone(humanAddr, boneAddr, 5);
+                                if (isCoordVisibility(aimbotCoord)) {
+                                    aimbotPlayerData = staticPlayerData;
+                                    aimbotRadius = screenDistance;
+                                } else {
+                                    aimbotCoord = {0, 0, 0};
+                                }
+                                break;
+                            case 4:
+                                aimbotCoord = getBone(humanAddr, boneAddr, 4);
+                                if (isCoordVisibility(aimbotCoord)) {
+                                    aimbotPlayerData = staticPlayerData;
+                                    aimbotRadius = screenDistance;
+                                } else {
+                                    aimbotCoord = {0, 0, 0};
+                                }
+                                break;
+                        }
+                    }
+                }
+                
+                if (aimbotPlayerData.addr != 0 && aimbotCoord.x != 0) {
+                    if (moduleControl.aimbotController.smoke && isOnSmoke(aimbotCoord)) {
+                        aimbotCoord = {0, 0, 0};
+                        continue;
+                    }
+                    
+                    uintptr_t weaponAttrAddr = memoryTools.readPtr(weaponAddr + PubgOffset::ObjectParam::WeaponParam::WeaponAttrOffset);
+                    float bulletSpeed = memoryTools.readFloat(weaponAttrAddr + PubgOffset::ObjectParam::WeaponParam::WeaponAttrParam::BulletSpeedOffset);
+                    float bulletFlyTime = get3dDistance(selfCoord, aimbotCoord, bulletSpeed) * 1.2;
+                    
+                    ImVec3 moveCoord;
+                    memoryTools.readMemory(aimbotPlayerData.addr + PubgOffset::ObjectParam::MoveCoordOffset, 12, &moveCoord);
+                    
+                    float bulletSpeed1 = memoryTools.readFloat(weaponAttrAddr + PubgOffset::ObjectParam::WeaponParam::WeaponAttrParam::BulletSpeedOffset);
+                    if(bulletSpeed1 != 1800000) {
+                        aimbotCoord.x += moveCoord.x * bulletFlyTime;
+                        aimbotCoord.y += moveCoord.y * bulletFlyTime;
+                        aimbotCoord.z += moveCoord.z * bulletFlyTime;
+                    }
+                    
+                    ImVec2 aimbotMouse = rotateAngleView(selfCoord, aimbotCoord);
+                    
+                    float selfStatus = memoryTools.readFloat(
+                        memoryTools.readPtr(staticData.selfAddr + PubgOffset::ObjectParam::CoordOffset) + 
+                        PubgOffset::ObjectParam::CoordParam::HeightOffset
+                    );
+                    string className = getClassName(memoryTools.readInt(weaponAddr + PubgOffset::ObjectParam::ClassIdOffset));
+                    
+                    if (selfStatus > 47) {
+                        if (strstr(className.c_str(), "AWM")) {
+                            aimbotMouse.x += 0.06; aimbotMouse.y -= 0.06;
+                        } else if (strstr(className.c_str(), "M24")) {
+                            aimbotMouse.x += 0.04; aimbotMouse.y -= 0.03;
+                        } else if (strstr(className.c_str(), "Kar98k")) {
+                            aimbotMouse.x += 0.05; aimbotMouse.y -= 0.02;
+                        } else if (strstr(className.c_str(), "M416")) {
+                            aimbotMouse.x += 0.02; aimbotMouse.y -= 0.08;
+                        } else if (strstr(className.c_str(), "AKM")) {
+                            aimbotMouse.x += 0.04; aimbotMouse.y -= 0.07;
+                        } else if (strstr(className.c_str(), "M762")) {
+                            aimbotMouse.x += 0.03; aimbotMouse.y -= 0.07;
+                        }
+                    }
+                    
+                    if (memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::OpenFireOffset) == 1) {
+                        float recoilTimes = 4.5 - get3dDistance(selfCoord, aimbotCoord, 10000);
+                        recoilTimes += get3dDistance(selfCoord, aimbotCoord, 10000) * 0.2;
+                        float recoil = memoryTools.readFloat(weaponAttrAddr + PubgOffset::ObjectParam::WeaponParam::WeaponAttrParam::RecoilOffset);
+                        
+                        if (strstr(className.c_str(), "AKM")) recoil *= 1.15;
+                        else if (strstr(className.c_str(), "M416")) recoil *= 0.7;
+                        
+                        if (selfStatus < 50.0f) recoil *= 0.35;
+                        aimbotMouse.y -= recoilTimes * recoil;
+                    }
+                    
+                    if (!isfinite(aimbotMouse.x) || !isfinite(aimbotMouse.y)) continue;
+                    
+                    ImVec2 aimbotMouseMove;
+                    aimbotMouseMove.x = change(getAngleDifference(aimbotMouse.x, 
+                        memoryTools.readFloat(staticData.playerController + PubgOffset::PlayerControllerParam::MouseOffset + 0x4)) * 
+                        moduleControl.aimbotController.aimbotIntensity);
+                    aimbotMouseMove.y = change(getAngleDifference(aimbotMouse.y, 
+                        memoryTools.readFloat(staticData.playerController + PubgOffset::PlayerControllerParam::MouseOffset)) * 
+                        moduleControl.aimbotController.aimbotIntensity);
+                    
+                    if (!isfinite(aimbotMouseMove.x) || !isfinite(aimbotMouseMove.y)) continue;
+                    
+                    if (AddControllerYawInput != NULL) {
+                        AddControllerYawInput(reinterpret_cast<void *>(staticData.selfAddr), aimbotMouseMove.x);
+                    }
+                    if (AddControllerRollInput != NULL) {
+                        AddControllerRollInput(reinterpret_cast<void *>(staticData.selfAddr), aimbotMouseMove.y);
+                    }
+                    if (AddControllerPitchInput != NULL) {
+                        AddControllerPitchInput(reinterpret_cast<void *>(staticData.selfAddr), 0);
+                    }
+                }
+            }
+        }
+    }
+    return nullptr;
+}
