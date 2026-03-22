@@ -1,13 +1,11 @@
-# PUBG Mobile ESP & Aimbot Project
+# PUBG Mobile ESP & Aimbot Project – Complete Fix with Current Offsets
 
-## Fixed Issues: Skeleton Drawing, Bot/Player Distinction, and Self-Box Exclusion
-
-### 1. Project Structure (Dolphins.mm - Complete Fix)
+## File: Dolphins/Dolphins.mm
 
 ```objectivec
 //
 //  Dolphins.m
-//  Fixed version - Resolves skeleton drawing, bot detection, and self-boxing
+//  Fixed version - Updated with current offsets, bot detection, and skeleton drawing
 //
 
 #import "Dolphins/crossoffsets.h"
@@ -33,7 +31,6 @@ using namespace std;
 ModuleControl moduleControl;
 MemoryTools memoryTools;
 
-// CORRECTED OFFSET STRUCTURE (as provided)
 OffsetValues regionOffsets[] = {
     { 0x102A62208, 0x10A566E00, 0x104bd8740, 0x10a1178b0 },
     { 0x1028791CC, 0x10A171A00, 0x104510EF0, 0x109AAA1A0 },
@@ -70,23 +67,7 @@ struct {
     vector<StaticMaterialData> smokeList;
 } staticData;
 
-// === FIX 1: Enhanced Bone Structure for Proper Skeleton Drawing ===
-// Original bone mapping was incomplete, causing partial skeleton.
-// Full bone hierarchy added for complete 3D skeleton rendering.
-
-struct FullSkeletonBones {
-    // Head and spine
-    ImVec2 head, neck, spine1, spine2, spine3;
-    // Arms
-    ImVec2 leftShoulder, leftElbow, leftWrist;
-    ImVec2 rightShoulder, rightElbow, rightWrist;
-    // Legs
-    ImVec2 leftHip, leftKnee, leftAnkle;
-    ImVec2 rightHip, rightKnee, rightAnkle;
-    bool isValid;
-};
-
-// Correct bone indices for UE4 PUBG Mobile
+// Bone indices from current offsets
 const int BONE_HEAD = 5;
 const int BONE_NECK = 4;
 const int BONE_SPINE1 = 3;
@@ -105,24 +86,49 @@ const int BONE_RIGHT_HIP = 56;
 const int BONE_RIGHT_KNEE = 57;
 const int BONE_RIGHT_ANKLE = 58;
 
-// === FIX 2: Enhanced Bot Detection ===
-// Original bot detection was unreliable due to incorrect offset usage.
-// Fixed by using proper byte offsets (0xa40 and 0xa41) and explicit boolean checks.
+struct FullSkeletonBones {
+    ImVec2 head, neck, spine1, spine2, spine3;
+    ImVec2 leftShoulder, leftElbow, leftWrist;
+    ImVec2 rightShoulder, rightElbow, rightWrist;
+    ImVec2 leftHip, leftKnee, leftAnkle;
+    ImVec2 rightHip, rightKnee, rightAnkle;
+    bool isValid;
+};
+
+FullSkeletonBones GetFullSkeleton(MinimalViewInfo pov, ImVec2 screenSize, uintptr_t humanAddr, uintptr_t boneAddr) {
+    FullSkeletonBones skeleton;
+    skeleton.isValid = false;
+    
+    bool success = true;
+    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_HEAD, skeleton.head);
+    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_NECK, skeleton.neck);
+    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_SPINE1, skeleton.spine1);
+    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_SPINE2, skeleton.spine2);
+    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_SPINE3, skeleton.spine3);
+    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_LEFT_SHOULDER, skeleton.leftShoulder);
+    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_LEFT_ELBOW, skeleton.leftElbow);
+    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_LEFT_WRIST, skeleton.leftWrist);
+    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_RIGHT_SHOULDER, skeleton.rightShoulder);
+    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_RIGHT_ELBOW, skeleton.rightElbow);
+    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_RIGHT_WRIST, skeleton.rightWrist);
+    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_LEFT_HIP, skeleton.leftHip);
+    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_LEFT_KNEE, skeleton.leftKnee);
+    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_LEFT_ANKLE, skeleton.leftAnkle);
+    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_RIGHT_HIP, skeleton.rightHip);
+    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_RIGHT_KNEE, skeleton.rightKnee);
+    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_RIGHT_ANKLE, skeleton.rightAnkle);
+    
+    skeleton.isValid = success;
+    return skeleton;
+}
 
 bool IsBotPlayer(uintptr_t playerAddr) {
     uint8_t isAI = 0;
     uint8_t isMLAI = 0;
-    
-    // Read bytes directly from correct offsets (provided in header)
-    memoryTools.readMemory(playerAddr + 0xa40, 1, &isAI);    // kbIsAI
-    memoryTools.readMemory(playerAddr + 0xa41, 1, &isMLAI);  // kbIsMLAI
-    
-    // Explicit boolean conversion
+    memoryTools.readMemory(playerAddr + 0xa40, 1, &isAI);
+    memoryTools.readMemory(playerAddr + 0xa41, 1, &isMLAI);
     return (isAI != 0) || (isMLAI != 0);
 }
-
-// === FIX 3: Exclude Self Player from ESP ===
-// Added explicit self-address comparison to prevent drawing boxes on own player.
 
 bool IsSelfPlayer(uintptr_t playerAddr) {
     return (playerAddr == staticData.selfAddr);
@@ -219,35 +225,6 @@ ImVec3 getBone(uintptr_t human, uintptr_t bones, int part) {
     return matrixToVector(matrixMulti(bonematrix, actormatrix));
 }
 
-// === FIX 1 CONTINUED: Enhanced Bone Extraction for Full Skeleton ===
-FullSkeletonBones GetFullSkeleton(MinimalViewInfo pov, ImVec2 screenSize, uintptr_t humanAddr, uintptr_t boneAddr) {
-    FullSkeletonBones skeleton;
-    skeleton.isValid = false;
-    
-    // Get all bone positions in 2D screen space
-    bool success = true;
-    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_HEAD, skeleton.head);
-    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_NECK, skeleton.neck);
-    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_SPINE1, skeleton.spine1);
-    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_SPINE2, skeleton.spine2);
-    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_SPINE3, skeleton.spine3);
-    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_LEFT_SHOULDER, skeleton.leftShoulder);
-    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_LEFT_ELBOW, skeleton.leftElbow);
-    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_LEFT_WRIST, skeleton.leftWrist);
-    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_RIGHT_SHOULDER, skeleton.rightShoulder);
-    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_RIGHT_ELBOW, skeleton.rightElbow);
-    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_RIGHT_WRIST, skeleton.rightWrist);
-    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_LEFT_HIP, skeleton.leftHip);
-    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_LEFT_KNEE, skeleton.leftKnee);
-    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_LEFT_ANKLE, skeleton.leftAnkle);
-    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_RIGHT_HIP, skeleton.rightHip);
-    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_RIGHT_KNEE, skeleton.rightKnee);
-    success &= getBone2d(pov, screenSize, humanAddr, boneAddr, BONE_RIGHT_ANKLE, skeleton.rightAnkle);
-    
-    skeleton.isValid = success;
-    return skeleton;
-}
-
 bool getBone2d(MinimalViewInfo pov, ImVec2 screen, uintptr_t human, uintptr_t bones, int part, ImVec2 &buf) {
     ImVec3 newmatrix = getBone(human, bones, part);
     buf = worldToScreen(newmatrix, pov, screen);
@@ -304,8 +281,6 @@ void *readStaticData(void *) {
             );
             
             staticData.selfAddr = memoryTools.readPtr(staticData.playerController + PubgOffset::PlayerControllerParam::SelfOffset);
-            
-            // Store own team ID for filtering
             staticData.selfTeam = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::TeamOffset);
             
             uintptr_t selfFunction = memoryTools.readPtr(staticData.selfAddr + 0);
@@ -342,7 +317,6 @@ void *readStaticData(void *) {
                 if (isPlayer && moduleControl.mainSwitch.playerStatus) {
                     int team = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::TeamOffset);
                     
-                    // FIX 2 & 3: Skip self player AND skip teammates
                     if (IsSelfPlayer(objectAddr) || team == staticData.selfTeam) continue;
                     
                     StaticPlayerData tmpPlayerData;
@@ -351,7 +325,6 @@ void *readStaticData(void *) {
                     memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::DeadOffset, 1, &isDead);
                     if (isDead) continue;
                     
-                    // FIX 2: Enhanced bot detection using dedicated function
                     bool isBot = IsBotPlayer(objectAddr);
                     
                     tmpPlayerData.addr = objectAddr;
@@ -486,11 +459,9 @@ void readFrameData(ImVec2 screenSize, vector<PlayerData> &playerDataList, vector
                     uintptr_t humanAddr = meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset;
                     uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset) + 48;
                     
-                    // FIX 1: Use full skeleton extraction instead of partial
                     FullSkeletonBones skeleton = GetFullSkeleton(pov, screenSize, humanAddr, boneAddr);
                     
                     if (skeleton.isValid) {
-                        // Populate bones data for drawing
                         playerData.bonesData.head = skeleton.head;
                         playerData.bonesData.pit = skeleton.neck;
                         playerData.bonesData.pelvis = skeleton.spine3;
@@ -538,7 +509,6 @@ void readFrameData(ImVec2 screenSize, vector<PlayerData> &playerDataList, vector
     }
 }
 
-// === FIX 2 EXTENDED: Aimbot now properly distinguishes bots based on user settings ===
 void *silenceAimbot(void *) {
     ImVec2 screenSize = ImVec2(kWidth, kHeight);
     
@@ -580,7 +550,6 @@ void *silenceAimbot(void *) {
                 ImVec3 aimbotCoord = ImVec3(0,0,0);
                 
                 for (auto staticPlayerData : staticData.playerDataList) {
-                    // FIX 2: Skip bots if user setting requires real players only
                     if (moduleControl.aimbotController.aimbotRealOnly && staticPlayerData.robot == 1) {
                         continue;
                     }
