@@ -41,7 +41,18 @@ OffsetValues offsets[] = {
     { 0x102AAAB0C, 0x10A453300, 0x104742830, 0x109D8B830 }   // TW
 };
 
-// Function prototypes
+// Function prototypes - FORWARD DECLARATIONS
+void *readStaticData(void *);
+void *silenceAimbot(void *);
+char *getPlayerName(uintptr_t addr);
+char *getClassName(int classId);
+bool isCoordVisibility(ImVec3 coord);
+bool isOnSmoke(ImVec3 coord);
+string getStatusName(uintptr_t statusAddr);
+ImVec3 getBone(uintptr_t human, uintptr_t bones, int part);
+bool getBone2d(MinimalViewInfo pov, ImVec2 screen, uintptr_t human, uintptr_t bones, int part, ImVec2 &buf);
+
+// Function pointers
 bool (*LineOfSightTo)(void *controller, void *actor, ImVec3 bone_point, bool ischeck);
 void (*AddControllerYawInput)(void *actor, float val);
 void (*AddControllerRollInput)(void *actor, float val);
@@ -94,6 +105,151 @@ __attribute__((constructor)) static void initialize() {
     
     pthread_t silenceAimbotThread;
     pthread_create(&silenceAimbotThread, nullptr, silenceAimbot, nullptr);
+}
+
+// Helper: Read byte from memory (fix for readByte)
+uint8_t readByte(uintptr_t addr) {
+    uint8_t val = 0;
+    memoryTools.readMemory(addr, 1, &val);
+    return val;
+}
+
+// Get class name from GName
+char *getClassName(int classId) {
+    char *buf = (char *)malloc(64);
+    if (classId > 0 && classId < 2000000) {
+        int page = classId / 16384;
+        int index = classId % 16384;
+        uintptr_t pageAddr = memoryTools.readPtr(staticData.gnameAddr + page * sizeof(uintptr_t));
+        uintptr_t nameAddr = memoryTools.readPtr(pageAddr + index * sizeof(uintptr_t)) + 0xC;
+        memoryTools.readMemory(nameAddr, 64, buf);
+    }
+    return buf;
+}
+
+// Get player name with UTF-16 to UTF-8 conversion
+char *getPlayerName(uintptr_t addr) {
+    char *buf = (char *)malloc(448);
+    unsigned short buf16[16] = {0};
+    memoryTools.readMemory(addr, 28, buf16);
+    unsigned short *tempbuf16 = buf16;
+    char *tempbuf8 = buf;
+    char *buf8 = tempbuf8 + 32;
+    
+    while (tempbuf16 < tempbuf16 + 28) {
+        if (*tempbuf16 <= 0x007F && tempbuf8 + 1 < buf8) {
+            *tempbuf8++ = (char)*tempbuf16;
+        } else if (*tempbuf16 >= 0x0080 && *tempbuf16 <= 0x07FF && tempbuf8 + 2 < buf8) {
+            *tempbuf8++ = (*tempbuf16 >> 6) | 0xC0;
+            *tempbuf8++ = (*tempbuf16 & 0x3F) | 0x80;
+        } else if (*tempbuf16 >= 0x0800 && *tempbuf16 <= 0xFFFF && tempbuf8 + 3 < buf8) {
+            *tempbuf8++ = (*tempbuf16 >> 12) | 0xE0;
+            *tempbuf8++ = ((*tempbuf16 >> 6) & 0x3F) | 0x80;
+            *tempbuf8++ = (*tempbuf16 & 0x3F) | 0x80;
+        } else {
+            break;
+        }
+        tempbuf16++;
+    }
+    return buf;
+}
+
+// Get 3D bone position
+ImVec3 getBone(uintptr_t human, uintptr_t bones, int part) {
+    Ue4Transform actorftf;
+    memoryTools.readMemory(human, sizeof(ImVec4), &actorftf.rotation);
+    memoryTools.readMemory(human + 0x10, sizeof(ImVec3), &actorftf.translation);
+    memoryTools.readMemory(human + 0x20, sizeof(ImVec3), &actorftf.scale3d);
+    
+    Ue4Matrix actormatrix = transformToMatrix(actorftf);
+    
+    Ue4Transform boneftf;
+    memoryTools.readMemory(bones + part * 48, sizeof(ImVec4), &boneftf.rotation);
+    memoryTools.readMemory(bones + part * 48 + 0x10, sizeof(ImVec3), &boneftf.translation);
+    memoryTools.readMemory(bones + part * 48 + 0x20, sizeof(ImVec3), &boneftf.scale3d);
+    
+    Ue4Matrix bonematrix = transformToMatrix(boneftf);
+    
+    return matrixToVector(matrixMulti(bonematrix, actormatrix));
+}
+
+// Convert bone to 2D screen position
+bool getBone2d(MinimalViewInfo pov, ImVec2 screen, uintptr_t human, uintptr_t bones, int part, ImVec2 &buf) {
+    ImVec3 newmatrix = getBone(human, bones, part);
+    buf = worldToScreen(newmatrix, pov, screen);
+    return buf.x != 0 && buf.y != 0;
+}
+
+// Visibility check with LineOfSightTo
+bool isCoordVisibility(ImVec3 coord) {
+    if (LineOfSightTo == nullptr || !isfinite(coord.x) || !isfinite(coord.y) || !isfinite(coord.z)) {
+        return false;
+    }
+    if (strstr(staticData.cameraManagerClassName.c_str(), "PlayerCameraManager") != 0 && 
+        strstr(staticData.playerControllerClassName.c_str(), "PlayerController") != 0) {
+        return LineOfSightTo(reinterpret_cast<void *>(staticData.playerController), 
+                           reinterpret_cast<void *>(staticData.cameraManager), coord, false);
+    }
+    return false;
+}
+
+// Smoke check
+bool isOnSmoke(ImVec3 coord) {
+    for (StaticMaterialData smoke : staticData.smokeList) {
+        ImVec3 smokeCoord;
+        memoryTools.readMemory(smoke.coordAddr + 0x1e4, 30, &smokeCoord);
+        if (get3dDistance(smokeCoord, coord, 100) < 4) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Status name helper
+string getStatusName(uintptr_t statusAddr) {
+    switch (statusAddr) {
+        case 2097168: return "DRIVE";
+        case 262208: return "HEALING";
+        case 33554449: return "FLYING ON PARACHUTE";
+        case 262160: return "STAND";
+        case 16: return "STAND";
+        case 524288: return "KNOCKED";
+        case 147: return "JUMP";
+        case 529: return "WALK & RELOADING";
+        case 35: return "CROUCHING";
+        case 8205: return "SHOOTING";
+        case 33: return "CROUCH WALK";
+        case 65568: return "CROUCH GRENADE";
+        case 65600: return "PRONE GRENADE";
+        case 1088: return "PRONE ADS";
+        case 1056: return "CROUCH ADS";
+        case 18: return "STANDING";
+        case 32784: return "PUNCHING";
+        case 23: return "HOLDING WEAPON";
+        case 1073741840: return "FIRING";
+        case 16777219: return "SWIMMING";
+        case 524289: return "KNOCKED";
+        case 1040: return "ADS";
+        case 272: return "SHOOTING";
+        case 4112: return "LEANING";
+        case 19: return "RUNNING";
+        case 6552: return "GRENADE PIN";
+        case 64: return "PRONE";
+        case 32: return "CROUCH";
+        case 144: return "JUMPING";
+        case 4128: return "CROUCH LEAN";
+        case 4384: return "CROUCH FIRE";
+        case 528: return "RELOADING";
+        case 320: return "PRONE FIRE";
+        case 288: return "CROUCH FIRE";
+        case 576: return "PRONE RELOAD";
+        case 544: return "CROUCH RELOAD";
+        case 67108880: return "VAULTING";
+        case 273: return "RUN & SHOOT";
+        case 4194320: return "IN VEHICLE";
+        case 17: return "WALK";
+        default: return "UNKNOWN";
+    }
 }
 
 // Static data reading with updated offsets
@@ -167,12 +323,12 @@ void *readStaticData(void *) {
                     if (team == selfTeam) continue;
                     
                     // BOT detection using kbIsAI (0xa40) and kbIsMLAI (0xa41)
-                    bool isAI = memoryTools.readByte(objectAddr + 0xa40);
-                    bool isMLAI = memoryTools.readByte(objectAddr + 0xa41);
+                    bool isAI = readByte(objectAddr + 0xa40);
+                    bool isMLAI = readByte(objectAddr + 0xa41);
                     
                     StaticPlayerData tmpPlayerData;
                     
-                    bool bDead = memoryTools.readByte(staticData.selfAddr + 0xe7c);  // kbDead
+                    bool bDead = readByte(staticData.selfAddr + 0xe7c);  // kbDead
                     float hp = memoryTools.readFloat(objectAddr + 0xe60);  // kHealth
                     
                     if(bDead) continue;
@@ -183,7 +339,6 @@ void *readStaticData(void *) {
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + 0x960));  // kPlayerName
                     tmpPlayerData.robot = isAI || isMLAI ? 1 : 0;  // BOT flag
                     tmpPlayerData.status = memoryTools.readInt(objectAddr + 0x1058);  // kCurrentStates
-                    tmpPlayerData.hp = hp;
                     
                     tmpPlayerDataList.push_back(tmpPlayerData);
                     
@@ -560,7 +715,6 @@ void *silenceAimbot(void *) {
                     
                     // Weapon-specific adjustments (standing)
                     if (selfStatus > 47) {
-                        // Sniper adjustments
                         if (strstr(className.c_str(), "BP_Sniper_AWM_Wrapper_C")) {
                             aimbotMouse.x += 0.06; aimbotMouse.y -= 0.06;
                         } else if (strstr(className.c_str(), "BP_Sniper_AMR_Wrapper_C")) {
@@ -582,7 +736,6 @@ void *silenceAimbot(void *) {
                         } else if (strstr(className.c_str(), "BP_Sniper_Mini14_Wrapper_C")) {
                             aimbotMouse.x += 0.015; aimbotMouse.y -= 0.05;
                         }
-                        // Rifle adjustments
                         else if (strstr(className.c_str(), "BP_Rifle_QBZ_Wrapper_C")) {
                             aimbotMouse.x += 0.045; aimbotMouse.y -= 0.09;
                         } else if (strstr(className.c_str(), "BP_Rifle_G36_Wrapper_C")) {
@@ -602,7 +755,6 @@ void *silenceAimbot(void *) {
                         } else if (strstr(className.c_str(), "BP_Rifle_M762_Wrapper_C")) {
                             aimbotMouse.x += 0.03; aimbotMouse.y -= 0.07;
                         }
-                        // LMG adjustments
                         else if (strstr(className.c_str(), "BP_Other_M249_Wrapper_C")) {
                             aimbotMouse.x += 0.025; aimbotMouse.y -= 0.06;
                         } else if (strstr(className.c_str(), "BP_Other_MG3_Wrapper_C")) {
@@ -618,7 +770,6 @@ void *silenceAimbot(void *) {
                         recoilTimes += get3dDistance(selfCoord, aimbotCoord, 10000) * 0.2;
                         float recoil = memoryTools.readFloat(weaponAttrAddr + 0xcf0);
                         
-                        // Weapon-specific recoil
                         if (strstr(className.c_str(), "BP_Sniper_VSS_Wrapper_C")) recoil *= 0.4;
                         else if (strstr(className.c_str(), "BP_Rifle_G36_Wrapper_C")) recoil *= 0.6;
                         else if (strstr(className.c_str(), "BP_Rifle_VAL_Wrapper_C")) recoil *= 0.45;
@@ -627,7 +778,6 @@ void *silenceAimbot(void *) {
                         else if (strstr(className.c_str(), "BP_Other_MG3_Wrapper_C")) recoil *= 0.2;
                         else if (strstr(className.c_str(), "BP_Other_DP28_Wrapper_C")) recoil *= 0.3;
                         
-                        // Crouching
                         if (selfStatus < 50.0f) {
                             if (strstr(className.c_str(), "BP_Rifle_M762_Wrapper_C")) {
                                 recoil *= 0.55;
@@ -669,143 +819,5 @@ void *silenceAimbot(void *) {
             }
         }
     }
-}
-
-// Visibility check with LineOfSightTo
-bool isCoordVisibility(ImVec3 coord) {
-    if (LineOfSightTo == nullptr || !isfinite(coord.x) || !isfinite(coord.y) || !isfinite(coord.z)) {
-        return false;
-    }
-    if (strstr(staticData.cameraManagerClassName.c_str(), "PlayerCameraManager") != 0 && 
-        strstr(staticData.playerControllerClassName.c_str(), "PlayerController") != 0) {
-        return LineOfSightTo(reinterpret_cast<void *>(staticData.playerController), 
-                           reinterpret_cast<void *>(staticData.cameraManager), coord, false);
-    }
-    return false;
-}
-
-// Smoke check
-bool isOnSmoke(ImVec3 coord) {
-    for (StaticMaterialData smoke : staticData.smokeList) {
-        ImVec3 smokeCoord;
-        memoryTools.readMemory(smoke.coordAddr + 0x1e4, 30, &smokeCoord);
-        if (get3dDistance(smokeCoord, coord, 100) < 4) {
-            return true;
-        }
-    }
-    return false;
-}
-
-// Get player name with UTF-16 to UTF-8 conversion
-char *getPlayerName(uintptr_t addr) {
-    char *buf = (char *)malloc(448);
-    unsigned short buf16[16] = {0};
-    memoryTools.readMemory(addr, 28, buf16);
-    unsigned short *tempbuf16 = buf16;
-    char *tempbuf8 = buf;
-    char *buf8 = tempbuf8 + 32;
-    
-    while (tempbuf16 < tempbuf16 + 28) {
-        if (*tempbuf16 <= 0x007F && tempbuf8 + 1 < buf8) {
-            *tempbuf8++ = (char)*tempbuf16;
-        } else if (*tempbuf16 >= 0x0080 && *tempbuf16 <= 0x07FF && tempbuf8 + 2 < buf8) {
-            *tempbuf8++ = (*tempbuf16 >> 6) | 0xC0;
-            *tempbuf8++ = (*tempbuf16 & 0x3F) | 0x80;
-        } else if (*tempbuf16 >= 0x0800 && *tempbuf16 <= 0xFFFF && tempbuf8 + 3 < buf8) {
-            *tempbuf8++ = (*tempbuf16 >> 12) | 0xE0;
-            *tempbuf8++ = ((*tempbuf16 >> 6) & 0x3F) | 0x80;
-            *tempbuf8++ = (*tempbuf16 & 0x3F) | 0x80;
-        } else {
-            break;
-        }
-        tempbuf16++;
-    }
-    return buf;
-}
-
-// Get class name from GName
-char *getClassName(int classId) {
-    char *buf = (char *)malloc(64);
-    if (classId > 0 && classId < 2000000) {
-        int page = classId / 16384;
-        int index = classId % 16384;
-        uintptr_t pageAddr = memoryTools.readPtr(staticData.gnameAddr + page * sizeof(uintptr_t));
-        uintptr_t nameAddr = memoryTools.readPtr(pageAddr + index * sizeof(uintptr_t)) + 0xC;
-        memoryTools.readMemory(nameAddr, 64, buf);
-    }
-    return buf;
-}
-
-// Get 3D bone position
-ImVec3 getBone(uintptr_t human, uintptr_t bones, int part) {
-    Ue4Transform actorftf;
-    memoryTools.readMemory(human, sizeof(ImVec4), &actorftf.rotation);
-    memoryTools.readMemory(human + 0x10, sizeof(ImVec3), &actorftf.translation);
-    memoryTools.readMemory(human + 0x20, sizeof(ImVec3), &actorftf.scale3d);
-    
-    Ue4Matrix actormatrix = transformToMatrix(actorftf);
-    
-    Ue4Transform boneftf;
-    memoryTools.readMemory(bones + part * 48, sizeof(ImVec4), &boneftf.rotation);
-    memoryTools.readMemory(bones + part * 48 + 0x10, sizeof(ImVec3), &boneftf.translation);
-    memoryTools.readMemory(bones + part * 48 + 0x20, sizeof(ImVec3), &boneftf.scale3d);
-    
-    Ue4Matrix bonematrix = transformToMatrix(boneftf);
-    
-    return matrixToVector(matrixMulti(bonematrix, actormatrix));
-}
-
-// Convert bone to 2D screen position
-bool getBone2d(MinimalViewInfo pov, ImVec2 screen, uintptr_t human, uintptr_t bones, int part, ImVec2 &buf) {
-    ImVec3 newmatrix = getBone(human, bones, part);
-    buf = worldToScreen(newmatrix, pov, screen);
-    return buf.x != 0 && buf.y != 0;
-}
-
-// Status name helper
-string getStatusName(uintptr_t statusAddr) {
-    // Status mapping based on kCurrentStates values
-    switch (statusAddr) {
-        case 2097168: return "DRIVE";
-        case 262208: return "HEALING";
-        case 33554449: return "FLYING ON PARACHUTE";
-        case 262160: return "STAND";
-        case 16: return "STAND";
-        case 524288: return "KNOCKED";
-        case 147: return "JUMP";
-        case 529: return "WALK & RELOADING";
-        case 35: return "CROUCHING";
-        case 8205: return "SHOOTING";
-        case 33: return "CROUCH WALK";
-        case 65568: return "CROUCH GRENADE";
-        case 65600: return "PRONE GRENADE";
-        case 1088: return "PRONE ADS";
-        case 1056: return "CROUCH ADS";
-        case 18: return "STANDING";
-        case 32784: return "PUNCHING";
-        case 23: return "HOLDING WEAPON";
-        case 1073741840: return "FIRING";
-        case 16777219: return "SWIMMING";
-        case 524289: return "KNOCKED";
-        case 1040: return "ADS";
-        case 272: return "SHOOTING";
-        case 4112: return "LEANING";
-        case 19: return "RUNNING";
-        case 6552: return "GRENADE PIN";
-        case 64: return "PRONE";
-        case 32: return "CROUCH";
-        case 144: return "JUMPING";
-        case 4128: return "CROUCH LEAN";
-        case 4384: return "CROUCH FIRE";
-        case 528: return "RELOADING";
-        case 320: return "PRONE FIRE";
-        case 288: return "CROUCH FIRE";
-        case 576: return "PRONE RELOAD";
-        case 544: return "CROUCH RELOAD";
-        case 67108880: return "VAULTING";
-        case 273: return "RUN & SHOOT";
-        case 4194320: return "IN VEHICLE";
-        case 17: return "WALK";
-        default: return "UNKNOWN";
-    }
+    return nullptr;
 }
