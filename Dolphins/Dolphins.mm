@@ -155,6 +155,18 @@ __attribute__((constructor)) static void initialize() {
    
 }
 
+// ========== FIX 1: Geliştirilmiş bot kontrol fonksiyonu ==========
+// Hem bIsAI (0xA40) hem de kbIsMLAI (0xA41) offsetlerini kontrol eder
+bool IsBotPlayer(uintptr_t playerAddr) {
+    if (playerAddr == 0) return true;
+    uint8_t isAI = 0;
+    uint8_t isMLAI = 0;
+    memoryTools.readMemory(playerAddr + 0xA40, 1, &isAI);
+    memoryTools.readMemory(playerAddr + 0xA41, 1, &isMLAI);
+    return (isAI != 0) || (isMLAI != 0);
+}
+// ========== FIX 1 SONU ==========
+
 // 固定数据函数
 void *readStaticData(void *) {
     while (true) {
@@ -205,7 +217,6 @@ void *readStaticData(void *) {
                 
                 string className = getClassName(memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::ClassIdOffset));
                 //人
-                //人
                 bool isPlayer = (
                     strstr(className.c_str(), "PlayerPawn")         != 0 ||
                     strstr(className.c_str(), "PlayerCharacter")    != 0 ||
@@ -213,6 +224,10 @@ void *readStaticData(void *) {
                     strstr(className.c_str(), "CharacterModelTaget")!= 0
                 );
                 if (isPlayer && moduleControl.mainSwitch.playerStatus) {
+                    // ========== FIX 2: KENDİNİ ATLA (Kesin çözüm) ==========
+                    if (objectAddr == staticData.selfAddr) continue;
+                    // ========== FIX 2 SONU ==========
+                    
                     //队伍ID
                     int team = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::TeamOffset);
                     int TeamID = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::TeamOffset);
@@ -225,13 +240,9 @@ void *readStaticData(void *) {
                     memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::DeadOffset, 1, &isDead);
                     if (isDead) continue;
 
-
-
-
-
                     // HP yukarida kontrol edildi
                     // bDead kontrolu kaldirildi - HP ile yapiliyor
-                            uintptr_t statusAddr = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::StatusOffset);
+                    uintptr_t statusAddr = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::StatusOffset);
 
                     
 
@@ -242,13 +253,14 @@ void *readStaticData(void *) {
                     tmpPlayerData.team = team;
                     //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
-                    // IsBot offset - bool (1 byte)
-                    bool isBot = false;
-                    memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::RobotOffset, 1, &isBot);
+                    
+                    // ========== FIX 1: Geliştirilmiş bot tespiti ==========
+                    bool isBot = IsBotPlayer(objectAddr);
                     tmpPlayerData.robot = isBot ? 1 : 0;
-
-
-
+                    // ========== FIX 1 SONU ==========
+                    
+                    // Menüde bot gizleme açıksa botları listeye alma
+                    if (moduleControl.playerSwitch.ignorebot && isBot) continue;
                     
                     tmpPlayerData.status = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::StatusOffset);
                     
@@ -321,6 +333,9 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
         //读取矩阵
         if (moduleControl.mainSwitch.playerStatus) {
             for (auto staticPlayerData: staticData.playerDataList) {
+                // ========== FIX 2: Çift güvenlik - kendini tekrar atla ==========
+                if (staticPlayerData.addr == staticData.selfAddr) continue;
+                // ========== FIX 2 SONU ==========
 
                 //坐标
                 ImVec3 objectCoord;
@@ -494,8 +509,7 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 
                 
                 //取对手手持武器
-                uintptr_t weaponMgrAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::WeaponManagerComponentOffset);
-                uintptr_t weaponAddr = memoryTools.readPtr(weaponMgrAddr + PubgOffset::ObjectParam::WeaponOneOffset);
+                uintptr_t weaponAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::WeaponOneOffset);
                 if (weaponAddr == 0) {
                     playerData.weaponName = "FIST";
                 } else {
@@ -635,8 +649,7 @@ void *silenceAimbot(void *) {
         usleep(16666);
         if (moduleControl.systemStatus == TransmissionNormal && moduleControl.mainSwitch.aimbotStatus/* && softWareData.loginStatus*/) {
             //武器指针
-            uintptr_t weaponMgrAddr = memoryTools.readPtr(staticData.selfAddr + PubgOffset::ObjectParam::WeaponManagerComponentOffset);
-            uintptr_t weaponAddr = memoryTools.readPtr(weaponMgrAddr + PubgOffset::ObjectParam::WeaponOneOffset);
+            uintptr_t weaponAddr = memoryTools.readPtr(staticData.selfAddr + PubgOffset::ObjectParam::WeaponOneOffset);
             //自瞄开关
             bool enabledAimbot = false;
             //判断自瞄启动模式
@@ -681,6 +694,9 @@ void *silenceAimbot(void *) {
                 ImVec3 aimbotCoord = ImVec3(0,0,0);
                 //循环人物对象列表
                 for (auto staticPlayerData: staticData.playerDataList) {
+                    // ========== FIX 2: Kendini hedef alma - çift güvenlik ==========
+                    if (staticPlayerData.addr == staticData.selfAddr) continue;
+                    // ========== FIX 2 SONU ==========
 
                     //坐标
                     ImVec3 objectCoord;
@@ -699,6 +715,13 @@ void *silenceAimbot(void *) {
                     if (memoryTools.readFloat(staticPlayerData.addr + PubgOffset::ObjectParam::HpOffset) < 0.5 && moduleControl.aimbotController.fallNotAim) {
                         continue;
                     }
+                    
+                    // ========== FIX 1: Botları atla (ignorebot açıksa) ==========
+                    if (moduleControl.playerSwitch.ignorebot && staticPlayerData.robot == 1) {
+                        continue;
+                    }
+                    // ========== FIX 1 SONU ==========
+                    
                     //屏幕坐标
                     ImVec2 playerScreen = worldToScreen(objectCoord, pov, screenSize);
                     //模糊自瞄对象
