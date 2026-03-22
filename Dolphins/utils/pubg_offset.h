@@ -3,34 +3,34 @@
 
 namespace PubgOffset {
 
-// Global offsets (slide + base)
+// Global adresler (mutlak, slide eklenmez)
 namespace Global {
-    const long gobject = 0x10A34E980;           // not used directly
-    const long gname_data = 0xe498308;          // GNames direct offset
-    const long gworld_data = 0xe498300;         // GWorld direct offset
-    const long gname_func = 0;                  // not used (direct pointer)
-    const long gworld_func = 0;                 // not used (direct pointer)
+    const uintptr_t gworld_data = 0xe498300;   // GWorld
+    const uintptr_t gname_data  = 0xe498308;   // GNames
+    // gname_func ve gworld_func kullanılmıyor (direkt pointer)
+    const long gname_func = 0;
+    const long gworld_func = 0;
 }
 
-// PlayerController chain: NetDriver -> ServerConnection -> PlayerController
+// PlayerController zinciri: NetDriver -> ServerConnection -> PlayerController
 int PlayerControllerOffset[3] = {0x38, 0x78, 0x30};
 
 namespace PlayerControllerParam {
-    int SelfOffset = 0x28E0;          // kSTBaseCharacter
+    int SelfOffset = 0x28e0;          // kSTBaseCharacter
     int MouseOffset = 0x4e0;          // AController_ControlRotation
     int CameraManagerOffset = 0x548;  // APlayerController_PlayerCameraManager
     int AngleOffset = 0x558;
 
     namespace CameraManagerParam {
-        int PovOffset = 0x530;         // APlayerCameraManager_CameraCacheEntry + 0x10
+        int PovOffset = 0x530;         // APlayerCameraManager_CameraCacheEntry + 0x10 (0x520 + 0x10)
     }
 
     namespace ControllerFunction {
-        int LineOfSightToOffset = 0x7B0;  // from earlier define
+        int LineOfSightToOffset = 0x7B0;   // kLineOfSightTo
     }
 }
 
-int ULevelOffset = 0x30;            // kPersistentLevel
+int ULevelOffset = 0x30;                // kPersistentLevel
 
 namespace ULevelParam {
     int ObjectArrayOffset = 0xA0;       // kActorList
@@ -47,42 +47,41 @@ namespace ObjectParam {
         int AddControllerPitchInputOffset = 0x898; // kPitch
     }
 
-    int StatusOffset = 0x1058;        // kCurrentStates
-    int TeamOffset = 0x998;           // AUAECharacter_TeamID
-    int NameOffset = 0x960;           // AUAECharacter_PlayerName
-    int HpOffset = 0xe60;             // ASTExtraCharacter_Health
-    int HpmaxOffset = 0xe64;          // ASTExtraCharacter_HealthMax
-    int DeadOffset = 0xe7c;           // ASTExtraCharacter_bDead
-
-    int MoveCoordOffset = 0x110;      // kRepMovement
-    int MeshOffset = 0x510;           // ACharacter_Mesh
+    int StatusOffset = 0x1058;          // kCurrentStates
+    int TeamOffset = 0x998;             // AUAECharacter_TeamID
+    int NameOffset = 0x960;             // AUAECharacter_PlayerName
+    int HpOffset = 0xe60;               // ASTExtraCharacter_Health
+    int HpmaxOffset = 0xe64;            // ASTExtraCharacter_HealthMax
+    int DeadOffset = 0xe7c;             // ASTExtraCharacter_bDead
+    int MoveCoordOffset = 0x110;        // kRepMovement
+    int MeshOffset = 0x510;             // ACharacter_Mesh
 
     namespace MeshParam {
-        int HumanOffset = 0x210;          // USceneComponent_RelativeLocation base (component transform)
-        int BonesOffset = 0x990;          // AStaticMeshComponent_StaticMesh (MinLOD) – bones array
+        int HumanOffset = 0x210;          // USceneComponent_RelativeLocation (component transform)
+        int BonesOffset = 0x990;          // AStaticMeshComponent_StaticMesh (MinLOD) – bones array pointer
     }
 
-    int OpenFireOffset = 0x1800;      // bIsWeaponFiring
-    int OpenTheSightOffset = 0x1134;  // bIsGunADS
+    int OpenFireOffset = 0x1800;         // bIsWeaponFiring
+    int OpenTheSightOffset = 0x1134;     // bIsGunADS
 
-    int WeaponManagerComponentOffset = 0x25b8;  // ASTExtraBaseCharacter_WeaponManagerComponent
-    int WeaponOneOffset = 0x5c8;      // UWeaponManagerComponent_CurrentWeaponReplicated
+    int WeaponManagerComponentOffset = 0x25b8;   // ASTExtraBaseCharacter_WeaponManagerComponent
+    int WeaponOneOffset = 0x5c8;                 // UWeaponManagerComponent_CurrentWeaponReplicated
 
     namespace WeaponParam {
         int MasterOffset = 0x110;
-        int ShootModeOffset = 0x10d9;    // kShootMode (from earlier)
-        int WeaponAttrOffset = 0x1360;   // ASTExtraShootWeapon_ShootWeaponEntityComp
+        int ShootModeOffset = 0x10d9;           // kShootMode (from earlier)
+        int WeaponAttrOffset = 0x1360;           // ASTExtraShootWeapon_ShootWeaponEntityComp
 
         namespace WeaponAttrParam {
-            int BulletSpeedOffset = 0x560;    // UShootWeaponEntity_BulletFireSpeed
-            int RecoilOffset = 0xcf0;         // RecoilKickADS
+            int BulletSpeedOffset = 0x560;       // UShootWeaponEntity_BulletFireSpeed
+            int RecoilOffset = 0xcf0;            // RecoilKickADS
         }
     }
 
-    int CoordOffset = 0x208;          // AActor_RootComponent
+    int CoordOffset = 0x208;            // AActor_RootComponent
 
     namespace CoordParam {
-        int HeightOffset = 0x1dc;         // kCoord (head? actually location Z)
+        int HeightOffset = 0x1dc;         // kCoord (height)
         int CoordOffset = 0x1e4;          // USceneComponent_RelativeLocation
     }
 }
