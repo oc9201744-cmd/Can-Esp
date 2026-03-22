@@ -155,17 +155,47 @@ __attribute__((constructor)) static void initialize() {
    
 }
 
-// ========== FIX 1: Geliştirilmiş bot kontrol fonksiyonu ==========
-// Hem bIsAI (0xA40) hem de kbIsMLAI (0xA41) offsetlerini kontrol eder
+// ========== FIX 1: GELİŞTİRİLMİŞ BOT KONTROLÜ ==========
+// Hem projedeki RobotOffset hem de bIsAI (0xA40) ve kbIsMLAI (0xA41) kontrol edilir.
 bool IsBotPlayer(uintptr_t playerAddr) {
     if (playerAddr == 0) return true;
+    
+    // 1. Yöntem: PubgOffset::ObjectParam::RobotOffset (zaten tanımlı)
+    uint8_t isRobot = 0;
+    memoryTools.readMemory(playerAddr + PubgOffset::ObjectParam::RobotOffset, 1, &isRobot);
+    if (isRobot) return true;
+    
+    // 2. Yöntem: bIsAI (0xA40) – eğer RobotOffset çalışmazsa yedek
     uint8_t isAI = 0;
-    uint8_t isMLAI = 0;
     memoryTools.readMemory(playerAddr + 0xA40, 1, &isAI);
+    if (isAI) return true;
+    
+    // 3. Yöntem: kbIsMLAI (0xA41) – bazı sürümlerde ML botlar için
+    uint8_t isMLAI = 0;
     memoryTools.readMemory(playerAddr + 0xA41, 1, &isMLAI);
-    return (isAI != 0) || (isMLAI != 0);
+    if (isMLAI) return true;
+    
+    return false;
 }
 // ========== FIX 1 SONU ==========
+
+// ========== FIX 2: KENDİ ADRESİNİ GÜVENLİ ŞEKİLDE ALMA ==========
+uintptr_t GetSelfAddress() {
+    // Önce mevcut yöntemle dene
+    uintptr_t self = memoryTools.readPtr(staticData.playerController + PubgOffset::PlayerControllerParam::SelfOffset);
+    if (self != 0) return self;
+    
+    // Alternatif: UWorld üzerinden LocalPlayer -> PlayerController -> Pawn
+    uintptr_t uworld = staticData.gwlordAddr;
+    uintptr_t gameInstance = memoryTools.readPtr(uworld + PubgOffset::GameInstanceOffset);
+    uintptr_t localPlayer = memoryTools.readPtr(gameInstance + PubgOffset::LocalPlayerOffset);
+    uintptr_t playerController = memoryTools.readPtr(localPlayer + PubgOffset::PlayerControllerOffset);
+    if (playerController != 0) {
+        return memoryTools.readPtr(playerController + PubgOffset::PlayerControllerParam::SelfOffset);
+    }
+    return 0;
+}
+// ========== FIX 2 SONU ==========
 
 // 固定数据函数
 void *readStaticData(void *) {
@@ -184,8 +214,8 @@ void *readStaticData(void *) {
             staticData.playerController = memoryTools.readPtr(memoryTools.readPtr(memoryTools.readPtr(staticData.gwlordAddr + PubgOffset::PlayerControllerOffset[0]) + PubgOffset::PlayerControllerOffset[1]) + PubgOffset::PlayerControllerOffset[2]);
             //掩体判断
             LineOfSightTo = (bool (*)(void *, void *, ImVec3, bool)) (memoryTools.readPtr(memoryTools.readPtr(staticData.playerController + 0x0) + PubgOffset::PlayerControllerParam::ControllerFunction::LineOfSightToOffset));//0x780
-            //自己指针
-            staticData.selfAddr = memoryTools.readPtr(staticData.playerController + PubgOffset::PlayerControllerParam::SelfOffset);
+            //自己指针 (güvenli)
+            staticData.selfAddr = GetSelfAddress();
             //自瞄函数
             uintptr_t selfFunction = memoryTools.readPtr(staticData.selfAddr + 0);
             AddControllerYawInput = (void (*)(void *, float)) (memoryTools.readPtr(selfFunction + PubgOffset::ObjectParam::PlayerFunction::AddControllerYawInputOffset));//0x780
@@ -204,6 +234,9 @@ void *readStaticData(void *) {
             uintptr_t obectArray = memoryTools.readPtr(uLevel + PubgOffset::ULevelParam::ObjectArrayOffset);
             //成员数量
             int objectCount = memoryTools.readInt(uLevel + PubgOffset::ULevelParam::ObjectCountOffset);
+            
+            int selfTeamID = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::TeamOffset);
+            
             //开始寻找
             for (int index = 0; index < objectCount; ++index) {
                 //对象指针
@@ -224,43 +257,29 @@ void *readStaticData(void *) {
                     strstr(className.c_str(), "CharacterModelTaget")!= 0
                 );
                 if (isPlayer && moduleControl.mainSwitch.playerStatus) {
-                    // ========== FIX 2: KENDİNİ ATLA (Kesin çözüm) ==========
+                    // ========== FIX 2: KENDİNİ KESİN ATLAMA ==========
                     if (objectAddr == staticData.selfAddr) continue;
-                    // ========== FIX 2 SONU ==========
                     
-                    //队伍ID
                     int team = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::TeamOffset);
-                    int TeamID = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::TeamOffset);
-                    if (team == TeamID) continue;
-                    StaticPlayerData tmpPlayerData;
-                    //对象指针地址
-
-                    // Oldu mu kontrolu - IsDead (1 byte bool)
+                    if (team == selfTeamID) continue;
+                    
                     bool isDead = false;
                     memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::DeadOffset, 1, &isDead);
                     if (isDead) continue;
 
-                    // HP yukarida kontrol edildi
-                    // bDead kontrolu kaldirildi - HP ile yapiliyor
                     uintptr_t statusAddr = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::StatusOffset);
 
-                    
-
+                    StaticPlayerData tmpPlayerData;
                     tmpPlayerData.addr = objectAddr;
-                    //坐标地址
                     tmpPlayerData.coordAddr = coordAddr;
-                    //队伍ID
                     tmpPlayerData.team = team;
-                    //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
                     
-                    // ========== FIX 1: Geliştirilmiş bot tespiti ==========
+                    // ========== FIX 1: BOT KONTROLÜ ==========
                     bool isBot = IsBotPlayer(objectAddr);
                     tmpPlayerData.robot = isBot ? 1 : 0;
-                    // ========== FIX 1 SONU ==========
-                    
-                    // Menüde bot gizleme açıksa botları listeye alma
                     if (moduleControl.playerSwitch.ignorebot && isBot) continue;
+                    // ========== FIX 1 SONU ==========
                     
                     tmpPlayerData.status = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::StatusOffset);
                     
@@ -268,15 +287,10 @@ void *readStaticData(void *) {
                     
                 } else if (strstr(className.c_str(), "ProjSmoke_BP_C)") != 0) {
                     StaticMaterialData tmpMaterialData;
-                    //物资类型
                     tmpMaterialData.type = Warning;
-                    //物资ID
                     tmpMaterialData.id = 4;
-                    //物资名称
                     tmpMaterialData.name = "[WARNING]SMOKE";
-                    //对象指针地址
                     tmpMaterialData.addr = objectAddr;
-                    //坐标地址
                     tmpMaterialData.coordAddr = coordAddr;
                     
                     tmpSmokeList.push_back(tmpMaterialData);
@@ -287,15 +301,10 @@ void *readStaticData(void *) {
                          LOGE("%s 物品Id：%d", material.name, memoryTools.readInt(objectAddr + 0x7D0));
                          }*/
                         StaticMaterialData tmpMaterialData;
-                        //物资类型
                         tmpMaterialData.type = material.type;
-                        //物资ID
                         tmpMaterialData.id = material.id;
-                        //物资名称
                         tmpMaterialData.name = material.name;
-                        //对象指针地址
                         tmpMaterialData.addr = objectAddr;
-                        //坐标地址
                         tmpMaterialData.coordAddr = coordAddr;
                         
                         if ((material.type == Rifle || material.type == Sniper || material.type == Missile) && memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::WeaponParam::MasterOffset) != 0) {
@@ -333,9 +342,8 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
         //读取矩阵
         if (moduleControl.mainSwitch.playerStatus) {
             for (auto staticPlayerData: staticData.playerDataList) {
-                // ========== FIX 2: Çift güvenlik - kendini tekrar atla ==========
+                // ========== FIX 2: Çift güvenlik – kendini tekrar atla ==========
                 if (staticPlayerData.addr == staticData.selfAddr) continue;
-                // ========== FIX 2 SONU ==========
 
                 //坐标
                 ImVec3 objectCoord;
@@ -641,8 +649,6 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
 
 //自瞄
 
-
-
 void *silenceAimbot(void *) {
     ImVec2 screenSize = ImVec2([UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height);
     while (true) {
@@ -696,7 +702,8 @@ void *silenceAimbot(void *) {
                 for (auto staticPlayerData: staticData.playerDataList) {
                     // ========== FIX 2: Kendini hedef alma - çift güvenlik ==========
                     if (staticPlayerData.addr == staticData.selfAddr) continue;
-                    // ========== FIX 2 SONU ==========
+                    // ========== FIX 1: Botları atla (ignorebot açıksa) ==========
+                    if (moduleControl.playerSwitch.ignorebot && staticPlayerData.robot == 1) continue;
 
                     //坐标
                     ImVec3 objectCoord;
@@ -716,26 +723,11 @@ void *silenceAimbot(void *) {
                         continue;
                     }
                     
-                    // ========== FIX 1: Botları atla (ignorebot açıksa) ==========
-                    if (moduleControl.playerSwitch.ignorebot && staticPlayerData.robot == 1) {
-                        continue;
-                    }
-                    // ========== FIX 1 SONU ==========
-                    
                     //屏幕坐标
                     ImVec2 playerScreen = worldToScreen(objectCoord, pov, screenSize);
                     //模糊自瞄对象
                     float screenDistance;
                     //判断自瞄对象是否在指定屏幕范围
-
-
-                
-PlayerData playerData;
-
-
-
-
-
 
                     if ((screenDistance = get2dDistance(screenSize,playerScreen)) < aimbotRadius) {
                         //骨骼mesh
@@ -1018,6 +1010,7 @@ PlayerData playerData;
             }
         }
     }
+    return nullptr;
 }
 
 //isVisiblePoint
