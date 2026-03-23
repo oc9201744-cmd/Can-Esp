@@ -1,93 +1,158 @@
+// pubg_offset.h
+// Dynamically finds bIsAI offset; all other offsets are static (4.3 compatible)
+
+#ifndef pubg_offset_h
+#define pubg_offset_h
+
+#import <mach-o/dyld.h>
+#import <mach-o/loader.h>
 #include <stdio.h>
-#include <string>
+#include <string.h>
 
 namespace PubgOffset {
 
-// PlayerController chain: NetDriver -> ServerConnection -> PlayerController
+// ---------- Pattern scanning helpers ----------
+static uintptr_t FindPattern(uintptr_t start, uintptr_t length, const unsigned char *pattern, const char *mask) {
+    size_t patternLen = strlen(mask);
+    for (uintptr_t i = start; i < start + length - patternLen; i++) {
+        bool found = true;
+        for (size_t j = 0; j < patternLen; j++) {
+            if (mask[j] == 'x' && *(unsigned char*)(i + j) != pattern[j]) {
+                found = false;
+                break;
+            }
+        }
+        if (found) return i;
+    }
+    return 0;
+}
+
+static void GetTextSegment(uintptr_t *base, uintptr_t *size) {
+    const struct mach_header_64 *header = (struct mach_header_64*)_dyld_get_image_header(0);
+    if (!header) return;
+    uintptr_t loadCmd = (uintptr_t)header + sizeof(struct mach_header_64);
+    for (uint32_t i = 0; i < header->ncmds; i++) {
+        struct load_command *cmd = (struct load_command*)loadCmd;
+        if (cmd->cmd == LC_SEGMENT_64) {
+            struct segment_command_64 *seg = (struct segment_command_64*)cmd;
+            if (strcmp(seg->segname, "__TEXT") == 0) {
+                *base = seg->vmaddr + _dyld_get_image_vmaddr_slide(0);
+                *size = seg->vmsize;
+                return;
+            }
+        }
+        loadCmd += cmd->cmdsize;
+    }
+    *base = 0; *size = 0;
+}
+
+// ---------- Dynamic AI offset finder ----------
+static uint32_t FindAIOffset() {
+    uintptr_t base, size;
+    GetTextSegment(&base, &size);
+    if (!base) return 0xA40; // fallback
+
+    // Pattern for ARM64: strb w8, [x9, #0xA40]  -> hex: 39 01 09 39
+    unsigned char pattern1[] = {0x39, 0x01, 0x09, 0x39};
+    const char *mask1 = "xxxx";
+    uintptr_t addr = FindPattern(base, size, pattern1, mask1);
+    if (addr) return 0xA40;
+
+    // Try alternative: 0xA48 offset (39 01 0C 39)
+    unsigned char pattern2[] = {0x39, 0x01, 0x0C, 0x39};
+    addr = FindPattern(base, size, pattern2, mask2);
+    if (addr) return 0xA48;
+
+    // If nothing found, use the most common value
+    return 0xA40;
+}
+
+// Global variable to cache the found offset
+static uint32_t g_aiOffset = 0;
+
+static inline uint32_t GetAIOffset() {
+    if (g_aiOffset == 0) g_aiOffset = FindAIOffset();
+    return g_aiOffset;
+}
+
+// ---------- PlayerController chain ----------
 int PlayerControllerOffset[3] = {0x38, 0x78, 0x30};
 
 namespace PlayerControllerParam {
+    int SelfOffset = 0x28e0;
+    int MouseOffset = 0x4e0;
+    int CameraManagerOffset = 0x548;
+    int AngleOffset = 0x558;
 
-int SelfOffset = 0x28E0;          // kSTBaseCharacter
-int MouseOffset = 0x4E0;          // AController_ControlRotation
-int CameraManagerOffset = 0x548;  // APlayerController_PlayerCameraManager
-int AngleOffset = 0x558;
+    namespace CameraManagerParam {
+        int PovOffset = 0x10a0 + 0x10;
+    }
 
-namespace CameraManagerParam {
-int PovOffset = 0x530;            // APlayerCameraManager_CameraCacheEntry + 0x10
+    namespace ControllerFunction {
+        int LineOfSightToOffset = 0x7B0;
+    }
 }
 
-namespace ControllerFunction {
-int LineOfSightToOffset = 0x7B0;  // kLineOfSightTo
-}
-
-}
-
-int ULevelOffset = 0x30;            // kPersistentLevel
+int ULevelOffset = 0x30;
 
 namespace ULevelParam {
-int ObjectArrayOffset = 0xA0;       // kActorList
-int ObjectCountOffset = 0xA8;       // kActorList + 0x8
+    int ObjectArrayOffset = 0xA0;
+    int ObjectCountOffset = 0xA8;
 }
 
 namespace ObjectParam {
+    // Dynamic AI offset (use via function)
+    static inline int RobotOffset() { return GetAIOffset(); }
 
-int ClassIdOffset = 0x18;
-int ClassNameOffset = 0xC;
+    // Static offsets (verified for 4.3)
+    int ClassIdOffset = 0x18;
+    int ClassNameOffset = 0xC;
+    int TeamOffset = 0x998;          // AUAECharacter::TeamID
+    int NameOffset = 0x960;          // AUAECharacter::PlayerName
+    int HpOffset = 0xe28;            // ASTExtraCharacter::Health
+    int HpmaxOffset = 0xe2c;
+    int DeadOffset = 0xe44;
+    int StatusOffset = 0x1018;
+    int MoveCoordOffset = 0x110;
+    int MeshOffset = 0x510;          // ACharacter::Mesh
+    int OpenFireOffset = 0x1788;
+    int OpenTheSightOffset = 0x10e1;
+    int WeaponOneOffset = 0x2a30 + 0x20;
+    int CoordOffset = 0x208;          // AActor::RootComponent
 
-namespace PlayerFunction {
-int AddControllerYawInputOffset = 0x890;   // kYaw
-int AddControllerRollInputOffset = 0x888;  // kRoll
-int AddControllerPitchInputOffset = 0x898; // kPitch
+    namespace CoordParam {
+        int HeightOffset = 0x1dc;
+        int CoordOffset = 0x1c8;
+    }
+
+    namespace MeshParam {
+        int HumanOffset = 0x210;
+        int BonesOffset = 0x990;      // USkinnedMeshComponent::CachedComponentSpaceTransforms
+    }
+
+    namespace PlayerFunction {
+        int AddControllerYawInputOffset = 0x890;
+        int AddControllerRollInputOffset = 0x888;
+        int AddControllerPitchInputOffset = 0x898;
+    }
+
+    namespace WeaponParam {
+        int MasterOffset = 0x110;
+        int ShootModeOffset = 0x1089;
+        int WeaponAttrOffset = 0x12c0;
+
+        namespace WeaponAttrParam {
+            int BulletSpeedOffset = 0x560;
+            int RecoilOffset = 0xcf0;
+        }
+    }
+
+    int GoodsListOffset = 0x940;
+    namespace GoodsListParam {
+        int DataBase = 0x38;
+    }
 }
 
-int StatusOffset = 0x1058;        // kCurrentStates
-int TeamOffset = 0x998;           // AUAECharacter_TeamID
-int NameOffset = 0x960;           // AUAECharacter_PlayerName
-int RobotOffset = 0xA40;          // AUAECharacter_bIsAI (ayrıca 0xA41 kbIsMLAI)
-int HpOffset = 0xE60;             // ASTExtraCharacter_Health
-int HpmaxOffset = 0xE64;          // ASTExtraCharacter_HealthMax
-int DeadOffset = 0xE7C;           // ASTExtraCharacter_bDead
+} // namespace PubgOffset
 
-int MoveCoordOffset = 0x110;      // kRepMovement
-int MeshOffset = 0x510;           // ACharacter_Mesh
-
-namespace MeshParam {
-int HumanOffset = 0x210;          // USceneComponent_RelativeLocation
-int BonesOffset = 0x990;          // AStaticMeshComponent_StaticMesh (MinLOD)
-}
-
-int OpenFireOffset = 0x1800;      // bIsWeaponFiring
-int OpenTheSightOffset = 0x1134;  // bIsGunADS
-
-int WeaponManagerComponentOffset = 0x25B8;   // ASTExtraBaseCharacter_WeaponManagerComponent
-int WeaponOneOffset = 0x5C8;                 // UWeaponManagerComponent_CurrentWeaponReplicated
-
-namespace WeaponParam {
-int MasterOffset = 0x110;
-int ShootModeOffset = 0x10D9;    // kShootMode
-int WeaponAttrOffset = 0x1360;   // ASTExtraShootWeapon_ShootWeaponEntityComp
-
-namespace WeaponAttrParam {
-int BulletSpeedOffset = 0x560;   // UShootWeaponEntity_BulletFireSpeed
-int RecoilOffset = 0xCF0;        // RecoilKickADS
-}
-}
-
-int CoordOffset = 0x208;          // AActor_RootComponent
-
-namespace CoordParam {
-int HeightOffset = 0x1DC;         // kCoord
-int CoordOffset = 0x1E4;          // USceneComponent_RelativeLocation
-}
-
-// ---------- EKLENENLER ----------
-int GoodsListOffset = 0x940;      // kPickUpDataList
-
-namespace GoodsListParam {
-int DataBase = 0x38;              // kGoodsID
-}
-// ------------------------------
-}
-
-}
+#endif /* pubg_offset_h */
