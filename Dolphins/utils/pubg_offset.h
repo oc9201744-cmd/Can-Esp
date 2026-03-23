@@ -26,8 +26,9 @@ static int ObjectCountOffset = 0xA8;
 // ---------------- Object ----------------
 namespace ObjectParam {
 
-// --- PlayerState FIX (SDK uyumlu)
-static int PlayerStateOffset = 0x4a8;   // gerekirse güncelle
+// --- PlayerState (SDK uyumlu ve güvenli)
+static int PlayerStateOffset = 0x4a8;   // fallback
+static int PlayerStateOffsetAlt = 0x4b0; // alternatif (build farkı için)
 static int bIsAI_Offset = 0x28;
 
 // --- Temel bilgiler
@@ -39,7 +40,7 @@ static int HpOffset = 0xe60;
 static int HpmaxOffset = 0xe64;
 static int DeadOffset = 0xe7c;
 
-// ---------------- Mesh / Bone FIX ----------------
+// ---------------- Mesh / Bone ----------------
 static int MeshOffset = 0x510;
 
 namespace MeshParam {
@@ -48,7 +49,7 @@ static int BoneBaseOffset = 0x208;
 }
 
 // ---------------- Koordinat ----------------
-static int CoordOffset = 0x208;
+static int RootComponentOffset = 0x208;
 
 namespace CoordParam {
 static int RelativeLocation = 0x1e4;
