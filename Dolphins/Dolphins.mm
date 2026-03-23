@@ -155,28 +155,30 @@ __attribute__((constructor)) static void initialize() {
    
 }
 
-// ========== FIX 1: GELİŞTİRİLMİŞ BOT KONTROLÜ (dinamik offset) ==========
+// ========== BOT TESPİTİ (PlayerState + yedek) ==========
 bool IsBotPlayer(uintptr_t playerAddr) {
     if (playerAddr == 0) return true;
     
-    // Dinamik olarak bulunan offset ile oku (RobotOffset())
-    uint8_t isRobot = 0;
-    memoryTools.readMemory(playerAddr + PubgOffset::ObjectParam::RobotOffset(), 1, &isRobot);
-    if (isRobot) return true;
+    // 1. PlayerState üzerinden bIsAI kontrolü
+    uintptr_t playerState = memoryTools.readPtr(playerAddr + PubgOffset::ObjectParam::PlayerStateOffset);
+    if (playerState == 0 || playerState < 0x100000000) {
+        playerState = memoryTools.readPtr(playerAddr + PubgOffset::ObjectParam::PlayerStateOffsetAlt);
+    }
+    if (playerState != 0 && playerState > 0x100000000) {
+        uint8_t isAI = 0;
+        memoryTools.readMemory(playerState + PubgOffset::ObjectParam::bIsAI_Offset, 1, &isAI);
+        if (isAI) return true;
+    }
     
-    // Yedek: bIsAI (0xA40) – pattern bulunamazsa diye
-    uint8_t isAI = 0;
-    memoryTools.readMemory(playerAddr + 0xA40, 1, &isAI);
-    if (isAI) return true;
-    
-    // Yedek: kbIsMLAI (0xA41)
-    uint8_t isMLAI = 0;
-    memoryTools.readMemory(playerAddr + 0xA41, 1, &isMLAI);
-    if (isMLAI) return true;
+    // 2. Yedek: Doğrudan oyuncu adresindeki eski offsetler
+    uint8_t isAI_legacy = 0, isMLAI_legacy = 0;
+    memoryTools.readMemory(playerAddr + 0xA40, 1, &isAI_legacy);
+    memoryTools.readMemory(playerAddr + 0xA41, 1, &isMLAI_legacy);
+    if (isAI_legacy || isMLAI_legacy) return true;
     
     return false;
 }
-// ========== FIX 1 SONU ==========
+// ========== BOT TESPİTİ SONU ==========
 
 // 固定数据函数
 void *readStaticData(void *) {
@@ -226,8 +228,8 @@ void *readStaticData(void *) {
                     continue;
                 }
                 
-                //对象坐标指针
-                uintptr_t coordAddr = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::CoordOffset);
+                //对象坐标指针 (RootComponent)
+                uintptr_t rootComponent = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::RootComponentOffset);
                 
                 string className = getClassName(memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::ClassIdOffset));
                 //人
@@ -252,11 +254,11 @@ void *readStaticData(void *) {
 
                     StaticPlayerData tmpPlayerData;
                     tmpPlayerData.addr = objectAddr;
-                    tmpPlayerData.coordAddr = coordAddr;
+                    tmpPlayerData.coordAddr = rootComponent;
                     tmpPlayerData.team = team;
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
                     
-                    // ========== FIX 1: BOT KONTROLÜ (dinamik offset kullanılır) ==========
+                    // ========== FIX 1: BOT KONTROLÜ ==========
                     bool isBot = IsBotPlayer(objectAddr);
                     tmpPlayerData.robot = isBot ? 1 : 0;
                     if (moduleControl.playerSwitch.ignorebot && isBot) continue;
@@ -272,7 +274,7 @@ void *readStaticData(void *) {
                     tmpMaterialData.id = 4;
                     tmpMaterialData.name = "[WARNING]SMOKE";
                     tmpMaterialData.addr = objectAddr;
-                    tmpMaterialData.coordAddr = coordAddr;
+                    tmpMaterialData.coordAddr = rootComponent;
                     
                     tmpSmokeList.push_back(tmpMaterialData);
                 } else if (moduleControl.mainSwitch.materialStatus) {
@@ -286,7 +288,7 @@ void *readStaticData(void *) {
                         tmpMaterialData.id = material.id;
                         tmpMaterialData.name = material.name;
                         tmpMaterialData.addr = objectAddr;
-                        tmpMaterialData.coordAddr = coordAddr;
+                        tmpMaterialData.coordAddr = rootComponent;
                         
                         if ((material.type == Rifle || material.type == Sniper || material.type == Missile) && memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::WeaponParam::MasterOffset) != 0) {
                             continue;
@@ -328,7 +330,7 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
 
                 //坐标
                 ImVec3 objectCoord;
-                memoryTools.readMemory(staticPlayerData.coordAddr + PubgOffset::ObjectParam::CoordParam::CoordOffset, sizeof(ImVec3), &objectCoord);
+                memoryTools.readMemory(staticPlayerData.coordAddr + PubgOffset::ObjectParam::CoordParam::RelativeLocation, sizeof(ImVec3), &objectCoord);
                 //计算自己到对象的距离
                 float objectDistance = get3dDistance(objectCoord, selfCoord, 100);
                 if (objectDistance < 0 || objectDistance > 450) {
@@ -522,7 +524,7 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 
                 uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
                 uintptr_t humanAddr = meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset;
-                uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset) + 48;
+                uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonePtrOffset) + 48;
                 //判断是否需要骨骼掩体判断
                 BonesData bonesData;
                 if (getBone2d(pov, screenSize,humanAddr, boneAddr, 5, bonesData.head))//头
@@ -552,7 +554,7 @@ void readFrameData(ImVec2 screenSize,vector<PlayerData> &playerDataList, vector<
                 }
                 //坐标
                 ImVec3 objectCoord;
-                memoryTools.readMemory(staticMaterialData.coordAddr + PubgOffset::ObjectParam::CoordParam::CoordOffset, sizeof(ImVec3), &objectCoord);
+                memoryTools.readMemory(staticMaterialData.coordAddr + PubgOffset::ObjectParam::CoordParam::RelativeLocation, sizeof(ImVec3), &objectCoord);
                 //计算自己到对象的距离
                 float objectDistance = get3dDistance(objectCoord, selfCoord, 100);
                 if (staticMaterialData.type > 1 && staticMaterialData.type < All && objectDistance > 100) {
@@ -688,7 +690,7 @@ void *silenceAimbot(void *) {
 
                     //坐标
                     ImVec3 objectCoord;
-                    memoryTools.readMemory(staticPlayerData.coordAddr + PubgOffset::ObjectParam::CoordParam::CoordOffset, sizeof(ImVec3), &objectCoord);
+                    memoryTools.readMemory(staticPlayerData.coordAddr + PubgOffset::ObjectParam::CoordParam::RelativeLocation, sizeof(ImVec3), &objectCoord);
                     //计算自己到对象的距离
                     float objectDistance = get3dDistance(objectCoord, selfCoord, 100);
                     if (objectDistance < 0 || objectDistance > 450 || objectDistance > moduleControl.aimbotController.distance) {
@@ -723,7 +725,7 @@ PlayerData playerData;
                         //骨骼mesh
                         uintptr_t meshAddr = memoryTools.readPtr(staticPlayerData.addr + PubgOffset::ObjectParam::MeshOffset);
                         uintptr_t humanAddr = meshAddr + PubgOffset::ObjectParam::MeshParam::HumanOffset;
-                        uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonesOffset) + 48;
+                        uintptr_t boneAddr = memoryTools.readPtr(meshAddr + PubgOffset::ObjectParam::MeshParam::BonePtrOffset) + 48;
                         //取自瞄部位 0是优先头部,1是优先身体,3是[全自动武器打身体,单发连发打头],4是只打头,5是只打身体
                         switch (moduleControl.aimbotController.aimbotParts) {
                             case 0: {
@@ -851,7 +853,7 @@ PlayerData playerData;
                     //旋转坐标,计算当前自己位置和自瞄对象位置的角度
                     ImVec2 aimbotMouse = rotateAngleView(selfCoord, aimbotCoord);
                     //判断下蹲
-                    float selfStatus = memoryTools.readFloat(memoryTools.readPtr(staticData.selfAddr + PubgOffset::ObjectParam::CoordOffset) + PubgOffset::ObjectParam::CoordParam::HeightOffset);
+                    float selfStatus = memoryTools.readFloat(memoryTools.readPtr(staticData.selfAddr + PubgOffset::ObjectParam::RootComponentOffset) + PubgOffset::ObjectParam::CoordParam::HeightOffset);
                     //获取武器的类名
                     string className = getClassName(memoryTools.readInt(weaponAddr + PubgOffset::ObjectParam::ClassIdOffset));
                     //用自己的高度来判断是否是站立
@@ -1018,7 +1020,7 @@ bool isOnSmoke(ImVec3 coord) {
     for (StaticMaterialData smoke: staticData.smokeList) {
         //坐标
         ImVec3 smokeCoord;
-        memoryTools.readMemory(smoke.coordAddr + PubgOffset::ObjectParam::CoordParam::CoordOffset, 30, &smokeCoord);
+        memoryTools.readMemory(smoke.coordAddr + PubgOffset::ObjectParam::CoordParam::RelativeLocation, 30, &smokeCoord);
         if (get3dDistance(smokeCoord, coord, 100) < 4) {
             return true;
         }
