@@ -1,79 +1,67 @@
 #pragma once
-#include <cstdint>
-#include <cstddef>
-
-namespace Memory {
-
-// Bu fonksiyonların implementasyonu projede bulunmalı
-uintptr_t GetModuleBase(const char* moduleName);
-uintptr_t PatternScan(uintptr_t base, size_t size, const char* pattern, const char* mask);
-
-}
 
 namespace PubgOffset {
 
-struct Offsets {
-    uintptr_t PlayerController;
-    uintptr_t Self;
-    uintptr_t Mouse;
-    uintptr_t CameraManager;
-    uintptr_t Angle;
-    uintptr_t ULevel;
-    uintptr_t ObjectArray;
-    uintptr_t ObjectCount;
-    uintptr_t Mesh;
-    uintptr_t Bones;
-    uintptr_t WeaponAttr;
-    uintptr_t Hp;
-    uintptr_t Team;
-};
+// --- PlayerController zinciri
+static int PlayerControllerOffset[3] = {0x38, 0x78, 0x30};
 
-inline Offsets Data;
+namespace PlayerControllerParam {
+static int SelfOffset = 0x28e0;
+static int CameraManagerOffset = 0x548;
+static int AngleOffset = 0x4e0;
 
-inline void Initialize(uintptr_t base) {
+namespace ControllerFunction {
+static int LineOfSightToOffset = 0x7B0;
+}
+}
 
-    Data.PlayerController = Memory::PatternScan(
-        base, 0x5000000,
-        "\x48\x8B\x00\x00\x00\x00\x48\x85",
-        "xx????xx"
-    );
+// --- ULevel
+static int ULevelOffset = 0x30;
 
-    Data.Self  = Data.PlayerController + 0x28e0;
-    Data.Mouse = Data.PlayerController + 0x4e0;
+namespace ULevelParam {
+static int ObjectArrayOffset = 0xA0;
+static int ObjectCountOffset = 0xA8;
+}
 
-    Data.CameraManager = Memory::PatternScan(
-        base, 0x5000000,
-        "\x40\x53\x48\x83\xEC",
-        "xxxxx"
-    );
+// --- Object
+namespace ObjectParam {
 
-    Data.Angle = Data.CameraManager + 0x558;
+static int ClassIdOffset = 0x18;
+static int TeamOffset = 0x998;
+static int NameOffset = 0x960;
 
-    Data.ULevel = Memory::PatternScan(
-        base, 0x5000000,
-        "\x48\x8B\x0D\x00\x00\x00\x00\x48\x8B",
-        "xxx????xx"
-    );
+// FIX: doğru bot offset
+static int RobotOffset = 0xa40;
 
-    Data.ObjectArray = Data.ULevel + 0xA0;
-    Data.ObjectCount = Data.ULevel + 0xA8;
+// FIX: doğru health
+static int HpOffset = 0xe60;
+static int HpmaxOffset = 0xe64;
+static int DeadOffset = 0xe7c;
 
-    Data.Mesh = Memory::PatternScan(
-        base, 0x5000000,
-        "\x48\x8B\x89\x00\x00\x00\x00\x48\x85",
-        "xxx????xx"
-    );
+// --- Mesh / Bone FIX
+static int MeshOffset = 0x510;
 
-    Data.Bones = Data.Mesh + 0x988;
+namespace MeshParam {
+// FIX: doğru bone pointer zinciri
+static int BonePtrOffset = 0x990;
+static int BoneBaseOffset = 0x208;
+}
 
-    Data.WeaponAttr = Memory::PatternScan(
-        base, 0x5000000,
-        "\x48\x8B\x81\x00\x00\x00\x00\x48\x8B",
-        "xxx????xx"
-    );
+// --- Coord
+static int CoordOffset = 0x208;
 
-    Data.Hp   = 0xE28;
-    Data.Team = 0x998;
+namespace CoordParam {
+static int HeightOffset = 0x1e4;
+static int CoordOffset = 0x1e4;
+}
+
+// --- Player input
+namespace PlayerFunction {
+static int AddControllerYawInputOffset = 0x890;
+static int AddControllerRollInputOffset = 0x888;
+static int AddControllerPitchInputOffset = 0x898;
+}
+
 }
 
 }
