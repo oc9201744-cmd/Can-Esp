@@ -34,18 +34,19 @@ namespace ObjectParam {
 int ClassIdOffset = 0x18;
 int ClassNameOffset = 0xC;
 
+// ✅ EKLENENLER
+int PlayerStateOffset = 0x4D0;
+int bIsAI_Offset = 0x28;
+
 namespace PlayerFunction {
 int AddControllerYawInputOffset = 0x890;
 int AddControllerRollInputOffset = 0x888;
 int AddControllerPitchInputOffset = 0x898;
 }
 
-// ===== GÜNCEL =====
 int StatusOffset = 0x1018;
-int TeamOffset = 0x9A0;   // ✅ GÜNCEL TEAM OFFSET
+int TeamOffset = 0x9A0;
 int NameOffset = 0x960;
-
-// ===== FIXLER =====
 int RobotOffset = 0xa40;
 int HpOffset = 0xe60;
 int HpmaxOffset = 0xe64;
