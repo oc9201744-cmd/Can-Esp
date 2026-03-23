@@ -155,22 +155,21 @@ __attribute__((constructor)) static void initialize() {
    
 }
 
-// ========== FIX 1: GELİŞTİRİLMİŞ BOT KONTROLÜ ==========
-// Hem projedeki RobotOffset hem de bIsAI (0xA40) ve kbIsMLAI (0xA41) kontrol eder.
+// ========== FIX 1: GELİŞTİRİLMİŞ BOT KONTROLÜ (dinamik offset) ==========
 bool IsBotPlayer(uintptr_t playerAddr) {
     if (playerAddr == 0) return true;
     
-    // 1. Yöntem: PubgOffset::ObjectParam::RobotOffset (zaten tanımlı)
+    // Dinamik olarak bulunan offset ile oku (RobotOffset())
     uint8_t isRobot = 0;
-    memoryTools.readMemory(playerAddr + PubgOffset::ObjectParam::RobotOffset, 1, &isRobot);
+    memoryTools.readMemory(playerAddr + PubgOffset::ObjectParam::RobotOffset(), 1, &isRobot);
     if (isRobot) return true;
     
-    // 2. Yöntem: bIsAI (0xA40) – yedek
+    // Yedek: bIsAI (0xA40) – pattern bulunamazsa diye
     uint8_t isAI = 0;
     memoryTools.readMemory(playerAddr + 0xA40, 1, &isAI);
     if (isAI) return true;
     
-    // 3. Yöntem: kbIsMLAI (0xA41) – bazı sürümlerde ML botlar için
+    // Yedek: kbIsMLAI (0xA41)
     uint8_t isMLAI = 0;
     memoryTools.readMemory(playerAddr + 0xA41, 1, &isMLAI);
     if (isMLAI) return true;
@@ -257,7 +256,7 @@ void *readStaticData(void *) {
                     tmpPlayerData.team = team;
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
                     
-                    // ========== FIX 1: BOT KONTROLÜ ==========
+                    // ========== FIX 1: BOT KONTROLÜ (dinamik offset kullanılır) ==========
                     bool isBot = IsBotPlayer(objectAddr);
                     tmpPlayerData.robot = isBot ? 1 : 0;
                     if (moduleControl.playerSwitch.ignorebot && isBot) continue;
