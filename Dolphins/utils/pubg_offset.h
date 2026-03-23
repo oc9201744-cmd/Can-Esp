@@ -1,6 +1,4 @@
 // pubg_offset.h
-// Dynamically finds bIsAI offset; all other offsets are static (4.3 compatible)
-
 #ifndef pubg_offset_h
 #define pubg_offset_h
 
@@ -11,7 +9,7 @@
 
 namespace PubgOffset {
 
-// ---------- Pattern scanning helpers ----------
+// ---------- Pattern tarama yardımcıları ----------
 static uintptr_t FindPattern(uintptr_t start, uintptr_t length, const unsigned char *pattern, const char *mask) {
     size_t patternLen = strlen(mask);
     for (uintptr_t i = start; i < start + length - patternLen; i++) {
@@ -46,36 +44,34 @@ static void GetTextSegment(uintptr_t *base, uintptr_t *size) {
     *base = 0; *size = 0;
 }
 
-// ---------- Dynamic AI offset finder ----------
+// ---------- bIsAI offsetini dinamik bul ----------
 static uint32_t FindAIOffset() {
     uintptr_t base, size;
     GetTextSegment(&base, &size);
     if (!base) return 0xA40; // fallback
 
-    // Pattern for ARM64: strb w8, [x9, #0xA40]  -> hex: 39 01 09 39
+    // Pattern: strb w8, [x9, #0xA40]  -> 39 01 09 39
     unsigned char pattern1[] = {0x39, 0x01, 0x09, 0x39};
     const char *mask1 = "xxxx";
     uintptr_t addr = FindPattern(base, size, pattern1, mask1);
     if (addr) return 0xA40;
 
-    // Try alternative: 0xA48 offset (39 01 0C 39)
+    // Alternatif: 0xA48 için 39 01 0C 39
     unsigned char pattern2[] = {0x39, 0x01, 0x0C, 0x39};
+    const char *mask2 = "xxxx";   // mask2 tanımlandı
     addr = FindPattern(base, size, pattern2, mask2);
     if (addr) return 0xA48;
 
-    // If nothing found, use the most common value
-    return 0xA40;
+    return 0xA40; // varsayılan
 }
 
-// Global variable to cache the found offset
 static uint32_t g_aiOffset = 0;
-
 static inline uint32_t GetAIOffset() {
     if (g_aiOffset == 0) g_aiOffset = FindAIOffset();
     return g_aiOffset;
 }
 
-// ---------- PlayerController chain ----------
+// ---------- Sabit offsetler (4.3 için doğru) ----------
 int PlayerControllerOffset[3] = {0x38, 0x78, 0x30};
 
 namespace PlayerControllerParam {
@@ -101,24 +97,24 @@ namespace ULevelParam {
 }
 
 namespace ObjectParam {
-    // Dynamic AI offset (use via function)
+    // Dinamik AI offset
     static inline int RobotOffset() { return GetAIOffset(); }
 
-    // Static offsets (verified for 4.3)
+    // Statik offsetler (4.3)
     int ClassIdOffset = 0x18;
     int ClassNameOffset = 0xC;
-    int TeamOffset = 0x998;          // AUAECharacter::TeamID
-    int NameOffset = 0x960;          // AUAECharacter::PlayerName
-    int HpOffset = 0xe28;            // ASTExtraCharacter::Health
+    int TeamOffset = 0x998;
+    int NameOffset = 0x960;
+    int HpOffset = 0xe28;
     int HpmaxOffset = 0xe2c;
     int DeadOffset = 0xe44;
     int StatusOffset = 0x1018;
     int MoveCoordOffset = 0x110;
-    int MeshOffset = 0x510;          // ACharacter::Mesh
+    int MeshOffset = 0x510;
     int OpenFireOffset = 0x1788;
     int OpenTheSightOffset = 0x10e1;
     int WeaponOneOffset = 0x2a30 + 0x20;
-    int CoordOffset = 0x208;          // AActor::RootComponent
+    int CoordOffset = 0x208;
 
     namespace CoordParam {
         int HeightOffset = 0x1dc;
@@ -127,7 +123,7 @@ namespace ObjectParam {
 
     namespace MeshParam {
         int HumanOffset = 0x210;
-        int BonesOffset = 0x990;      // USkinnedMeshComponent::CachedComponentSpaceTransforms
+        int BonesOffset = 0x990;          // Skeleton için doğru
     }
 
     namespace PlayerFunction {
