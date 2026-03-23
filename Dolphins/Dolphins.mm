@@ -156,25 +156,23 @@ __attribute__((constructor)) static void initialize() {
 }
 
 // ========== FIX 1: GELİŞTİRİLMİŞ BOT KONTROLÜ (dinamik offset) ==========
-bool IsBotPlayer(uintptr_t playerAddr) {
-    if (playerAddr == 0) return true;
-    
-    // Dinamik olarak bulunan offset ile oku (RobotOffset())
-    uint8_t isRobot = 0;
-    memoryTools.readMemory(playerAddr + PubgOffset::ObjectParam::RobotOffset(), 1, &isRobot);
-    if (isRobot) return true;
-    
-    // Yedek: bIsAI (0xA40) – pattern bulunamazsa diye
-    uint8_t isAI = 0;
-    memoryTools.readMemory(playerAddr + 0xA40, 1, &isAI);
-    if (isAI) return true;
-    
-    // Yedek: kbIsMLAI (0xA41)
-    uint8_t isMLAI = 0;
-    memoryTools.readMemory(playerAddr + 0xA41, 1, &isMLAI);
-    if (isMLAI) return true;
-    
-    return false;
+bool IsBotPlayer(uintptr_t playerAddr) { // ✅
+    if (playerAddr == 0) return true; // ✅
+
+    uintptr_t playerState = memoryTools.readPtr(playerAddr + PubgOffset::ObjectParam::PlayerStateOffset); // ✅
+    if (playerState < 0x100000000) return true; // ✅
+
+    uint8_t isAI = 0; // ✅
+    memoryTools.readMemory(playerState + PubgOffset::ObjectParam::bIsAI_Offset, 1, &isAI); // ✅
+    if (isAI) return true; // ✅
+
+    int team = memoryTools.readInt(playerAddr + PubgOffset::ObjectParam::TeamOffset); // ✅
+    if (team <= 0 || team > 100) return true; // ✅
+
+    float hp = memoryTools.readFloat(playerAddr + PubgOffset::ObjectParam::HpOffset); // ✅
+    if (hp <= 0 || hp > 100) return true; // ✅
+
+    return false; // ✅
 }
 // ========== FIX 1 SONU ==========
 
@@ -216,7 +214,8 @@ void *readStaticData(void *) {
             //成员数量
             int objectCount = memoryTools.readInt(uLevel + PubgOffset::ULevelParam::ObjectCountOffset);
             
-            int selfTeamID = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::TeamOffset);
+            uintptr_t selfPS = memoryTools.readPtr(staticData.selfAddr + PubgOffset::ObjectParam::PlayerStateOffset); // ✅
+int selfTeamID = memoryTools.readInt(selfPS + PubgOffset::ObjectParam::TeamOffset); // ✅
             
             //开始寻找
             for (int index = 0; index < objectCount; ++index) {
@@ -241,7 +240,8 @@ void *readStaticData(void *) {
                     // ========== FIX 2: KENDİNİ ATLA (kesin çözüm) ==========
                     if (objectAddr == staticData.selfAddr) continue;
                     
-                    int team = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::TeamOffset);
+                    uintptr_t playerState = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::PlayerStateOffset); // ✅
+int team = memoryTools.readInt(playerState + PubgOffset::ObjectParam::TeamOffset); // ✅
                     if (team == selfTeamID) continue;
                     
                     bool isDead = false;
