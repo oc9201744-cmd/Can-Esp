@@ -2,7 +2,7 @@
 
 namespace PubgOffset {
 
-// --- PlayerController zinciri
+// ---------------- PlayerController ----------------
 static int PlayerControllerOffset[3] = {0x38, 0x78, 0x30};
 
 namespace PlayerControllerParam {
@@ -15,7 +15,7 @@ static int LineOfSightToOffset = 0x7B0;
 }
 }
 
-// --- ULevel
+// ---------------- ULevel ----------------
 static int ULevelOffset = 0x30;
 
 namespace ULevelParam {
@@ -23,39 +23,38 @@ static int ObjectArrayOffset = 0xA0;
 static int ObjectCountOffset = 0xA8;
 }
 
-// --- Object
+// ---------------- Object ----------------
 namespace ObjectParam {
 
-static int ClassIdOffset = 0x18;
+// --- PlayerState FIX (SDK uyumlu)
+static int PlayerStateOffset = 0x4a8;   // gerekirse güncelle
+static int bIsAI_Offset = 0x28;
+
+// --- Temel bilgiler
 static int TeamOffset = 0x998;
 static int NameOffset = 0x960;
 
-// FIX: doğru bot offset
-static int RobotOffset = 0xa40;
-
-// FIX: doğru health
+// --- Sağlık
 static int HpOffset = 0xe60;
 static int HpmaxOffset = 0xe64;
 static int DeadOffset = 0xe7c;
 
-// --- Mesh / Bone FIX
+// ---------------- Mesh / Bone FIX ----------------
 static int MeshOffset = 0x510;
 
 namespace MeshParam {
-// FIX: doğru bone pointer zinciri
 static int BonePtrOffset = 0x990;
 static int BoneBaseOffset = 0x208;
 }
 
-// --- Coord
+// ---------------- Koordinat ----------------
 static int CoordOffset = 0x208;
 
 namespace CoordParam {
-static int HeightOffset = 0x1e4;
-static int CoordOffset = 0x1e4;
+static int RelativeLocation = 0x1e4;
 }
 
-// --- Player input
+// ---------------- Player Input ----------------
 namespace PlayerFunction {
 static int AddControllerYawInputOffset = 0x890;
 static int AddControllerRollInputOffset = 0x888;
