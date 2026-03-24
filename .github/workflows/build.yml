@@ -1,11 +1,9 @@
-name: iOS UEDumper Build
+name: Blackshark Tweak Build
 
 on:
   push:
     branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
-  workflow_dispatch: # Manuel tetikleme seçeneği
+  workflow_dispatch:
 
 jobs:
   build:
@@ -17,30 +15,36 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Set up Xcode
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
-
-      - name: Install Theos
+      - name: Install Theos, SDK & ldid
         run: |
-          export THEOS=~/theos
-          git clone --recursive https://github.com/theos/theos.git $THEOS
-          echo "THEOS=$THEOS" >> $GITHUB_ENV
-          echo "$THEOS/bin" >> $GITHUB_PATH
+          # 1. Theos Kurulumu
+          sudo git clone --recursive https://github.com/theos/theos.git /var/theos
+          
+          # 2. SDK Kurulumu
+          git clone https://github.com/theos/sdks.git /tmp/sdks
+          sudo mv /tmp/sdks/iPhoneOS14.5.sdk /var/theos/sdks/
+          
+          # 3. İmzama Aracı (ldid) Kurulumu
+          brew install ldid
+          
+          # 4. İzinler ve Ortam Değişkenleri
+          sudo chown -R $(id -u):$(id -g) /var/theos
+          echo "THEOS=/var/theos" >> $GITHUB_ENV
 
-      - name: Install SDK
+      - name: Fix Framework Structure & Headers
         run: |
-          # Theos için gerekli iOS SDK'sını indirir (Genellikle 14.x veya 16.x tercih edilir)
-          git clone https://github.com/theos/sdks.git $THEOS/sdks
+          # Klasör yapısını ve include yollarını otomatik düzeltir
+          mkdir -p JRMemory.framework/Headers
+          if [ -f "JRMemory.framework/MemScan.h" ]; then
+            mv JRMemory.framework/MemScan.h JRMemory.framework/Headers/
+          fi
+          sed -i '' 's|#include "JRMemory.framework/Headers/MemScan.h"|#import <JRMemory/MemScan.h>|g' Dolphins/Module/菜单.mm
+          chmod +x JRMemory.framework/JRMemory || true
 
-      - name: Build Project
+      - name: Build Blackshark Package
         run: |
-          make clean
-          make package FINALPACKAGE=1
+          # Theos araçlarını PATH'e ekle ve derle
+          export PATH=$THEOS/bin:$PATH
+          make clean package FINALPACKAGE=1 FOR_RELEASE=1
 
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: iOS-UEDumper-Deb
-          path: packages/*.deb
+      - name: Upload Artifact (V4)
