@@ -1,125 +1,98 @@
-#pragma once
 #include <stdio.h>
 #include <string>
 
 namespace PubgOffset {
 
-// ==================== TEMEL OFFSETLER ====================
-// UWorld -> OwningGameInstance -> LocalPlayers -> PlayerController
 int PlayerControllerOffset[3] = {0x38, 0x78, 0x30};
-// UWorld -> PersistentLevel
+
+namespace PlayerControllerParam {
+
+int SelfOffset = 0x28D0;          // ASTExtraPlayerController::STExtraBaseCharacter
+int MouseOffset = 0x4e0;
+int CameraManagerOffset = 0x548;
+int AngleOffset = 0x558;
+
+namespace CameraManagerParam {
+int PovOffset = 0x520 + 0x10;     // APlayerCameraManager::CameraCache + POV
+}
+
+namespace ControllerFunction {
+int LineOfSightToOffset = 0x7B0;
+}
+
+}
+
 int ULevelOffset = 0x30;
 
-// ==================== PLAYER CONTROLLER ====================
-namespace PlayerControllerParam {
-    // APlayerController -> PlayerCameraManager (HPP: 0x548)
-    int CameraManagerOffset = 0x548;
-    
-    // APlayerController -> ControlRotation (HPP: 0x4E0)
-    int AngleOffset = 0x4E0;
-    
-    // APlayerController -> PlayerInput (HPP: 0x5D8)
-    int PlayerInputOffset = 0x5D8;
-    
-    int SelfOffset = 0x28e0;                    // Oyuna özel
-    int MouseOffset = 0x4e0;                    // Oyuna özel
-
-    namespace CameraManagerParam {
-        // APlayerCameraManager -> CameraCache (HPP: 0x520) + POV (0x10)
-        int PovOffset = 0x530;
-    }
-
-    namespace ControllerFunction {
-        // AController::LineOfSightTo (HPP: 0x10639d184 - RVA)
-        int LineOfSightToOffset = 0x7B0;
-    }
-}
-
-// ==================== ULEVEL ====================
 namespace ULevelParam {
-    // ULevel -> Actors (HPP: 0xA0)
-    int ObjectArrayOffset = 0xA0;
-    // TArray<AActor*> Actors -> Count (HPP: 0xA8)
-    int ObjectCountOffset = 0xA8;
+int ObjectArrayOffset = 0xA0;
+int ObjectCountOffset = 0xA8;
 }
 
-// ==================== UOBJECT ====================
 namespace ObjectParam {
-    // UObject -> ClassPrivate (HPP: 0x18)
-    int ClassIdOffset = 0x18;
-    // UClass -> NamePrivate (HPP: UObjectBase'dan miras, 0x28)
-    int ClassNameOffset = 0x28;
 
-    // ========== PLAYER FUNCTIONS ==========
-    namespace PlayerFunction {
-        // APlayerController::AddYawInput (HPP: 0x1064a4b18 - RVA)
-        int AddControllerYawInputOffset = 0x890;
-        // APlayerController::AddRollInput (HPP: 0x1064a4a94 - RVA)
-        int AddControllerRollInputOffset = 0x888;
-        // APlayerController::AddPitchInput (HPP: 0x1064a4a10 - RVA)
-        int AddControllerPitchInputOffset = 0x898;
-    }
+int ClassIdOffset = 0x18;
+int ClassNameOffset = 0xC;
 
-    // ========== CHARACTER/PLAYER (OYUNA ÖZEL) ==========
-    int StatusOffset = 0x1018;      // Oyuna özel
-    int TeamOffset = 0x998;         // Oyuna özel (APlayerState içinde tahmini)
-    int NameOffset = 0x960;         // Oyuna özel (APlayerState -> PlayerName: 0x4B8)
-    int RobotOffset = 0xa49;        // Oyuna özel (APlayerState -> bIsABot: 0x4DC)
-    int HpOffset = 0xe28;           // Oyuna özel
-    int HpmaxOffset = 0xe2c;        // Oyuna özel
-    int DeadOffset = 0xe44;         // Oyuna özel
+namespace PlayerFunction {
+int AddControllerYawInputOffset   = 0x890;
+int AddControllerRollInputOffset  = 0x888;
+int AddControllerPitchInputOffset = 0x898;
+}
 
-    // ========== VEHICLE (OYUNA ÖZEL) ==========
-    int VehicleCommonComponentOffset = 0xbf0;    // Oyuna özel
-    int VehicleHPOffset = 0x344;                 // Oyuna özel
-    int VehicleHPMaxOffset = 0x340;              // Oyuna özel
-    int VehicleFuelOffset = 0x424;               // Oyuna özel
-    int VehicleFuelMaxOffset = 0x420;            // Oyuna özel
+int StatusOffset  = 0x1058;       // ASTExtraCharacter::CurrentStates (uint64)
+int TeamOffset    = 0x998;        // AUAECharacter::TeamID
+int NameOffset    = 0x960;        // AUAECharacter::PlayerName (FString.data)
+int RobotOffset   = 0xa40;        // AUAECharacter::bIsAI
+int HpOffset      = 0xe60;        // ASTExtraCharacter::Health
+int HpmaxOffset   = 0xe64;        // ASTExtraCharacter::HealthMax
+int DeadOffset    = 0xe7c;        // ASTExtraCharacter::bDead
 
-    // ========== MESH & BONES ==========
-    // AActor -> RootComponent (HPP: 0x208)
-    int MoveCoordOffset = 0x208;
-    // ACharacter -> Mesh (HPP: 0x510)
-    int MeshOffset = 0x510;
-    int boneCountOffset = 0x8d0;                // Oyuna özel
+int VehicleCommonComponentOffset = 0xc00;
+int VehicleHPOffset              = 0x354;
+int VehicleHPMaxOffset           = 0x350;
+int VehicleFuelOffset            = 0x43c;
+int VehicleFuelMaxOffset         = 0x438;
 
-    namespace MeshParam {
-        int HumanOffset = 0x210;                // Oyuna özel
-        // USkeletalMeshComponent -> GetBoneTransform (HPP: 0x1064dd31c - RVA)
-        int BonesOffset = 0x988;
-    }
+int MoveCoordOffset = 0x110;
+int MeshOffset      = 0x510;      // ACharacter::Mesh
+int boneCountOffset = 0x8d0;
 
-    // ========== WEAPON (OYUNA ÖZEL) ==========
-    int OpenFireOffset = 0x1788;
-    int OpenTheSightOffset = 0x10e1;
-    int WeaponOneOffset = 0x2a30 + 0x20;
+namespace MeshParam {
+int HumanOffset = 0x210;
+int BonesOffset = 0x988;          // USkinnedMeshComponent::CachedComponentSpaceTransforms
+}
 
-    namespace WeaponParam {
-        int MasterOffset = 0x110;
-        int ShootModeOffset = 0x1089;
-        int WeaponAttrOffset = 0x12c0;
+int OpenFireOffset     = 0x1800;  // ASTExtraBaseCharacter::bIsWeaponFiring
+int OpenTheSightOffset = 0x1134;  // ASTExtraCharacter::bIsGunADS
 
-        namespace WeaponAttrParam {
-            int BulletSpeedOffset = 0x560;
-            int RecoilOffset = 0xcf0;
-        }
-    }
+// Silah: character + WeaponManagerComponentOffset -> mgr + WeaponOneOffset -> weapon
+int WeaponManagerComponentOffset = 0x25B8;
+int WeaponOneOffset              = 0x5C8;  // UWeaponManagerComponent::CurrentWeaponReplicated
 
-    // ========== INVENTORY (OYUNA ÖZEL) ==========
-    int GoodsListOffset = 0x940;
+namespace WeaponParam {
+int MasterOffset    = 0x110;
+int ShootModeOffset = 0x10D9;
+int WeaponAttrOffset = 0x1360;
 
-    namespace GoodsListParam {
-        int DataBase = 0x38;
-    }
+namespace WeaponAttrParam {
+int BulletSpeedOffset = 0x560;
+int RecoilOffset      = 0xcf0;
+}
+}
 
-    // ========== COORDINATE ==========
-    // USceneComponent -> RelativeLocation (HPP: 0x1E4)
-    int CoordOffset = 0x1E4;
+int GoodsListOffset = 0x940;
+namespace GoodsListParam {
+int DataBase = 0x38;
+}
 
-    namespace CoordParam {
-        int HeightOffset = 0x1dc;               // Oyuna özel
-        int CoordOffset = 0x1c8;               // Oyuna özel
-    }
+int CoordOffset = 0x208;          // AActor::RootComponent
+
+namespace CoordParam {
+int HeightOffset = 0x1dc;
+int CoordOffset  = 0x1c8;
+}
+
 }
 
 }
