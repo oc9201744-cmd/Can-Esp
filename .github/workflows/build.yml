@@ -48,3 +48,8 @@ jobs:
           make clean package FINALPACKAGE=1 FOR_RELEASE=1
 
       - name: Upload Artifact (V4)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Blackshark-Tweak-Final
+          path: packages/*.deb
