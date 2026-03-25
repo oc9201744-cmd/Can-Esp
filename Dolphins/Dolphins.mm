@@ -42,15 +42,6 @@ using namespace std;
 
 // ... devamı
 
-#define CJID "com.tencent.tmgp.pubgmhd"
-
-#define kWidth  [UIScreen mainScreen].bounds.size.width
-#define kHeight [UIScreen mainScreen].bounds.size.height
-#define screenHeight [UIScreen mainScreen].bounds.size.height
-#define screenWidth [UIScreen mainScreen].bounds.size.width
-
-using namespace std;
-
 //模块功能控制器
 ModuleControl moduleControl;
 //内存读写
