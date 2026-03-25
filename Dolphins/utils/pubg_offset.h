@@ -3,100 +3,106 @@
 
 namespace PubgOffset {
 
+// Global offsets from your header - Slide 0
 namespace Global {
-    const long gobject     = 0x10A34E980;
-    const long gname_func  = 0x104BD8740;
-    const long gname_data  = 0x10A1178B0;
+    const long gobject = 0x10A34E980;
+    const long gname_func = 0x104bd8740;
+    const long gname_data = 0x10a1178b0;
     const long gworld_func = 0x102A62208;
     const long gworld_data = 0x10A566E00;
 }
 
-int PlayerControllerOffset[4] = {0x38, 0x78, 0x98, 0x30};
+// PlayerController chain: NetDriver -> ServerConnection -> PlayerController
+int PlayerControllerOffset[3] = {0x38, 0x78, 0x30};
 
 namespace PlayerControllerParam {
-    int SelfOffset          = 0x28E0;
-    int MouseOffset         = 0x4E0;
-    int CameraManagerOffset = 0x548;
-    int AngleOffset         = 0x558;
 
-    namespace CameraManagerParam {
-        int PovOffset = 0x520 + 0x10;
-    }
+int SelfOffset = 0x28E0;          // kSTBaseCharacter
+int MouseOffset = 0x4e0;          // kControlRotation
+int CameraManagerOffset = 0x548;  // kPlayerCameraManager
+int AngleOffset = 0x558;
 
-    namespace ControllerFunction {
-        int LineOfSightToOffset = 0x7B0;
-    }
+namespace CameraManagerParam {
+int PovOffset = 0x520 + 0x10;     // kCameraCache + 0x10 = 0x530
 }
 
-int ULevelOffset = 0x30;
+namespace ControllerFunction {
+int LineOfSightToOffset = 0x7B0;  // kLineOfSightTo
+}
+
+}
+
+int ULevelOffset = 0x30;            // kPersistentLevel
 
 namespace ULevelParam {
-    int ObjectArrayOffset = 0xA0;
-    int ObjectCountOffset = 0xA8;
+int ObjectArrayOffset = 0xA0;       // kActorList
+int ObjectCountOffset = 0xA8;       // kActorList + 0x8
 }
 
 namespace ObjectParam {
-    int ClassIdOffset   = 0x18;
-    int ClassNameOffset = 0xC;
 
-    namespace PlayerFunction {
-        int AddControllerYawInputOffset   = 0x890;
-        int AddControllerRollInputOffset  = 0x888;
-        int AddControllerPitchInputOffset = 0x888;
-    }
+int ClassIdOffset = 0x18;
+int ClassNameOffset = 0xC;
 
-    int StatusOffset  = 0x1058;
-    int TeamOffset    = 0x998;
-    int NameOffset    = 0x960;
-    int RobotOffset   = 0xA40;
-    int HpOffset      = 0xE60;
-    int HpmaxOffset   = 0xE64;
-    int DeadOffset    = 0xE7C;
+namespace PlayerFunction {
+int AddControllerYawInputOffset = 0x890;   // kYaw
+int AddControllerRollInputOffset = 0x888;  // kRoll
+int AddControllerPitchInputOffset = 0x898; // kPitch
+}
 
-    int VehicleCommonComponentOffset = 0xC00;
-    int VehicleHPOffset     = 0x354;
-    int VehicleHPMaxOffset  = 0x350;
-    int VehicleFuelOffset   = 0x43C;
-    int VehicleFuelMaxOffset = 0x438;
+int StatusOffset = 0x1058;        // kCurrentStates
+int TeamOffset = 0x998;           // kTeamID
+int NameOffset = 0x960;           // kPlayerName
+int RobotOffset = 0xa40;          // kbIsAI
+int HpOffset = 0xe60;             // kHealth
+int HpmaxOffset = 0xe64;          // kHealthMax
+int DeadOffset = 0xe7c;           // kbDead
 
-    int MoveCoordOffset = 0x110;
-    int MeshOffset      = 0x510;
-    int boneCountOffset = 0x8D0;
+int VehicleCommonComponentOffset = 0xc00;  // kVehicleCommon
+int VehicleHPOffset = 0x354;      // kHP
+int VehicleHPMaxOffset = 0x350;   // kHPMax
+int VehicleFuelOffset = 0x43c;    // kFuel
+int VehicleFuelMaxOffset = 0x438; // kFuelMax
 
-    namespace MeshParam {
-        int HumanOffset = 0x210;
-        int BonesOffset = 0x988;
-    }
+int MoveCoordOffset = 0x110;      // kRepMovement
+int MeshOffset = 0x510;           // kMesh
+int boneCountOffset = 0x8d0;
 
-    int OpenFireOffset     = 0x1800;
-    int OpenTheSightOffset = 0x1134;
+namespace MeshParam {
+int HumanOffset = 0x210;          // kRelativeLocation base
+int BonesOffset = 0x988;          // kStaticMesh
+}
 
-    int WeaponManagerComponentOffset = 0x25B8;
-    int WeaponOneOffset = 0x5C8;
+int OpenFireOffset = 0x1800;      // kbIsWeaponFiring
+int OpenTheSightOffset = 0x1134;  // kbIsGunADS
 
-    namespace WeaponParam {
-        int MasterOffset     = 0x110;
-        int ShootModeOffset  = 0x10D9;
-        int WeaponAttrOffset = 0x398;
+int WeaponManagerComponentOffset = 0x25b8;  // kWeaponManagerComponent
+int WeaponOneOffset = 0x5c8;      // kCurrentWeaponReplicated
 
-        namespace WeaponAttrParam {
-            int BulletSpeedOffset = 0x560;
-            int RecoilOffset      = 0xCF0;
-        }
-    }
+namespace WeaponParam {
+int MasterOffset = 0x110;
+int ShootModeOffset = 0x10d9;    // kShootMode
+int WeaponAttrOffset = 0x398;     // kShootWeaponEntityComponent
 
-    int GoodsListOffset = 0x940;
+namespace WeaponAttrParam {
+int BulletSpeedOffset = 0x560;    // kBulletFireSpeed
+int RecoilOffset = 0xcf0;         // kRecoilKickADS
+}
+}
 
-    namespace GoodsListParam {
-        int DataBase = 0x38;
-    }
+int GoodsListOffset = 0x940;      // kPickUpDataList
 
-    int CoordOffset = 0x208;
+namespace GoodsListParam {
+int DataBase = 0x38;              // kGoodsID
+}
 
-    namespace CoordParam {
-        int HeightOffset = 0x1C8;
-        int CoordOffset  = 0x1E4;
-    }
+int CoordOffset = 0x208;          // kRootComponent
+
+namespace CoordParam {
+int HeightOffset = 0x1dc;         // kCoord
+int CoordOffset = 0x1e4;          // kRelativeLocation
+}
+
 }
 
 }
