@@ -3,23 +3,44 @@
 //  Dolphins
 //
 //  Created by XBK on 2022/4/24.
-//  Updated with AIO Dumper integration
 //
 
-#import "Dolphins/crossoffsets.h"
+// Önce kendi header'larımız
+#import "crossoffsets.h"
+#import "dolphins.h"
+#import "View/FloatView.h"
+#import "View/OverlayView.h"
+
+// Sonra system header'lar
 #import <Foundation/Foundation.h>
-#import "Dolphins/View/FloatView.h"
-#import "Dolphins/View/OverlayView.h"
-#include "Dolphins/dolphins.h"
 #import <mach-o/dyld.h>
+#import <UIKit/UIKit.h>
+
+// C++ header'lar
 #include <stdio.h>
 #include <vector>
 #include <iostream>
-#include "Dolphins/utils/module_tools.h"
-#include "Dolphins/utils/pubg_offset.h"
-#include "Dolphins/utils/memory_tools.h"
-#include "Dolphins/utils/log.h"
-#include "Offsets.hpp"
+#include <string>
+
+// Utils header'ları (relatif yol ile)
+#include "utils/module_tools.h"
+#include "utils/pubg_offset.h"
+#include "utils/memory_tools.h"
+#include "utils/log.h"
+
+// Offsets.hpp
+#include "../Offsets.hpp"
+
+#define CJID "com.tencent.tmgp.pubgmhd"
+
+#define kWidth  [UIScreen mainScreen].bounds.size.width
+#define kHeight [UIScreen mainScreen].bounds.size.height
+#define screenHeight [UIScreen mainScreen].bounds.size.height
+#define screenWidth [UIScreen mainScreen].bounds.size.width
+
+using namespace std;
+
+// ... devamı
 
 #define CJID "com.tencent.tmgp.pubgmhd"
 
