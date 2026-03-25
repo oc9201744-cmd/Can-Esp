@@ -1,101 +1,98 @@
-//
-//  pubg_offset.h
-//  Dolphins
-//
-
-#pragma once
-#include <cstdint>
+#include <stdio.h>
+#include <string>
 
 namespace PubgOffset {
-    
-    // Player Controller offsets array
-    constexpr uintptr_t PlayerControllerOffset[] = {0x38, 0x30, 0x690};
-    
-    // ULevel
-    constexpr uintptr_t ULevelOffset = 0x38;
-    
-    namespace ULevelParam {
-        constexpr uintptr_t ObjectArrayOffset = 0xa0;
-        constexpr uintptr_t ObjectCountOffset = 0xa8;
-    }
-    
-    namespace ObjectParam {
-        constexpr uintptr_t ClassIdOffset = 0x18;
-        constexpr uintptr_t NameOffset = 0xae8;
-        constexpr uintptr_t TeamOffset = 0x1228;
-        constexpr uintptr_t HpOffset = 0x1138;
-        constexpr uintptr_t DeadOffset = 0x117c;
-        constexpr uintptr_t StatusOffset = 0x9a8;
-        constexpr uintptr_t CoordOffset = 0x124;
-        constexpr uintptr_t MeshOffset = 0x498;
-        constexpr uintptr_t WeaponOneOffset = 0x1160;
-        constexpr uintptr_t MoveCoordOffset = 0x190;
-        constexpr uintptr_t OpenTheSightOffset = 0xae0;
-        constexpr uintptr_t OpenFireOffset = 0xae4;
-        constexpr uintptr_t RobotOffset = 0xa40;
-        constexpr uintptr_t GoodsListOffset = 0x800;
-        constexpr uintptr_t ClassNameOffset = 0x60;
-        
-        namespace CoordParam {
-            constexpr uintptr_t CoordOffset = 0x0;
-            constexpr uintptr_t HeightOffset = 0x18;
-        }
-        
-        namespace MeshParam {
-            constexpr uintptr_t HumanOffset = 0x240;
-            constexpr uintptr_t BonesOffset = 0x7e0;
-        }
-        
-        namespace WeaponParam {
-            constexpr uintptr_t MasterOffset = 0x5b8;
-            constexpr uintptr_t ShootModeOffset = 0x5d0;
-            constexpr uintptr_t WeaponAttrOffset = 0x5c0;
-            
-            namespace WeaponAttrParam {
-                constexpr uintptr_t BulletSpeedOffset = 0x2c;
-                constexpr uintptr_t RecoilOffset = 0x30;
-            }
-        }
-        
-        namespace PlayerFunction {
-            constexpr uintptr_t AddControllerYawInputOffset = 0x6e0;
-            constexpr uintptr_t AddControllerRollInputOffset = 0x6f0;
-            constexpr uintptr_t AddControllerPitchInputOffset = 0x6e8;
-        }
-        
-        namespace GoodsListParam {
-            constexpr uintptr_t DataBase = 0x10;
-        }
-    }
-    
-    namespace PlayerControllerParam {
-        constexpr uintptr_t SelfOffset = 0x690;
-        constexpr uintptr_t CameraManagerOffset = 0x4b8;
-        constexpr uintptr_t MouseOffset = 0x460;
-        
-        namespace CameraManagerParam {
-            constexpr uintptr_t PovOffset = 0x2c50;
-        }
-        
-        namespace ControllerFunction {
-            constexpr uintptr_t LineOfSightToOffset = 0x780;
-        }
-    }
-    
-    // Material types
-    constexpr int Rifle = 0;
-    constexpr int Sniper = 1;
-    constexpr int Missile = 2;
-    constexpr int Ammo = 3;
-    constexpr int Helmet = 4;
-    constexpr int Vest = 5;
-    constexpr int Backpack = 6;
-    constexpr int Medical = 7;
-    constexpr int Airdrop = 8;
-    constexpr int Scope = 9;
-    constexpr int Muzzle = 10;
-    constexpr int Magazine = 11;
-    constexpr int Grip = 12;
-    constexpr int Warning = 13;
-    constexpr int All = 14;
+
+int PlayerControllerOffset[3] = {0x38, 0x78, 0x30};
+
+namespace PlayerControllerParam {
+
+int SelfOffset = 0x28D0;          // ASTExtraPlayerController::STExtraBaseCharacter
+int MouseOffset = 0x4e0;
+int CameraManagerOffset = 0x548;
+int AngleOffset = 0x558;
+
+namespace CameraManagerParam {
+int PovOffset = 0x520 + 0x10;     // APlayerCameraManager::CameraCache + POV
+}
+
+namespace ControllerFunction {
+int LineOfSightToOffset = 0x7B0;
+}
+
+}
+
+int ULevelOffset = 0x30;
+
+namespace ULevelParam {
+int ObjectArrayOffset = 0xA0;
+int ObjectCountOffset = 0xA8;
+}
+
+namespace ObjectParam {
+
+int ClassIdOffset = 0x18;
+int ClassNameOffset = 0xC;
+
+namespace PlayerFunction {
+int AddControllerYawInputOffset   = 0x890;
+int AddControllerRollInputOffset  = 0x888;
+int AddControllerPitchInputOffset = 0x898;
+}
+
+int StatusOffset  = 0x1058;       // ASTExtraCharacter::CurrentStates (uint64)
+int TeamOffset    = 0x998;        // AUAECharacter::TeamID
+int NameOffset    = 0x960;        // AUAECharacter::PlayerName (FString.data)
+int RobotOffset   = 0xa40;        // AUAECharacter::bIsAI
+int HpOffset      = 0xe60;        // ASTExtraCharacter::Health
+int HpmaxOffset   = 0xe64;        // ASTExtraCharacter::HealthMax
+int DeadOffset    = 0xe7c;        // ASTExtraCharacter::bDead
+
+int VehicleCommonComponentOffset = 0xc00;
+int VehicleHPOffset              = 0x354;
+int VehicleHPMaxOffset           = 0x350;
+int VehicleFuelOffset            = 0x43c;
+int VehicleFuelMaxOffset         = 0x438;
+
+int MoveCoordOffset = 0x110;
+int MeshOffset      = 0x510;      // ACharacter::Mesh
+int boneCountOffset = 0x8d0;
+
+namespace MeshParam {
+int HumanOffset = 0x210;
+int BonesOffset = 0x988;          // USkinnedMeshComponent::CachedComponentSpaceTransforms
+}
+
+int OpenFireOffset     = 0x1800;  // ASTExtraBaseCharacter::bIsWeaponFiring
+int OpenTheSightOffset = 0x1134;  // ASTExtraCharacter::bIsGunADS
+
+// Silah: character + WeaponManagerComponentOffset -> mgr + WeaponOneOffset -> weapon
+int WeaponManagerComponentOffset = 0x25B8;
+int WeaponOneOffset              = 0x5C8;  // UWeaponManagerComponent::CurrentWeaponReplicated
+
+namespace WeaponParam {
+int MasterOffset    = 0x110;
+int ShootModeOffset = 0x10D9;
+int WeaponAttrOffset = 0x1360;
+
+namespace WeaponAttrParam {
+int BulletSpeedOffset = 0x560;
+int RecoilOffset      = 0xcf0;
+}
+}
+
+int GoodsListOffset = 0x940;
+namespace GoodsListParam {
+int DataBase = 0x38;
+}
+
+int CoordOffset = 0x208;          // AActor::RootComponent
+
+namespace CoordParam {
+int HeightOffset = 0x1dc;
+int CoordOffset  = 0x1c8;
+}
+
+}
+
 }
