@@ -8,34 +8,12 @@
 #include <vector>
 #include <string>
 #include <cmath>
+#include <cstdint>
 
-// imgui.h ile çakışmayı önlemek için
-#ifndef IMGUI_DEFINE_MATH_OPERATORS
-#define IMGUI_DEFINE_MATH_OPERATORS
-#endif
+// imgui.h'ı dahil et (struct'ları ondan alsın)
+#include "imgui/imgui.h"
 
-// Sadece imgui yoksa tanımla
-#ifndef IMGUI_H
-
-struct ImVec2 {
-    float x, y;
-    ImVec2() : x(0), y(0) {}
-    ImVec2(float _x, float _y) : x(_x), y(_y) {}
-};
-
-struct ImVec3 {
-    float x, y, z;
-    ImVec3() : x(0), y(0), z(0) {}
-    ImVec3(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
-};
-
-struct ImVec4 {
-    float x, y, z, w;
-    ImVec4() : x(0), y(0), z(0), w(0) {}
-};
-
-#endif
-
+// imgui'de olmayan struct'ları tanımla
 struct FRotator {
     float Pitch, Yaw, Roll;
 };
@@ -113,7 +91,7 @@ struct MaterialStruct {
     char* name = nullptr;
 };
 
-// Function declarations
+// ========== Function Declarations ==========
 float get3dDistance(ImVec3 a, ImVec3 b, float scale);
 float get2dDistance(ImVec2 screen, ImVec2 point);
 float rotateAngle(ImVec3 from, ImVec3 to);
