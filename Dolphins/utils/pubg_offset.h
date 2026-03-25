@@ -40,15 +40,15 @@ namespace PlayerControllerParam {
     }
 }
 
-// ==================== APLAYERSTATE (YENİ - DÜZELTİLDİ) ====================
-namespace PlayerStateParam {
-    int TeamOffset = 0x998;                   // Takım ID'si
-    int NameOffset = 0x4B8;                  // Oyuncu adı
-    int RobotOffset = 0x4DC;                 // Bot mu? (bit 2 kontrol et)
-}
-
-// ==================== APLAYERCHARACTER ====================
+// ==================== APLAYERSTATE ====================
+// Kodda ObjectParam kullanıldığı için buraya ekliyoruz
 namespace ObjectParam {
+    // PlayerState offset'leri (kodda ObjectParam içinde aranıyor)
+    int TeamOffset = 0x998;        // Takım ID'si
+    int NameOffset = 0x4B8;        // Oyuncu adı
+    int RobotOffset = 0x4DC;       // Bot mu? (bit 2)
+    
+    // ACharacter offset'leri
     int ClassIdOffset = 0x18;
     int ClassNameOffset = 0xC;
     
@@ -58,30 +58,26 @@ namespace ObjectParam {
         int AddControllerPitchInputOffset = 0x898;
     }
     
-    // ACharacter offset'leri
     int StatusOffset = 0x1058;
     int HpOffset = 0xE60;
     int HpmaxOffset = 0xE64;
     int DeadOffset = 0xE7C;
     
-    // AActor offset'leri
     int MoveCoordOffset = 0x110;
     int MeshOffset = 0x510;
     int boneCountOffset = 0x8D0;
     
-    // USkeletalMeshComponent
     namespace MeshParam {
-        int BonesOffset = 0xC40;              // CachedComponentSpaceTransforms
-        // HumanOffset kaldırıldı - doğru offset 0x1E4 (RelativeLocation)
+        int BonesOffset = 0xC40;
+        int HumanOffset = 0x1E4;   // Geri eklendi! (USceneComponent::RelativeLocation)
     }
     
-    // Silah (Weapon) - DÜZELTİLDİ
+    // Silah (Weapon)
     int OpenFireOffset = 0x1800;
     int OpenTheSightOffset = 0x1134;
     int WeaponManagerComponentOffset = 0x25B8;
     int WeaponOneOffset = 0x5C8;
     
-    // WeaponParam namespace'i EKLENDİ
     namespace WeaponParam {
         int MasterOffset = 0x110;
         int ShootModeOffset = 0x10D9;
@@ -110,20 +106,18 @@ namespace ObjectParam {
     // RootComponent
     int CoordOffset = 0x208;
     
-    // CoordParam - DÜZELTİLDİ
     namespace CoordParam {
-        int CoordOffset = 0x1E4;              // USceneComponent::RelativeLocation
-        // HeightOffset kaldırıldı - aynı offset kullanılacak
+        int CoordOffset = 0x1E4;        // USceneComponent::RelativeLocation
+        int HeightOffset = 0x1E4;       // Geri eklendi! (CoordOffset ile aynı)
     }
 }
 
 // ==================== BONE OFFSET'LERİ ====================
 namespace BoneOffsets {
-    const int BoneTransformArray = 0xC40;     // CachedComponentSpaceTransforms
-    const int TransformSize = 0x30;           // sizeof(FTransform)
-    const int TranslationOffset = 0x10;       // FTransform::Translation
+    const int BoneTransformArray = 0xC40;
+    const int TransformSize = 0x30;
+    const int TranslationOffset = 0x10;
     
-    // Bone index'leri
     const int HeadBone = 108;
     const int NeckBone = 107;
     const int ChestBone = 6;
@@ -132,36 +126,29 @@ namespace BoneOffsets {
 
 // ==================== FSTRUCT YAPILARI ====================
 struct FVector {
-    float X;
-    float Y;
-    float Z;
+    float X, Y, Z;
 };
 
 struct FRotator {
-    float Pitch;
-    float Yaw;
-    float Roll;
+    float Pitch, Yaw, Roll;
 };
 
 struct FQuat {
-    float X;
-    float Y;
-    float Z;
-    float W;
+    float X, Y, Z, W;
 };
 
 struct FTransform {
-    FQuat Rotation;      // 0x00
-    FVector Translation; // 0x10
-    char Pad[4];         // 0x1C
-    FVector Scale3D;     // 0x20
+    FQuat Rotation;
+    FVector Translation;
+    char Pad[4];
+    FVector Scale3D;
 };
 
 // ==================== UTILITY FUNCTIONS ====================
 inline bool IsPlayerBot(uintptr_t PlayerState) {
     if (!PlayerState) return false;
-    uint8_t flags = *(uint8_t*)(PlayerState + PlayerStateParam::RobotOffset);
-    return (flags & 0x4) != 0;  // bIsABot bit 2'de
+    uint8_t flags = *(uint8_t*)(PlayerState + ObjectParam::RobotOffset);
+    return (flags & 0x4) != 0;
 }
 
 inline FVector GetBonePosition(uintptr_t BoneArray, int BoneIndex) {
