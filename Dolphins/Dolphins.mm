@@ -3,17 +3,7 @@
 //  Dolphins
 //
 //  Created by XBK on 2022/4/24.
-//  Updated for AIOHeader.hpp - March 2026
 //
-
-// ============================================================================
-// AIO Header - All-In-One UE4 SDK
-// ============================================================================
-#import "AIOHeader.hpp"
-
-// ============================================================================
-// Dolphins Headers (CrossOffset system preserved)
-// ============================================================================
 #import "Dolphins/crossoffsets.h"
 
 #import <Foundation/Foundation.h>
@@ -34,12 +24,17 @@
 
 #include "Dolphins/utils/module_tools.h"
 
-// YENİ pubg_offset.h - AIOHeader.hpp kullanarak otomatik offset hesaplıyor
 #include "Dolphins/utils/pubg_offset.h"
 
 #include "Dolphins/utils/memory_tools.h"
 
+//#include "Dolphins/utils/module_tools.h"
+
+//#include "dobby.h"
+
 #include "Dolphins/utils/log.h"
+
+
 
 //#import "Gzb.h"
 
