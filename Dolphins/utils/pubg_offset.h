@@ -1,6 +1,6 @@
 //
-// PUBG Mobile Offset Header - COMPLETE VERSION
-// Tüm eksik offsetler eklendi, compile uyumlu
+// PUBG Mobile Offset Header - REAL OFFSETS FROM USER
+// Based on actual game offsets
 //
 
 #ifndef PUBG_OFFSET_H
@@ -12,10 +12,10 @@ namespace PubgOffset {
     // WORLD & LEVEL OFFSETS
     //=============================================================================
     
-    static constexpr long ULevelOffset = 0x30;
+    static constexpr long ULevelOffset = 0x30;  // kPersistentLevel
     
     namespace ULevelParam {
-        static constexpr long ObjectArrayOffset = 0xA0;
+        static constexpr long ObjectArrayOffset = 0xA0;  // kActorList
         static constexpr long ObjectCountOffset = 0xA8;
     }
     
@@ -23,19 +23,19 @@ namespace PubgOffset {
     // PLAYER CONTROLLER OFFSETS
     //=============================================================================
     
-    static constexpr long PlayerControllerOffset[3] = {0x38, 0x0, 0x30};
+    static constexpr long PlayerControllerOffset[3] = {0x38, 0x0, 0x30};  // kNetDriver -> klocalPlayerController
     
     namespace PlayerControllerParam {
-        static constexpr long SelfOffset = 0x4A0;
-        static constexpr long CameraManagerOffset = 0x4B0;
-        static constexpr long MouseOffset = 0x4C0;
+        static constexpr long SelfOffset = 0x4b8;           // kPawn
+        static constexpr long CameraManagerOffset = 0x548;  // kPlayerCameraManager
+        static constexpr long MouseOffset = 0x4e0;          // kControlRotation
         
         namespace ControllerFunction {
-            static constexpr long LineOfSightToOffset = 0x780;
+            static constexpr long LineOfSightToOffset = 0x7B0;  // kLineOfSightTo
         }
         
         namespace CameraManagerParam {
-            static constexpr long PovOffset = 0x10F0;
+            static constexpr long PovOffset = 0x10a0;  // kViewTarget
         }
     }
     
@@ -45,63 +45,65 @@ namespace PubgOffset {
     
     namespace ObjectParam {
         static constexpr long ClassIdOffset = 0x10;
-        static constexpr long CoordOffset = 0x220;
-        static constexpr long PlayerStateOffset = 0x5C0;
+        static constexpr long CoordOffset = 0x208;          // kRootComponent
+        static constexpr long PlayerStateOffset = 0x2308;   // kPlayerState - REAL OFFSET!
         
-        // Character body offsetler
-        static constexpr long bIsAIOffset = 0xA40;
-        static constexpr long bIsMLAIOffset = 0xA41;
-        static constexpr long TeamOffset = 0x998;
-        static constexpr long NameOffset = 0x960;
-        static constexpr long HpOffset = 0x8B8;
-        static constexpr long DeadOffset = 0x8B0;
-        static constexpr long StatusOffset = 0x1058;
+        // Character body offsetler - THESE ARE CORRECT!
+        static constexpr long bIsAIOffset = 0xa40;          // kbIsAI
+        static constexpr long bIsMLAIOffset = 0xa41;        // kbIsMLAI
+        static constexpr long TeamOffset = 0x998;           // kTeamID
+        static constexpr long NameOffset = 0x960;           // kPlayerName
+        static constexpr long HpOffset = 0xe60;             // kHealth
+        static constexpr long HpMaxOffset = 0xe64;          // kHealthMax
+        static constexpr long DeadOffset = 0xe7c;           // kbDead
+        static constexpr long StatusOffset = 0x1058;        // kCurrentStates
         static constexpr long ClassNameOffset = 0xC;
+        static constexpr long PlayerUIDOffset = 0x988;      // kPlayerUID
         
         // Movement
-        static constexpr long MoveCoordOffset = 0x3D0;  // ADDED - movement velocity
+        static constexpr long MoveCoordOffset = 0x18c;      // kVelocity
         
         // Weapon
-        static constexpr long WeaponOneOffset = 0x920;
+        static constexpr long WeaponOneOffset = 0x5c8;      // kCurrentWeaponReplicated
         
         // Gameplay states
-        static constexpr long OpenTheSightOffset = 0x8C0;
-        static constexpr long OpenFireOffset = 0x8C4;
+        static constexpr long OpenTheSightOffset = 0x1134;  // kbIsGunADS
+        static constexpr long OpenFireOffset = 0x1800;      // kbIsWeaponFiring
         
         // Materials
-        static constexpr long GoodsListOffset = 0x5A0;
+        static constexpr long GoodsListOffset = 0x940;      // kPickUpDataList
         
         namespace GoodsListParam {
             static constexpr long DataBase = 0x30;
         }
         
         //=========================================================================
-        // PLAYERSTATE OFFSETLER
+        // PLAYERSTATE OFFSETLER (from kPlayerState base)
         //=========================================================================
         namespace PlayerState {
-            static constexpr long TeamIDOffset = 0x700;
-            static constexpr long PlayerUIDOffset = 0x668;
-            static constexpr long NationOffset = 0x6F0;
+            static constexpr long TeamIDOffset = 0x998;      // Same as character
+            static constexpr long PlayerUIDOffset = 0x988;   // Same as character
+            static constexpr long NationOffset = 0x970;      // kNation
             static constexpr long PlayerKeyOffset = 0x660;
-            static constexpr long UIDOffset = 0x6C8;
-            static constexpr long PlayerHealthOffset = 0x1424;
-            static constexpr long PlayerHealthMaxOffset = 0x1428;
-            static constexpr long LiveStateOffset = 0x13F4;
-            static constexpr long CharacterOwnerOffset = 0x1408;
+            static constexpr long UIDOffset = 0x988;         // kPlayerUID
+            static constexpr long PlayerHealthOffset = 0xe60; // Same as character
+            static constexpr long PlayerHealthMaxOffset = 0xe64; // Same as character
+            static constexpr long LiveStateOffset = 0xe7c;   // kbDead
+            static constexpr long CharacterOwnerOffset = 0x4c8; // kCharacter
         }
         
         //=========================================================================
         // COORD COMPONENT OFFSETLER
         //=========================================================================
         namespace CoordParam {
-            static constexpr long CoordOffset = 0x220;
-            static constexpr long HeightOffset = 0x22C;
+            static constexpr long CoordOffset = 0x1dc;       // kCoord
+            static constexpr long HeightOffset = 0x1c8;      // kHeight
         }
         
         //=========================================================================
         // MESH & BONE OFFSETLER
         //=========================================================================
-        static constexpr long MeshOffset = 0x468;
+        static constexpr long MeshOffset = 0x510;            // kMesh
         
         namespace MeshParam {
             static constexpr long ComponentToWorldOffset = 0x230;
@@ -115,10 +117,10 @@ namespace PubgOffset {
         // ROTATION OFFSETLER
         //=========================================================================
         namespace Rotation {
-            static constexpr long RepMovementOffset = 0x80;
-            static constexpr long PitchOffset = 0x8C;
-            static constexpr long YawOffset = 0x88;
-            static constexpr long RollOffset = 0x90;
+            static constexpr long RepMovementOffset = 0x110;  // kRepMovement
+            static constexpr long PitchOffset = 0x888;        // kPitch
+            static constexpr long YawOffset = 0x890;          // kYaw
+            static constexpr long RollOffset = 0x888;         // kRoll
         }
         
         //=========================================================================
@@ -126,13 +128,13 @@ namespace PubgOffset {
         //=========================================================================
         namespace WeaponParam {
             static constexpr long MasterOffset = 0x640;
-            static constexpr long WeaponIdOffset = 0x7D0;
-            static constexpr long ShootModeOffset = 0x7E0;
-            static constexpr long WeaponAttrOffset = 0x8A0;  // ADDED - weapon attributes pointer
+            static constexpr long WeaponIdOffset = 0x1e0;            // kWeaponId
+            static constexpr long ShootModeOffset = 0x10d9;          // kShootMode
+            static constexpr long WeaponAttrOffset = 0x8a0;          // kTableName
             
             namespace WeaponAttrParam {
-                static constexpr long BulletSpeedOffset = 0x3D8;  // ADDED - bullet velocity
-                static constexpr long BulletRangeOffset = 0x3DC;  // ADDED - bullet range
+                static constexpr long BulletSpeedOffset = 0x560;     // kBulletFireSpeed
+                static constexpr long RecoilOffset = 0xcf0;          // kRecoilKickADS
             }
         }
         
