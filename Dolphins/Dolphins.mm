@@ -111,11 +111,6 @@ struct {
     string cameraManagerClassName;
     //自己指针
     uintptr_t selfAddr;
-    
-    // ADDED: Self identification for team/self filtering
-    uint64_t selfUID = 0;
-    int selfTeamID = 0;
-    
     //静态数据列表
     vector<StaticPlayerData> playerDataList;
     vector<StaticMaterialData> materialDataList;
@@ -161,130 +156,136 @@ __attribute__((constructor)) static void initialize() {
 }
 
 // 固定数据函数
-
-//==============================================================================
-// SIMPLIFIED readStaticData - Reads directly from character body  
-// NO PlayerState complexity!
-//==============================================================================
 void *readStaticData(void *) {
     while (true) {
         sleep(4);
         if(moduleControl.systemStatus != TransmissionNormal){
-            staticData.libAddr = (uintptr_t)_dyld_get_image_vmaddr_slide(0);
+            // non-JB: ana binary index 0 — JB tweakında index 1'di
+                staticData.libAddr = (uintptr_t)_dyld_get_image_vmaddr_slide(0);
             if(staticData.libAddr != 1){
                 moduleControl.systemStatus = TransmissionNormal;
             }
         }else if (moduleControl.systemStatus == TransmissionNormal) {
             staticData.gwlordAddr = gWorld();
             staticData.gnameAddr = gName();
+            //角色控制器
             staticData.playerController = memoryTools.readPtr(memoryTools.readPtr(memoryTools.readPtr(staticData.gwlordAddr + PubgOffset::PlayerControllerOffset[0]) + PubgOffset::PlayerControllerOffset[1]) + PubgOffset::PlayerControllerOffset[2]);
-            LineOfSightTo = (bool (*)(void *, void *, ImVec3, bool)) (memoryTools.readPtr(memoryTools.readPtr(staticData.playerController + 0x0) + PubgOffset::PlayerControllerParam::ControllerFunction::LineOfSightToOffset));
+            //掩体判断
+            LineOfSightTo = (bool (*)(void *, void *, ImVec3, bool)) (memoryTools.readPtr(memoryTools.readPtr(staticData.playerController + 0x0) + PubgOffset::PlayerControllerParam::ControllerFunction::LineOfSightToOffset));//0x780
+            //自己指针
             staticData.selfAddr = memoryTools.readPtr(staticData.playerController + PubgOffset::PlayerControllerParam::SelfOffset);
-            
-            // SIMPLIFIED: Read self UID and TeamID directly from character body
-            uint64_t selfUID = 0;
-            memoryTools.readMemory(staticData.selfAddr + PubgOffset::ObjectParam::PlayerUIDOffset, sizeof(uint64_t), &selfUID);
-            staticData.selfUID = selfUID;
-            
-            staticData.selfTeamID = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::TeamOffset);
-            
+            //自瞄函数
             uintptr_t selfFunction = memoryTools.readPtr(staticData.selfAddr + 0);
-            AddControllerYawInput = (void (*)(void *, float)) (memoryTools.readPtr(selfFunction + PubgOffset::ObjectParam::PlayerFunction::AddControllerYawInputOffset));
-            AddControllerRollInput = (void (*)(void *, float)) (memoryTools.readPtr(selfFunction + PubgOffset::ObjectParam::PlayerFunction::AddControllerRollInputOffset));
-            AddControllerPitchInput = (void (*)(void *, float)) (memoryTools.readPtr(selfFunction + PubgOffset::ObjectParam::PlayerFunction::AddControllerPitchInputOffset));
+            AddControllerYawInput = (void (*)(void *, float)) (memoryTools.readPtr(selfFunction + PubgOffset::ObjectParam::PlayerFunction::AddControllerYawInputOffset));//0x780
+            AddControllerRollInput = (void (*)(void *, float)) (memoryTools.readPtr(selfFunction + PubgOffset::ObjectParam::PlayerFunction::AddControllerRollInputOffset));//0x780
+            AddControllerPitchInput = (void (*)(void *, float)) (memoryTools.readPtr(selfFunction + PubgOffset::ObjectParam::PlayerFunction::AddControllerPitchInputOffset));//0x780
+            //相机管理器
             staticData.cameraManager = memoryTools.readPtr(staticData.playerController + PubgOffset::PlayerControllerParam::CameraManagerOffset);
             
+            //清空列表
             vector<StaticPlayerData> tmpPlayerDataList;
             vector<StaticMaterialData> tmpMaterialDataList;
             vector<StaticMaterialData> tmpSmokeList;
-            
+            //遍历地址
             uintptr_t uLevel = memoryTools.readPtr(staticData.gwlordAddr + PubgOffset::ULevelOffset);
+            //数组
             uintptr_t obectArray = memoryTools.readPtr(uLevel + PubgOffset::ULevelParam::ObjectArrayOffset);
+            //成员数量
             int objectCount = memoryTools.readInt(uLevel + PubgOffset::ULevelParam::ObjectCountOffset);
-            
+            //开始寻找
             for (int index = 0; index < objectCount; ++index) {
+                //对象指针
                 uintptr_t objectAddr = memoryTools.readPtr(obectArray + index * 8);
                 if (objectAddr <= 0x100000000 || objectAddr >= 0x2000000000 || objectAddr % 8 != 0) {
                     continue;
                 }
                 
+                //对象坐标指针
                 uintptr_t coordAddr = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::CoordOffset);
+                
                 string className = getClassName(memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::ClassIdOffset));
-                
+                //人
+                //人
                 bool isPlayer = (
-                    strstr(className.c_str(), "PlayerPawn")       != 0 ||
-                    strstr(className.c_str(), "PlayerCharacter")  != 0 ||
-                    strstr(className.c_str(), "PlayerController") != 0 ||
-                    strstr(className.c_str(), "CharacterModel")   != 0
+                    strstr(className.c_str(), "PlayerPawn")         != 0 ||
+                    strstr(className.c_str(), "PlayerCharacter")    != 0 ||
+                    strstr(className.c_str(), "PlayerControllertSl")!= 0 ||
+                    strstr(className.c_str(), "CharacterModelTaget")!= 0
                 );
-                
                 if (isPlayer && moduleControl.mainSwitch.playerStatus) {
-                    
-                    // SIMPLIFIED: Read directly from character body - NO PlayerState
-                    int entityTeam = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::TeamOffset);
-                    
-                    // UID-based self detection
-                    uint64_t entityUID = 0;
-                    memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::PlayerUIDOffset, sizeof(uint64_t), &entityUID);
-                    
-                    // Skip self by UID comparison
-                    if (staticData.selfUID != 0 && entityUID == staticData.selfUID) {
-                        continue;
-                    }
-                    
-                    // Skip teammates by TeamID comparison
-                    if (entityTeam != 0 && staticData.selfTeamID != 0 && entityTeam == staticData.selfTeamID) {
-                        continue;
-                    }
-                    float health = memoryTools.readFloat(objectAddr + PubgOffset::ObjectParam::HpOffset);
-                    float maxHealth = memoryTools.readFloat(objectAddr + PubgOffset::ObjectParam::HpMaxOffset);
-                    
-                    if (health <= 0 || maxHealth <= 0) {
-                        continue;
-                    }
-                    
+                    //队伍ID
+                    int team = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::TeamOffset);
+                    int TeamID = memoryTools.readInt(staticData.selfAddr + PubgOffset::ObjectParam::TeamOffset);
+                    if (team == TeamID) continue;
+                    StaticPlayerData tmpPlayerData;
+                    //对象指针地址
+
+                    // Oldu mu kontrolu - IsDead (1 byte bool)
                     bool isDead = false;
                     memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::DeadOffset, 1, &isDead);
-                    if (isDead) {
-                        continue;
-                    }
+                    if (isDead) continue;
+
+
+
+
+
+                    // HP yukarida kontrol edildi
+                    // bDead kontrolu kaldirildi - HP ile yapiliyor
+                            uintptr_t statusAddr = memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::StatusOffset);
+
                     
-                    bool isAI = false;
-                    memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::bIsAIOffset, 1, &isAI);
-                    bool isMLAI = false;
-                    memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::bIsMLAIOffset, 1, &isMLAI);
-                    
-                    StaticPlayerData tmpPlayerData;
+
                     tmpPlayerData.addr = objectAddr;
+                    //坐标地址
                     tmpPlayerData.coordAddr = coordAddr;
-                    tmpPlayerData.playerState = 0;
-                    tmpPlayerData.team = entityTeam;
-                    tmpPlayerData.health = health;
-                    tmpPlayerData.maxHealth = maxHealth;
-                    tmpPlayerData.robot = (isAI || isMLAI) ? 1 : 0;
+                    //队伍ID
+                    tmpPlayerData.team = team;
+                    //名字
                     tmpPlayerData.name = getPlayerName(memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::NameOffset));
+                    // IsBot offset - bool (1 byte)
+                    bool isBot = false;
+                    memoryTools.readMemory(objectAddr + PubgOffset::ObjectParam::RobotOffset, 1, &isBot);
+                    tmpPlayerData.robot = isBot ? 1 : 0;
+
+
+
+                    
                     tmpPlayerData.status = memoryTools.readInt(objectAddr + PubgOffset::ObjectParam::StatusOffset);
                     
                     tmpPlayerDataList.push_back(tmpPlayerData);
                     
-                } else if (strstr(className.c_str(), "ProjSmoke_BP_C") != 0) {
+                } else if (strstr(className.c_str(), "ProjSmoke_BP_C)") != 0) {
                     StaticMaterialData tmpMaterialData;
+                    //物资类型
                     tmpMaterialData.type = Warning;
+                    //物资ID
                     tmpMaterialData.id = 4;
+                    //物资名称
                     tmpMaterialData.name = "[WARNING]SMOKE";
+                    //对象指针地址
                     tmpMaterialData.addr = objectAddr;
+                    //坐标地址
                     tmpMaterialData.coordAddr = coordAddr;
-                    tmpSmokeList.push_back(tmpMaterialData);
                     
+                    tmpSmokeList.push_back(tmpMaterialData);
                 } else if (moduleControl.mainSwitch.materialStatus) {
                     MaterialStruct material = isMaterial(className.c_str());
                     if (material.type > -1) {
+                        /*if (strstr(material.name, "[狙击枪]M24") != 0) {
+                         LOGE("%s 物品Id：%d", material.name, memoryTools.readInt(objectAddr + 0x7D0));
+                         }*/
                         StaticMaterialData tmpMaterialData;
+                        //物资类型
                         tmpMaterialData.type = material.type;
+                        //物资ID
                         tmpMaterialData.id = material.id;
+                        //物资名称
                         tmpMaterialData.name = material.name;
+                        //对象指针地址
                         tmpMaterialData.addr = objectAddr;
+                        //坐标地址
                         tmpMaterialData.coordAddr = coordAddr;
+                        
                         if ((material.type == Rifle || material.type == Sniper || material.type == Missile) && memoryTools.readPtr(objectAddr + PubgOffset::ObjectParam::WeaponParam::MasterOffset) != 0) {
                             continue;
                         }
@@ -292,7 +293,7 @@ void *readStaticData(void *) {
                     }
                 }
             }
-            
+            //将临时列表赋值给全局列表
             staticData.playerDataList.swap(tmpPlayerDataList);
             staticData.materialDataList.swap(tmpMaterialDataList);
             staticData.smokeList.swap(tmpSmokeList);
