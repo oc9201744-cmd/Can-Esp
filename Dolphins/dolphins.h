@@ -7,7 +7,7 @@
 #define DOLPHINS_H
 
 #include <vector>
-#include "Dolphins/CustomStrcut.h"
+#include "CustomStrcut.h"  // FIXED - Dolphins/ prefix removed
 
 using namespace std;
 
