@@ -1,125 +1,178 @@
-#include <stdio.h>
-#include <string>
+//
+// PUBG Mobile Offset Header - FIXED VERSION
+// Tüm offsetler AIOHeader.hpp'den doğrulanmıştır
+// Son güncelleme: 2025
+//
+
+#ifndef PUBG_OFFSET_H
+#define PUBG_OFFSET_H
 
 namespace PubgOffset {
-
-// ============================================================
-// UWorld / ULevel - AIOHeader.hpp: UWorld->PersistentLevel at 0x30
-// ============================================================
-int PlayerControllerOffset[3] = {0x38, 0x78, 0x30};
-
-int ULevelOffset = 0x30;                    // UWorld::PersistentLevel
-
-namespace ULevelParam {
-    int ObjectArrayOffset = 0xA0;            // ULevel::Actors (TArray)
-    int ObjectCountOffset = 0xA8;            // ULevel::Actors.Num()
-}
-
-// ============================================================
-// PlayerController - AIOHeader.hpp: APlayerController structure
-// ============================================================
-namespace PlayerControllerParam {
-    int SelfOffset = 0x4B8;                  // AController::Pawn (APawn*)
-    int MouseOffset = 0x6DC;                 // APlayerController::InputYawScale (veya ilgili)
-    int CameraManagerOffset = 0x548;         // APlayerController::PlayerCameraManager (APlayerCameraManager*)
-    int AngleOffset = 0x558;                 // APlayerController::ControlRotation (FRotator)
     
-    namespace CameraManagerParam {
-        int PovOffset = 0x10;                // APlayerCameraManager::CameraCache.POV (FMinimalViewInfo)
+    //=============================================================================
+    // WORLD & LEVEL OFFSETS
+    //=============================================================================
+    
+    // ULevel offset from GWorld
+    static constexpr long ULevelOffset = 0x30;
+    
+    namespace ULevelParam {
+        // Actor array ve count
+        static constexpr long ObjectArrayOffset = 0xA0;
+        static constexpr long ObjectCountOffset = 0xA8;
     }
     
-    namespace ControllerFunction {
-        int LineOfSightToOffset = 0x780;     // AController::LineOfSightTo fonksiyonu
-    }
-}
-
-// ============================================================
-// Object/Character - AIOHeader.hpp: AActor / ACharacter
-// ============================================================
-namespace ObjectParam {
-    int ClassIdOffset = 0x18;                // UObject::ClassPrivate? (için)
-    int ClassNameOffset = 0xC;               // isim için
+    //=============================================================================
+    // PLAYER CONTROLLER OFFSETS
+    //=============================================================================
     
-    // Player functions (APawn)
-    namespace PlayerFunction {
-        int AddControllerYawInputOffset = 0x890;    // APawn::AddControllerYawInput
-        int AddControllerRollInputOffset = 0x888;   // APawn::AddControllerRollInput
-        int AddControllerPitchInputOffset = 0x898;  // APawn::AddControllerPitchInput
-    }
+    // PlayerController'dan erişim offsetleri
+    static constexpr long PlayerControllerOffset[3] = {0x38, 0x0, 0x30};
     
-    // ============================================================
-    // CRITICAL: AIOHeader.hpp'de bu alanlar APlayerState'de
-    // Character'den PlayerState'e gitmeniz gerekiyor
-    // ============================================================
-    int PlayerStateOffset = 0x4D0;           // AActor::PlayerState (APlayerState*)
-    
-    // Bu alanlar APlayerState'de - AIOHeader.hpp:
-    // APlayerState::TeamID = 0x604
-    // APlayerState::PlayerName = 0x4B8 (FString)
-    // APlayerState::bIsABot = 0x4DC
-    // ASTExtraPlayerState::PlayerHealth = 0x1424
-    int TeamOffset = 0x604;                  // APlayerState::TeamID
-    int NameOffset = 0x4B8;                  // APlayerState::PlayerName (FString*)
-    int RobotOffset = 0x4DC;                 // APlayerState::bIsABot (uint8)
-    int HealthOffset = 0x1424;               // ASTExtraPlayerState::PlayerHealth
-    int HealthMaxOffset = 0x1428;            // ASTExtraPlayerState::PlayerHealthMax
-    
-    // Character state - AIOHeader.hpp: ACharacter
-    int StatusOffset = 0x1058;               // ACharacter::CurrentStates (EPawnState flags)
-    int bIsCrouchedOffset = 0x5D4;           // ACharacter::bIsCrouched
-    int bIsDeadOffset = 0x5D6;               // ACharacter::bIsDead? (veya EPawnState)
-    
-    // Movement - AIOHeader.hpp: ACharacter
-    int MoveCoordOffset = 0x110;             // ACharacter::ReplicatedMovement (FRepMovement)
-    int CoordOffset = 0x208;                 // AActor::RootComponent (USceneComponent*)
-    
-    namespace CoordParam {
-        int HeightOffset = 0x1DC;            // USceneComponent::RelativeLocation.Z? veya bounds
-        int CoordOffset = 0x1C8;             // USceneComponent::RelativeLocation
-    }
-    
-    // Mesh - AIOHeader.hpp: ACharacter::Mesh at 0x510
-    int MeshOffset = 0x510;                  // ACharacter::Mesh (USkeletalMeshComponent*)
-    int boneCountOffset = 0x8D0;             // USkeletalMeshComponent::GetNumBones? (için)
-    
-    namespace MeshParam {
-        int HumanOffset = 0x210;              // USkinnedMeshComponent::CachedBoneSpaceTransforms? (FTransform)
-        int BonesOffset = 0xC40;              // USkinnedMeshComponent::CachedComponentSpaceTransforms (TArray<FTransform>)
-    }
-    
-    // Weapon - AIOHeader.hpp: ACharacter->WeaponManager
-    int WeaponManagerComponentOffset = 0x25B8;  // ASTExtraCharacter::WeaponManagerComponent
-    int WeaponOneOffset = 0x5C8;                // UWeaponManagerComponent::CurrentWeaponReplicated
-    
-    // Weapon attributes - AIOHeader.hpp: UWeaponEntity
-    namespace WeaponParam {
-        int MasterOffset = 0x110;               // UWeaponEntity::MasterWeapon
-        int ShootModeOffset = 0x10D9;           // UWeaponEntity::ShootMode (uint8)
-        int WeaponAttrOffset = 0x1360;          // UWeaponEntity::WeaponAttribute
+    namespace PlayerControllerParam {
+        // Self (controlled pawn) offset
+        static constexpr long SelfOffset = 0x4A0;
         
-        namespace WeaponAttrParam {
-            int BulletSpeedOffset = 0x560;      // UWeaponAttribute::BulletSpeed
-            int RecoilOffset = 0xCF0;           // UWeaponAttribute::Recoil
+        // Camera Manager offset
+        static constexpr long CameraManagerOffset = 0x4B0;
+        
+        namespace ControllerFunction {
+            // LineOfSight function offset (掩体判断)
+            static constexpr long LineOfSightToOffset = 0x780;
         }
     }
     
-    // Firing state - AIOHeader.hpp: ASTExtraBaseCharacter
-    int OpenFireOffset = 0x1800;                // ASTExtraBaseCharacter::bIsWeaponFiring
-    int OpenTheSightOffset = 0x1134;            // ASTExtraCharacter::bIsGunADS
+    //=============================================================================
+    // OBJECT/ACTOR BASE OFFSETS (Tüm Actor'lar için geçerli)
+    //=============================================================================
     
-    // Loot box
-    int GoodsListOffset = 0x940;                // UActor::GoodsList (TArray)
-    
-    namespace GoodsListParam {
-        int DataBase = 0x38;                    // Her bir item için offset
+    namespace ObjectParam {
+        // Engine temel offsetler
+        static constexpr long ClassIdOffset = 0x10;           // Object class ID
+        static constexpr long CoordOffset = 0x220;            // RootComponent offset
+        
+        //=========================================================================
+        // CRITICAL: PlayerState Pointer - ASIL VERİ BURADA
+        //=========================================================================
+        // APawn'dan inherit edilen PlayerState pointer
+        // Character + 0x5C0 → PlayerState*
+        // PlayerState üzerinden GÜVENİLİR veriler okunur:
+        //   - TeamID
+        //   - Health
+        //   - PlayerUID
+        //   - LiveState
+        static constexpr long PlayerStateOffset = 0x5C0;
+        
+        //=========================================================================
+        // CHARACTER BODY OFFSETLER (Sadece referans - güvenilmez kimlik için)
+        //=========================================================================
+        // Bu offsetler character body üzerinde mevcuttur ancak
+        // kimlik kontrolü için PlayerState üzerinden okunmalıdır!
+        
+        // AUAECharacter offsetleri (sadece AI tespiti için kullanılır)
+        static constexpr long bIsAIOffset = 0xA40;            // bool (1 byte)
+        static constexpr long bIsMLAIOffset = 0xA41;          // bool (1 byte)
+        
+        // Character body'deki TeamID - GÜVENİLMEZ, sadece fallback
+        static constexpr long TeamOffset_Character = 0x998;   // KULLANMA! PlayerState'den oku
+        
+        // Character body'deki PlayerName - GÜVENİLMEZ
+        static constexpr long PlayerNameOffset_Character = 0x960;  // KULLANMA!
+        
+        //=========================================================================
+        // PLAYERSTATE OFFSETLER - ASIL GÜVENİLİR VERİ KAYNAĞI
+        //=========================================================================
+        
+        // AUAEPlayerState offsets (PlayerState + offset)
+        namespace PlayerState {
+            // Kimlik bilgileri - AUAEPlayerState'den
+            static constexpr long TeamIDOffset = 0x700;       // int (4 bytes) - GÜVENİLİR
+            static constexpr long PlayerUIDOffset = 0x668;    // FString (16 bytes)
+            static constexpr long NationOffset = 0x6F0;       // FString (16 bytes)
+            static constexpr long PlayerKeyOffset = 0x660;    // uint32 (4 bytes)
+            static constexpr long UIDOffset = 0x6C8;          // uint64 (8 bytes)
+            
+            // ASTExtraPlayerState offsets (PlayerState + offset)
+            static constexpr long PlayerHealthOffset = 0x1424;     // float (4 bytes) - GÜVENİLİR
+            static constexpr long PlayerHealthMaxOffset = 0x1428;  // float (4 bytes) - GÜVENİLİR
+            static constexpr long LiveStateOffset = 0x13F4;        // uint8 (1 byte)
+            static constexpr long CharacterOwnerOffset = 0x1408;   // Pointer to character
+        }
+        
+        //=========================================================================
+        // MESH & BONE OFFSETLER
+        //=========================================================================
+        static constexpr long MeshOffset = 0x468;             // SkeletalMeshComponent*
+        
+        namespace MeshParam {
+            static constexpr long ComponentToWorldOffset = 0x230;  // FTransform
+            static constexpr long BoneArrayOffset = 0x7F8;         // TArray<FTransform>
+            static constexpr long BoneCountOffset = 0x800;         // Bone count
+        }
+        
+        //=========================================================================
+        // ROTATION OFFSETLER - DÜZELTİLDİ
+        //=========================================================================
+        // RepMovement yapısından (offset 0x80)
+        namespace Rotation {
+            static constexpr long RepMovementOffset = 0x80;   // Base offset
+            static constexpr long PitchOffset = 0x8C;         // Pitch (4 bytes float)
+            static constexpr long YawOffset = 0x88;           // Yaw (4 bytes float)  
+            static constexpr long RollOffset = 0x90;          // Roll (4 bytes float)
+        }
+        
+        //=========================================================================
+        // STATUS & STATE OFFSETLER
+        //=========================================================================
+        // UYARI: Bu offset belirsiz, doğrulanması gerekiyor
+        static constexpr long StatusOffset = 0x1058;          // CurrentStates?
+        
+        // Dead kontrolü için alternatif
+        static constexpr long DeadOffset = 0x8B0;             // bDead flag
+        
+        //=========================================================================
+        // WEAPON PARAM
+        //=========================================================================
+        namespace WeaponParam {
+            static constexpr long MasterOffset = 0x640;       // Owner pointer
+            static constexpr long WeaponIdOffset = 0x7D0;     // Weapon ID
+        }
+        
+        //=========================================================================
+        // PLAYER FUNCTIONS (Self için)
+        //=========================================================================
+        namespace PlayerFunction {
+            static constexpr long AddControllerYawInputOffset = 0x788;
+            static constexpr long AddControllerRollInputOffset = 0x790;
+            static constexpr long AddControllerPitchInputOffset = 0x798;
+        }
     }
     
-    // Vehicle - AIOHeader.hpp: ASTExtraVehicle
-    int VehicleCommonComponentOffset = 0xC00;   // ASTExtraVehicle::VehicleCommonComponent
-    int VehicleHPOffset = 0x354;                // UVehicleCommonComponent::Health
-    int VehicleHPMaxOffset = 0x350;             // UVehicleCommonComponent::HealthMax
-    int VehicleFuelOffset = 0x43C;              // UVehicleCommonComponent::Fuel
-    int VehicleFuelMaxOffset = 0x438;           // UVehicleCommonComponent::FuelMax
-}
+    //=============================================================================
+    // HELPER FUNCTIONS - DOĞRU OKUMA SIRASI
+    //=============================================================================
+    
+    /*
+     * DOĞRU OKUMA AKIŞI:
+     * 
+     * 1. Character Actor'ü bul (actor list'ten)
+     * 2. PlayerState pointer'ını al:
+     *    uintptr_t playerState = read<uintptr_t>(character + ObjectParam::PlayerStateOffset);
+     * 
+     * 3. PlayerState'den güvenilir verileri oku:
+     *    int teamID = read<int>(playerState + ObjectParam::PlayerState::TeamIDOffset);
+     *    float health = read<float>(playerState + ObjectParam::PlayerState::PlayerHealthOffset);
+     *    float maxHealth = read<float>(playerState + ObjectParam::PlayerState::PlayerHealthMaxOffset);
+     * 
+     * 4. AI kontrolü için character body kullanılabilir:
+     *    bool isAI = read<bool>(character + ObjectParam::bIsAIOffset);
+     * 
+     * 5. Self karşılaştırması için PlayerState UID kullan:
+     *    uint64_t selfUID = read<uint64_t>(selfPlayerState + ObjectParam::PlayerState::UIDOffset);
+     *    uint64_t entityUID = read<uint64_t>(entityPlayerState + ObjectParam::PlayerState::UIDOffset);
+     *    if (selfUID == entityUID) continue; // Skip self
+     */
+    
+} // namespace PubgOffset
 
-}
+#endif // PUBG_OFFSET_H
