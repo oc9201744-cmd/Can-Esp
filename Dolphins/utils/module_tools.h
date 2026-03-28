@@ -120,6 +120,8 @@ struct AimbotController {
     bool showAimbotRadius;
     //自瞄强度
     float aimbotIntensity;
+    //自瞄速度
+    int speed;  // ADDED - aimbot speed/smoothness
     
     float distance;
     
@@ -196,7 +198,7 @@ struct MaterialData {
 };
 
 // ============================================================================
-// UPDATED STRUCT - 3 NEW FIELDS ADDED
+// UPDATED STRUCT - ALL FIELDS ADDED
 // ============================================================================
 struct StaticPlayerData {
     uintptr_t addr;
