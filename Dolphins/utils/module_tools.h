@@ -195,13 +195,19 @@ struct MaterialData {
     ImVec2 screen;
 };
 
+// ============================================================================
+// UPDATED STRUCT - 3 NEW FIELDS ADDED
+// ============================================================================
 struct StaticPlayerData {
     uintptr_t addr;
     uintptr_t coordAddr;
-    std::string name;
+    uintptr_t playerState;  // ADDED - PlayerState pointer for reliable data
     int team;
+    float health;           // ADDED - Current health from PlayerState
+    float maxHealth;        // ADDED - Max health from PlayerState
+    int robot;              // Changed from bool to int (used as int in code)
+    std::string name;
     int status;
-    bool robot;
 };
 
 struct StaticMaterialData {
@@ -279,5 +285,3 @@ MaterialStruct isMaterial(const char *name);
 //是否为物资(盒子)
 MaterialStruct isBoxMaterial(int box_goods_id);
 #endif /* CustomStrcut_h */
-
-
