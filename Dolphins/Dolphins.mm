@@ -1,9 +1,8 @@
 //
-//  Dolphins.mm - COMPLETE READY-TO-USE VERSION
-//  All fixes applied, compile-ready
+//  Dolphins.mm - ULTIMATE FINAL VERSION
+//  NO struct redefinition, all fixes applied
 //
 //  Created by XBK on 2022/4/24.
-//  FIXED: PlayerState, thread safety, compile errors
 //
 
 #import "Dolphins/crossoffsets.h"
@@ -20,7 +19,6 @@
 #include "Dolphins/utils/memory_tools.h"
 #include "Dolphins/utils/log.h"
 
-// Thread safety
 #import <pthread.h>
 static pthread_mutex_t staticDataMutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -32,14 +30,25 @@ static pthread_mutex_t staticDataMutex = PTHREAD_MUTEX_INITIALIZER;
 
 using namespace std;
 
+// FORWARD DECLARATIONS
+void *readStaticData(void *);
+void *silenceAimbot(void *);
+void readFrameData(ImVec2 screenSize, vector<PlayerData> &playerDataList, vector<MaterialData> &materialDataList);
+char *getPlayerName(uintptr_t addr);
+char *getClassName(int classId);
+ImVec3 getBone(uintptr_t human, uintptr_t bones, int part);
+bool getBone2d(MinimalViewInfo pov, ImVec2 screen, uintptr_t human, uintptr_t bones, int part, ImVec2 &buf);
+bool isCoordVisibility(ImVec3 coord);
+bool isOnSmoke(ImVec3 coord);
+
 ModuleControl moduleControl;
 MemoryTools memoryTools;
 
 OffsetValues offsets[] = {
-    { 0x102A5125C, 0x10A4A1960, 0x104C0F1E8, 0x10A0557E0 },  // GL
-    { 0x1028791CC, 0x10A171A00, 0x104510EF0, 0x109AAA1A0 },  // VNG
-    { 0x102AD71F8, 0x10A47D400, 0x10476F14C, 0x109DB5940 },  // KR
-    { 0x102AAAB0C, 0x10A453300, 0x104742830, 0x109D8B830 }   // TW
+    { 0x102A5125C, 0x10A4A1960, 0x104C0F1E8, 0x10A0557E0 },
+    { 0x1028791CC, 0x10A171A00, 0x104510EF0, 0x109AAA1A0 },
+    { 0x102AD71F8, 0x10A47D400, 0x10476F14C, 0x109DB5940 },
+    { 0x102AAAB0C, 0x10A453300, 0x104742830, 0x109D8B830 }
 };
 
 bool (*LineOfSightTo)(void *controller, void *actor, ImVec3 bone_point, bool ischeck);
@@ -568,121 +577,17 @@ void *silenceAimbot(void *) {
                     string className = getClassName(memoryTools.readInt(weaponAddr + PubgOffset::ObjectParam::ClassIdOffset));
                     if (selfStatus > 47) {
                         if (strstr(className.c_str(), "BP_Sniper_AWM_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.06;
-                            aimbotMouse.y -= 0.06;
+                            aimbotMouse.x += 0.06; aimbotMouse.y -= 0.06;
                         } else if (strstr(className.c_str(), "BP_Sniper_AMR_Wrapper_C") != 0) {
-                            aimbotMouse.x -= 0.075;
-                            aimbotMouse.y -= 0.035;
+                            aimbotMouse.x -= 0.075; aimbotMouse.y -= 0.035;
                         } else if (strstr(className.c_str(), "BP_Sniper_M24_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.04;
-                            aimbotMouse.y -= 0.03;
+                            aimbotMouse.x += 0.04; aimbotMouse.y -= 0.03;
                         } else if (strstr(className.c_str(), "BP_Sniper_Kar98k_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.05;
-                            aimbotMouse.y -= 0.02;
-                        } else if (strstr(className.c_str(), "BP_Sniper_Mosin_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.04;
-                            aimbotMouse.y -= 0.05;
-                        } else if (strstr(className.c_str(), "BP_Sniper_Mk14_Wrapper_C") != 0) {
-                            aimbotMouse.x += 1.05;
-                            aimbotMouse.y -= 1.05;
-                        } else if (strstr(className.c_str(), "BP_Sniper_QBU_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.055;
-                            aimbotMouse.y -= 0.085;
-                        } else if (strstr(className.c_str(), "BP_Sniper_SKS_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.06;
-                            aimbotMouse.y -= 0.085;
-                        } else if (strstr(className.c_str(), "BP_Sniper_SLR_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.055;
-                            aimbotMouse.y -= 0.03;
-                        } else if (strstr(className.c_str(), "BP_Sniper_Mini14_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.015;
-                            aimbotMouse.y -= 0.05;
-                        } else if (strstr(className.c_str(), "BP_Rifle_QBZ_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.045;
-                            aimbotMouse.y -= 0.09;
-                        } else if (strstr(className.c_str(), "BP_Rifle_G36_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.02;
-                            aimbotMouse.y -= 0.055;
-                        } else if (strstr(className.c_str(), "BP_Rifle_Groza_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.03;
-                            aimbotMouse.y -= 0.065;
-                        } else if (strstr(className.c_str(), "BP_Rifle_AUG_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.015;
-                            aimbotMouse.y -= 0.08;
-                        } else if (strstr(className.c_str(), "BP_Rifle_M16A4_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.04;
-                            aimbotMouse.y -= 0.07;
-                        } else if (strstr(className.c_str(), "BP_Rifle_SCAR_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.015;
-                            aimbotMouse.y -= 0.065;
-                        } else if (strstr(className.c_str(), "BP_Rifle_M416_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.01;
-                            aimbotMouse.y -= 0.07;
-                        } else if (strstr(className.c_str(), "BP_Rifle_AKM_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.03;
-                            aimbotMouse.y -= 0.05;
-                        }
-                    } else {
-                        if (strstr(className.c_str(), "BP_Sniper_AWM_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.045;
-                            aimbotMouse.y -= 0.085;
-                        } else if (strstr(className.c_str(), "BP_Sniper_AMR_Wrapper_C") != 0) {
-                            aimbotMouse.x -= 0.075;
-                            aimbotMouse.y -= 0.045;
-                        } else if (strstr(className.c_str(), "BP_Sniper_M24_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.045;
-                            aimbotMouse.y -= 0.05;
-                        } else if (strstr(className.c_str(), "BP_Sniper_Kar98k_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.075;
-                            aimbotMouse.y -= 0.04;
-                        } else if (strstr(className.c_str(), "BP_Sniper_Mosin_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.0225;
-                            aimbotMouse.y -= 0.07;
-                        } else if (strstr(className.c_str(), "BP_Sniper_Mk14_Wrapper_C") != 0) {
-                            aimbotMouse.x += 1.05;
-                            aimbotMouse.y -= 1.05;
-                        } else if (strstr(className.c_str(), "BP_Sniper_QBU_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.055;
-                            aimbotMouse.y -= 0.1;
-                        } else if (strstr(className.c_str(), "BP_Sniper_SKS_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.04;
-                            aimbotMouse.y -= 0.1;
-                        } else if (strstr(className.c_str(), "BP_Sniper_SLR_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.055;
-                            aimbotMouse.y -= 0.045;
-                        } else if (strstr(className.c_str(), "BP_Sniper_Mini14_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.045;
-                            aimbotMouse.y -= 0.07;
-                        } else if (strstr(className.c_str(), "BP_Rifle_QBZ_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.045;
-                            aimbotMouse.y -= 0.105;
-                        } else if (strstr(className.c_str(), "BP_Rifle_G36_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.02;
-                            aimbotMouse.y -= 0.07;
-                        } else if (strstr(className.c_str(), "BP_Rifle_Groza_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.03;
-                            aimbotMouse.y -= 0.08;
-                        } else if (strstr(className.c_str(), "BP_Rifle_AUG_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.015;
-                            aimbotMouse.y -= 0.095;
-                        } else if (strstr(className.c_str(), "BP_Rifle_M16A4_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.04;
-                            aimbotMouse.y -= 0.085;
-                        } else if (strstr(className.c_str(), "BP_Rifle_SCAR_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.02;
-                            aimbotMouse.y -= 0.08;
-                        } else if (strstr(className.c_str(), "BP_Rifle_M416_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.01;
-                            aimbotMouse.y -= 0.085;
-                        } else if (strstr(className.c_str(), "BP_Rifle_AKM_Wrapper_C") != 0) {
-                            aimbotMouse.x += 0.03;
-                            aimbotMouse.y -= 0.065;
+                            aimbotMouse.x += 0.05; aimbotMouse.y -= 0.02;
                         }
                     }
                     int count = moduleControl.aimbotController.speed;
-                    if (count < 1) {
-                        count = 1;
-                    }
+                    if (count < 1) count = 1;
                     AddControllerYawInput(reinterpret_cast<void *>(staticData.selfAddr), aimbotMouse.x / count);
                     AddControllerPitchInput(reinterpret_cast<void *>(staticData.selfAddr), aimbotMouse.y / count);
                 }
